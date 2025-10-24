@@ -1,0 +1,215 @@
+    import React, { useState, useEffect } from 'react';
+    import { motion } from 'framer-motion';
+    import DatabaseUploader from './components/DatabaseUploader';
+    import DatabaseExplorer from './components/DatabaseExplorer';
+    import DashboardView from './components/DashboardView';
+    import ChartBuilder from './components/ChartBuilder';
+    import DataExplorer from './components/DataExplorer';
+    import InsightsPanel from './components/InsightsPanel';
+    import QueryResults from './components/QueryResults';
+    import AIQueryInterface from './components/AIQueryInterface';
+    import AIAssistant from './components/AIAssistant';
+    import * as FiIcons from 'react-icons/fi';
+    import SafeIcon from './common/SafeIcon';
+    import useDatabase from './hooks/useDatabase';
+    import useDashboard from './hooks/useDashboard';
+    import { useApiKey } from './hooks/useLocalStorage';    const { FiDatabase, FiBarChart2, FiPieChart, FiSearch, FiTrendingUp, FiSettings, FiMessageSquare, FiBot } = FiIcons;
+
+    function App() {
+      // Use custom hooks for centralized state management
+      const { 
+        database, 
+        sqlInstance, 
+        sqlLoading, 
+        sqlError, 
+        isDatabaseReady,
+        setDatabase 
+      } = useDatabase();
+      
+      const { 
+        dashboards, 
+        selectedDashboard, 
+        setSelectedDashboard, 
+        createDefaultDashboard,
+        createDashboard,
+        setDashboards
+      } = useDashboard();
+      
+      const { apiKey, setApiKey } = useApiKey();
+      
+      // Local component state
+      const [activeTab, setActiveTab] = useState('upload');
+      const [queryResults, setQueryResults] = useState(null);
+      const [isLoading, setIsLoading] = useState(false);
+
+      const handleDatabaseLoad = (db) => {
+        setDatabase(db);
+        setActiveTab('aiAssistant');
+        // Create default dashboard using the hook
+        const defaultDashboard = createDashboard('Executive Dashboard', {
+          description: 'Default dashboard for key business metrics'
+        });
+        setSelectedDashboard(defaultDashboard);
+      };
+
+      const handleQueryExecute = (results) => {
+        setQueryResults(results);
+      };
+
+          const tabs = [
+        { id: 'upload', label: 'Upload Database', icon: FiDatabase },
+        { id: 'explorer', label: 'Database Explorer', icon: FiBarChart2 },
+        { id: 'dataExplorer', label: 'Data Explorer', icon: FiPieChart },
+        { id: 'aiQuery', label: 'AI Query Interface', icon: FiSearch },
+        { id: 'insights', label: 'Insights Panel', icon: FiTrendingUp },
+        { id: 'dashboard', label: 'Dashboard View', icon: FiMessageSquare },
+        { id: 'aiAssistant', label: 'AI Assistant', icon: FiBot },
+        { id: 'settings', label: 'Settings', icon: FiSettings },
+    ];
+
+      if (sqlLoading) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading SQL.js...</h2>
+              <p className="text-gray-600">Initializing database engine</p>
+            </div>
+          </div>
+        );
+      }
+
+      if (sqlError) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+            <div className="text-center max-w-md">
+              <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <SafeIcon icon={FiDatabase} className="w-8 h-8 text-red-600" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Failed to Load SQL Engine</h2>
+              <p className="text-gray-600 mb-4">{sqlError}</p>
+              <button onClick={() => window.location.reload()} className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                Retry
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+          <div className="container mx-auto px-4 py-8">
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">AI BI Visualization Tool</h1>
+              <p className="text-gray-600">Transform your data into intelligent dashboards with AI-powered insights</p>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="bg-white rounded-xl shadow-lg overflow-hidden">
+              {/* Tab Navigation */}
+              <div className="border-b border-gray-200">
+                <nav className="flex space-x-2 px-6 overflow-x-auto">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                      disabled={tab.disabled}
+                      className={`py-4 px-4 border-b-2 font-medium text-sm transition-colors duration-200 flex items-center space-x-2 whitespace-nowrap ${
+                        activeTab === tab.id
+                          ? 'border-blue-500 text-blue-600'
+                          : tab.disabled
+                          ? 'border-transparent text-gray-400 cursor-not-allowed'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <SafeIcon icon={tab.icon} className="w-4 h-4" />
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </nav>
+              </div>
+
+              {/* Tab Content */}
+              <div className="p-6" style={{ minHeight: '600px' }}>
+                {activeTab === 'upload' && (
+                  <DatabaseUploader sqlInstance={sqlInstance} onDatabaseLoad={handleDatabaseLoad} />
+                )}
+                {activeTab === 'explorer' && database && (
+                  <DatabaseExplorer database={database} onQueryExecute={handleQueryExecute} />
+                )}
+                {activeTab === 'aiAssistant' && database && (
+                  <AIAssistant
+                    database={database}
+                    apiKey={apiKey}
+                    onQueryExecute={handleQueryExecute}
+                    dashboards={dashboards}
+                    setDashboards={setDashboards}
+                    selectedDashboard={selectedDashboard}
+                    setSelectedDashboard={setSelectedDashboard}
+                    isLoading={isLoading}
+                    setIsLoading={setIsLoading}
+                  />
+                )}
+                {activeTab === 'aiQuery' && database && (
+                  <AIQueryInterface
+                    database={database}
+                    apiKey={apiKey}
+                    onQueryExecute={handleQueryExecute}
+                    isLoading={isLoading}
+                    setIsLoading={setIsLoading}
+                  />
+                )}
+                {activeTab === 'dashboard' && database && (
+                  <DashboardView
+                    database={database}
+                    dashboards={dashboards}
+                    setDashboards={setDashboards}
+                    selectedDashboard={selectedDashboard}
+                    setSelectedDashboard={setSelectedDashboard}
+                    apiKey={apiKey}
+                    onQueryExecute={handleQueryExecute}
+                    isLoading={isLoading}
+                    setIsLoading={setIsLoading}
+                  />
+                )}
+                {activeTab === 'insights' && database && (
+                  <InsightsPanel
+                    database={database}
+                    apiKey={apiKey}
+                    onQueryExecute={handleQueryExecute}
+                    isLoading={isLoading}
+                    setIsLoading={setIsLoading}
+                  />
+                )}
+                {activeTab === 'dataExplorer' && database && (
+                  <DataExplorer database={database} onQueryExecute={handleQueryExecute} />
+                )}
+                {activeTab === 'settings' && (
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">OpenAI API Key</label>
+                      <input
+                        type="password"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="sk-..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="text-sm text-gray-500 mt-1">Required for AI-powered insights and dashboard generation</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Query Results */}
+            {queryResults && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
+                <QueryResults results={queryResults} />
+              </motion.div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    export default App;

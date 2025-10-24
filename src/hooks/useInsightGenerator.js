@@ -1,0 +1,178 @@
+import { useState } from 'react';
+
+const useInsightGenerator = (database, apiKey, setIsLoading) => {
+  const [insights, setInsights] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const generateInsights = async () => {
+    if (!apiKey) {
+      alert('Please set your OpenAI API key in Settings to use AI insights.');
+      return;
+    }
+
+    setIsGenerating(true);
+    setIsLoading(true);
+
+    try {
+      // Get database schema
+      let schema = 'Database Schema:\n\n';
+      try {
+        const tables = database.exec("SELECT name FROM sqlite_master WHERE type='table'");
+        if (tables.length > 0) {
+          tables[0].values.forEach(([tableName]) => {
+            schema += `Table: ${tableName}\n`;
+            try {
+              const columns = database.exec(`PRAGMA table_info(${tableName})`);
+              if (columns.length > 0) {
+                columns[0].values.forEach(([, name, type]) => {
+                  schema += ` - ${name} (${type})\n`;
+                });
+              }
+              schema += '\n';
+            } catch (err) {
+              console.error(`Error getting schema for table ${tableName}:`, err);
+              schema += ` - (Schema unavailable)\n\n`;
+            }
+          });
+        } else {
+          throw new Error('No tables found in database');
+        }
+      } catch (error) {
+        throw new Error(`Failed to read database schema: ${error.message}`);
+      }
+
+      const prompt = `Analyze this database schema and provide 5 key business insights that would be valuable for executives: ${schema}
+
+For each insight, provide:
+1. Title (short, impactful)
+2. Description (what the insight means)
+3. SQL query to verify the insight
+4. Impact level (High/Medium/Low)
+5. Insight type (Trend/Anomaly/Opportunity/Warning)
+
+Format as JSON array with objects containing: title, description, query, impact, type
+
+Important:
+- Return ONLY valid JSON without any explanation or formatting
+- SQL queries must be valid SQLite syntax
+- Impact levels must be: High, Medium, or Low
+- Insight types must be: Trend, Anomaly, Opportunity, or Warning
+- Each object must have all 5 required fields`;
+
+      console.log('Sending insights prompt to OpenAI');
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a business intelligence analyst. Generate actionable insights from database schema. Return valid JSON only.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.3
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenAI API Error: ${errorData.error?.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('OpenAI insights response:', data);
+
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error('Invalid response from OpenAI API');
+      }
+
+      const content = data.choices[0].message.content.trim();
+      console.log('Generated insights content:', content);
+
+      let generatedInsights;
+      try {
+        // Try to parse as JSON directly
+        generatedInsights = JSON.parse(content);
+      } catch (parseError) {
+        // If direct parsing fails, try to extract JSON from the content
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          generatedInsights = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
+        }
+      }
+
+      if (!Array.isArray(generatedInsights)) {
+        throw new Error('AI response is not an array of insights');
+      }
+
+      console.log('Parsed insights:', generatedInsights);
+
+      // Test queries and add results
+      const insightsWithData = await Promise.all(
+        generatedInsights.map(async (insight) => {
+          try {
+            if (!insight.query || !insight.title) {
+              console.warn('Skipping invalid insight:', insight);
+              return null;
+            }
+
+            const result = database.exec(insight.query);
+            if (result.length > 0) {
+              return {
+                ...insight,
+                data: {
+                  columns: result[0].columns,
+                  values: result[0].values.slice(0, 5) // Limit to first 5 rows
+                },
+                rowCount: result[0].values.length
+              };
+            } else {
+              console.warn('No data returned for insight query:', insight.query);
+              return insight;
+            }
+          } catch (error) {
+            console.error('Error executing insight query:', error, 'Query:', insight.query);
+            return insight; // Still return the insight even if query fails
+          }
+        })
+      );
+
+      // Filter out null insights and update state
+      const validInsights = insightsWithData.filter(insight => insight !== null);
+
+      if (validInsights.length === 0) {
+        throw new Error('No valid insights could be generated');
+      }
+
+      setInsights(validInsights);
+      console.log(`Successfully generated ${validInsights.length} insights`);
+    } catch (error) {
+      console.error('Error generating insights:', error);
+      alert(`Failed to generate insights: ${error.message}`);
+    } finally {
+      setIsGenerating(false);
+      setIsLoading(false);
+    }
+  };
+
+  return {
+    insights,
+    setInsights,
+    isGenerating,
+    generateInsights
+  };
+};
+
+export default useInsightGenerator;
