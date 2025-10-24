@@ -1,0 +1,51 @@
+{
+  "name": "pool-service-bi-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI-powered Business Intelligence Dashboard for Pool Service Management Companies",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.3.0",
+    "framer-motion": "^11.11.17",
+    "echarts-for-react": "^3.0.2",
+    "echarts": "^5.5.1",
+    "sql.js": "^1.8.0",
+    "jspdf": "^2.5.2",
+    "html2canvas": "^1.4.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/sql.js": "^1.4.9",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "eslint": "^9.12.0",
+    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+    "eslint-plugin-react-refresh": "^0.4.12",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.9",
+    "tailwindcss": "^3.4.14",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47"
+  },
+  "keywords": [
+    "pool-service",
+    "business-intelligence", 
+    "dashboard",
+    "react",
+    "typescript",
+    "sqlite",
+    "ai-analytics"
+  ],
+  "author": "Pool Service BI Team",
+  "license": "MIT"
+}
