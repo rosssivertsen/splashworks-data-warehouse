@@ -7,9 +7,12 @@ import useLocalStorage from './useLocalStorage';
  */
 const useDashboard = () => {
   const [dashboards, setDashboards] = useLocalStorage('dashboards', []);
-  const [selectedDashboard, setSelectedDashboard] = useState(null);
+  const [selectedDashboardId, setSelectedDashboardId] = useLocalStorage('selectedDashboardId', null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [dashboardError, setDashboardError] = useState(null);
+
+  // Get selectedDashboard from dashboards array using the persisted ID
+  const selectedDashboard = dashboards.find(d => d.id === selectedDashboardId) || null;
 
   // Create a new dashboard
   const createDashboard = useCallback((name = 'New Dashboard', options = {}) => {
@@ -32,7 +35,7 @@ const useDashboard = () => {
     };
 
     setDashboards(prev => [...prev, newDashboard]);
-    setSelectedDashboard(newDashboard);
+    setSelectedDashboardId(newDashboard.id);
     return newDashboard;
   }, [setDashboards]);
 
@@ -49,14 +52,8 @@ const useDashboard = () => {
     ));
 
     // Update selected dashboard if it's the one being updated
-    if (selectedDashboard && selectedDashboard.id === dashboardId) {
-      setSelectedDashboard(prev => ({ 
-        ...prev, 
-        ...updates, 
-        updatedAt: new Date().toISOString() 
-      }));
-    }
-  }, [setDashboards, selectedDashboard]);
+    // Note: selectedDashboard is derived from dashboards array, so it updates automatically
+  }, [setDashboards]);
 
   // Delete dashboard
   const deleteDashboard = useCallback((dashboardId) => {
@@ -64,7 +61,7 @@ const useDashboard = () => {
     
     // Clear selection if deleted dashboard was selected
     if (selectedDashboard && selectedDashboard.id === dashboardId) {
-      setSelectedDashboard(null);
+      setSelectedDashboardId(null);
     }
   }, [setDashboards, selectedDashboard]);
 
@@ -331,8 +328,8 @@ Rules:
   // Clear all dashboards
   const clearAllDashboards = useCallback(() => {
     setDashboards([]);
-    setSelectedDashboard(null);
-  }, [setDashboards]);
+    setSelectedDashboardId(null);
+  }, [setDashboards, setSelectedDashboardId]);
 
   // Get dashboard statistics
   const getDashboardStats = useCallback(() => {
@@ -401,7 +398,9 @@ Rules:
     createDefaultDashboard,
     
     // Selection management
-    setSelectedDashboard,
+    setSelectedDashboard: (dashboard) => {
+      setSelectedDashboardId(dashboard ? dashboard.id : null);
+    },
     setDashboards
   };
 };
