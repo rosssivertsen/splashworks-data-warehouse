@@ -46,7 +46,7 @@ function App() {
     const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
       description: 'Executive dashboard for pool service business metrics'
     })
-    setSelectedDashboard(defaultDashboard)
+    setSelectedDashboard(defaultDashboard as any)
   }
 
   const handleQueryExecute = (results: any) => {
