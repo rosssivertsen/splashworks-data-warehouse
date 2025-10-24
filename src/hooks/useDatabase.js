@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import databaseStorage from '../utils/databaseStorage';
 
 /**
  * Custom hook for managing SQL.js database initialization and operations
  * Centralizes database loading, connection handling, and schema operations
+ * Uses IndexedDB for large database persistence (localStorage is too small)
  */
 const useDatabase = () => {
   const [database, setDatabase] = useState(null);
@@ -12,27 +14,33 @@ const useDatabase = () => {
   const [dbSchema, setDbSchema] = useState('');
   const [dbData, setDbData] = useState(null); // Store serializable database data
 
-  // Try to restore database from localStorage on init
+  // Try to restore database from IndexedDB on init
   useEffect(() => {
     const restoreDatabase = async () => {
       if (!sqlInstance) return;
       
       try {
-        const savedDbData = localStorage.getItem('currentDatabaseData');
-        const savedDbName = localStorage.getItem('currentDatabaseName');
+        console.log('Attempting to restore database from IndexedDB...');
+        const savedDatabase = await databaseStorage.loadDatabase();
         
-        if (savedDbData && savedDbName) {
-          console.log('Restoring database from localStorage:', savedDbName);
-          const uint8Array = new Uint8Array(JSON.parse(savedDbData));
+        if (savedDatabase) {
+          console.log('Restoring database from IndexedDB:', savedDatabase.name);
+          const uint8Array = new Uint8Array(savedDatabase.data);
           const db = new sqlInstance.Database(uint8Array);
           setDatabase(db);
-          setDbData(savedDbData);
-          console.log('Database restored successfully');
+          setDbData(savedDatabase.data);
+          console.log('Database restored successfully from IndexedDB');
+        } else {
+          console.log('No database found in IndexedDB');
         }
       } catch (error) {
-        console.error('Failed to restore database:', error);
-        localStorage.removeItem('currentDatabaseData');
-        localStorage.removeItem('currentDatabaseName');
+        console.error('Failed to restore database from IndexedDB:', error);
+        // Clear corrupted data
+        try {
+          await databaseStorage.clearDatabase();
+        } catch (clearError) {
+          console.error('Failed to clear corrupted database:', clearError);
+        }
       }
     };
 
@@ -145,15 +153,16 @@ const useDatabase = () => {
         throw new Error('No tables found in the database');
       }
 
-      // Save database data to localStorage for persistence
+      // Save database data to IndexedDB for persistence (localStorage is too small)
       try {
-        const dbDataArray = Array.from(uint8Array);
-        localStorage.setItem('currentDatabaseData', JSON.stringify(dbDataArray));
-        localStorage.setItem('currentDatabaseName', file.name);
-        setDbData(JSON.stringify(dbDataArray));
-        console.log('Database data saved to localStorage for persistence');
+        await databaseStorage.saveDatabase(file.name, uint8Array, {
+          originalSize: file.size,
+          uploadedAt: new Date().toISOString()
+        });
+        setDbData(uint8Array);
+        console.log('Database data saved to IndexedDB for persistence');
       } catch (storageError) {
-        console.warn('Could not save database to localStorage (too large?):', storageError);
+        console.warn('Could not save database to IndexedDB:', storageError);
       }
 
       setDatabase(db);
@@ -238,12 +247,19 @@ const useDatabase = () => {
   }, [database]);
 
   // Clear persisted database
-  const clearDatabase = useCallback(() => {
+  const clearDatabase = useCallback(async () => {
     setDatabase(null);
     setDbData(null);
-    localStorage.removeItem('currentDatabaseData');
-    localStorage.removeItem('currentDatabaseName');
-    console.log('Database cleared from memory and localStorage');
+    
+    // Clear from both storage types for safety
+    try {
+      await databaseStorage.clearDatabase();
+      localStorage.removeItem('currentDatabaseData');
+      localStorage.removeItem('currentDatabaseName');
+      console.log('Database cleared from memory and IndexedDB');
+    } catch (error) {
+      console.error('Error clearing database:', error);
+    }
   }, []);
 
   // Check if database is ready for operations
