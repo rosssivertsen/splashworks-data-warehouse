@@ -1,0 +1,53 @@
+# Global ownership - all files require review from core maintainers
+* @pool-service-team/core-maintainers
+
+# Package and configuration files require lead developer approval
+package.json @pool-service-team/lead-developers @pool-service-team/security-team
+package-lock.json @pool-service-team/lead-developers
+tsconfig.json @pool-service-team/lead-developers  
+vite.config.js @pool-service-team/lead-developers
+tailwind.config.js @pool-service-team/design-team @pool-service-team/lead-developers
+
+# Database and data handling components require database expertise
+src/hooks/useDatabase.js @pool-service-team/database-experts @pool-service-team/security-team
+src/hooks/useQueryResults.js @pool-service-team/database-experts
+src/components/Database* @pool-service-team/database-experts
+src/utils/dateUtils.js @pool-service-team/database-experts
+
+# AI and analytics components require AI/ML expertise  
+src/hooks/useChartData.js @pool-service-team/analytics-team
+src/components/AI* @pool-service-team/ai-specialists @pool-service-team/analytics-team
+src/components/Chart* @pool-service-team/analytics-team
+src/components/Insights* @pool-service-team/ai-specialists @pool-service-team/business-analysts
+
+# Pool service business logic requires domain expertise
+src/components/PoolService* @pool-service-team/business-analysts @pool-service-team/pool-experts
+src/hooks/useDashboard.js @pool-service-team/business-analysts @pool-service-team/analytics-team
+src/components/Dashboard* @pool-service-team/business-analysts
+
+# Security-sensitive files require security team approval
+.github/ @pool-service-team/security-team @pool-service-team/devops-team
+src/hooks/useLocalStorage.js @pool-service-team/security-team
+*.env* @pool-service-team/security-team @pool-service-team/lead-developers
+
+# UI/UX and styling require design team approval
+src/styles/ @pool-service-team/design-team
+src/index.css @pool-service-team/design-team
+src/App.css @pool-service-team/design-team
+src/common/SafeIcon.jsx @pool-service-team/design-team
+
+# Documentation requires documentation team review
+README.md @pool-service-team/documentation-team @pool-service-team/business-analysts
+CONTRIBUTING.md @pool-service-team/documentation-team @pool-service-team/lead-developers
+*.md @pool-service-team/documentation-team
+docs/ @pool-service-team/documentation-team
+
+# Change control and process files require multiple approvals
+.github/CHANGE_CONTROL.md @pool-service-team/lead-developers @pool-service-team/security-team @pool-service-team/business-analysts
+.github/BRANCH_PROTECTION.md @pool-service-team/devops-team @pool-service-team/security-team
+.github/workflows/ @pool-service-team/devops-team @pool-service-team/security-team
+
+# Critical application entry points require comprehensive review
+src/App.tsx @pool-service-team/lead-developers @pool-service-team/business-analysts @pool-service-team/design-team
+src/main.jsx @pool-service-team/lead-developers
+index.html @pool-service-team/lead-developers @pool-service-team/security-team
