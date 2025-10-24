@@ -10,6 +10,34 @@ const useDatabase = () => {
   const [sqlLoading, setSqlLoading] = useState(true);
   const [sqlError, setSqlError] = useState(null);
   const [dbSchema, setDbSchema] = useState('');
+  const [dbData, setDbData] = useState(null); // Store serializable database data
+
+  // Try to restore database from localStorage on init
+  useEffect(() => {
+    const restoreDatabase = async () => {
+      if (!sqlInstance) return;
+      
+      try {
+        const savedDbData = localStorage.getItem('currentDatabaseData');
+        const savedDbName = localStorage.getItem('currentDatabaseName');
+        
+        if (savedDbData && savedDbName) {
+          console.log('Restoring database from localStorage:', savedDbName);
+          const uint8Array = new Uint8Array(JSON.parse(savedDbData));
+          const db = new sqlInstance.Database(uint8Array);
+          setDatabase(db);
+          setDbData(savedDbData);
+          console.log('Database restored successfully');
+        }
+      } catch (error) {
+        console.error('Failed to restore database:', error);
+        localStorage.removeItem('currentDatabaseData');
+        localStorage.removeItem('currentDatabaseName');
+      }
+    };
+
+    restoreDatabase();
+  }, [sqlInstance]);
 
   // Initialize SQL.js engine
   useEffect(() => {
@@ -117,6 +145,17 @@ const useDatabase = () => {
         throw new Error('No tables found in the database');
       }
 
+      // Save database data to localStorage for persistence
+      try {
+        const dbDataArray = Array.from(uint8Array);
+        localStorage.setItem('currentDatabaseData', JSON.stringify(dbDataArray));
+        localStorage.setItem('currentDatabaseName', file.name);
+        setDbData(JSON.stringify(dbDataArray));
+        console.log('Database data saved to localStorage for persistence');
+      } catch (storageError) {
+        console.warn('Could not save database to localStorage (too large?):', storageError);
+      }
+
       setDatabase(db);
       console.log('Database loaded and set successfully');
       return db;
@@ -198,6 +237,15 @@ const useDatabase = () => {
     }
   }, [database]);
 
+  // Clear persisted database
+  const clearDatabase = useCallback(() => {
+    setDatabase(null);
+    setDbData(null);
+    localStorage.removeItem('currentDatabaseData');
+    localStorage.removeItem('currentDatabaseName');
+    console.log('Database cleared from memory and localStorage');
+  }, []);
+
   // Check if database is ready for operations
   const isDatabaseReady = Boolean(database && sqlInstance && !sqlLoading);
 
@@ -216,6 +264,7 @@ const useDatabase = () => {
     getTables,
     getTableSchema,
     executeQuery,
+    clearDatabase,
 
     // Internal state setters (for backward compatibility)
     setDatabase

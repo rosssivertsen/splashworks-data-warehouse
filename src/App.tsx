@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import DatabaseUploader from './components/DatabaseUploader'
 import DatabaseExplorer from './components/DatabaseExplorer'
 import DashboardView from './components/DashboardView'
@@ -38,6 +38,22 @@ function App() {
   const [activeTab, setActiveTab] = useState('upload')
   const [queryResults, setQueryResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  // Handle database restoration from localStorage
+  useEffect(() => {
+    if (database && !selectedDashboard) {
+      console.log('Database restored from localStorage, switching to AI Assistant tab')
+      setActiveTab('aiAssistant')
+      
+      // Create or restore default dashboard if none exists
+      if (dashboards.length === 0) {
+        const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
+          description: 'Executive dashboard for pool service business metrics (restored)'
+        })
+        setSelectedDashboard(defaultDashboard as any)
+      }
+    }
+  }, [database, selectedDashboard, dashboards, createDashboard, setSelectedDashboard])
 
   const handleDatabaseLoad = (db: any) => {
     setDatabase(db)
