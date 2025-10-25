@@ -4,10 +4,12 @@
 
 This project now includes comprehensive templates for creating new enterprise-grade projects with the same automation, change control, and quality gates that we've implemented here.
 
+**Note**: The templates have been moved to `/Users/rosssivertsen/dev/enterprise-templates/` for better organization and reusability across all projects.
+
 ## 📁 Template Structure
 
 ```
-templates/
+/Users/rosssivertsen/dev/enterprise-templates/
 ├── project-starter/           # Complete project template
 │   ├── README.md              # Project overview and setup
 │   ├── package-template.json  # Package.json with automation
@@ -29,7 +31,7 @@ templates/
 ### **Method 1: Complete Project Template**
 ```bash
 # Copy entire project template
-cp -r templates/project-starter/* /path/to/new-project/
+cp -r /Users/rosssivertsen/dev/enterprise-templates/project-starter/* /path/to/new-project/
 cd /path/to/new-project/
 
 # Configure project
@@ -42,9 +44,9 @@ npm run dev
 ### **Method 2: Individual Templates**
 ```bash
 # Copy specific templates as needed
-cp templates/change-control/pipeline-template.yml .github/workflows/ci-cd.yml
-cp templates/automation/deploy-template.sh scripts/deploy.sh
-cp templates/documentation/CHANGELOG-template.md CHANGELOG.md
+cp /Users/rosssivertsen/dev/enterprise-templates/change-control/pipeline-template.yml .github/workflows/ci-cd.yml
+cp /Users/rosssivertsen/dev/enterprise-templates/automation/deploy-template.sh scripts/deploy.sh
+cp /Users/rosssivertsen/dev/enterprise-templates/documentation/CHANGELOG-template.md CHANGELOG.md
 ```
 
 ## 🔧 Template Features
@@ -80,7 +82,7 @@ cp templates/documentation/CHANGELOG-template.md CHANGELOG.md
 ### **New Project Setup:**
 ```bash
 # 1. Copy template
-cp -r templates/project-starter/* my-new-project/
+cp -r /Users/rosssivertsen/dev/enterprise-templates/project-starter/* my-new-project/
 cd my-new-project/
 
 # 2. Configure project
@@ -96,18 +98,18 @@ npm run dev
 ### **Add to Existing Project:**
 ```bash
 # 1. Copy automation scripts
-cp templates/automation/*.sh scripts/
+cp /Users/rosssivertsen/dev/enterprise-templates/automation/*.sh scripts/
 chmod +x scripts/*.sh
 
 # 2. Copy GitHub Actions workflow
 mkdir -p .github/workflows
-cp templates/change-control/pipeline-template.yml .github/workflows/ci-cd.yml
+cp /Users/rosssivertsen/dev/enterprise-templates/change-control/pipeline-template.yml .github/workflows/ci-cd.yml
 
 # 3. Update package.json with automation commands
-# (Copy from templates/project-starter/package-template.json)
+# (Copy from /Users/rosssivertsen/dev/enterprise-templates/project-starter/package-template.json)
 
 # 4. Add documentation templates
-cp templates/documentation/*.md docs/
+cp /Users/rosssivertsen/dev/enterprise-templates/documentation/*.md docs/
 ```
 
 ## 🎯 Automation Commands
