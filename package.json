@@ -8,7 +8,16 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:staging": "./scripts/deploy.sh staging development",
+    "deploy:production": "./scripts/deploy.sh production main",
+    "promote:staging": "./scripts/promote.sh development staging",
+    "promote:production": "./scripts/promote.sh staging main",
+    "promote:direct": "./scripts/promote.sh development main",
+    "pipeline:full": "npm run promote:staging && npm run promote:production",
+    "pipeline:direct": "npm run promote:direct",
+    "deploy": "./scripts/quick-deploy.sh",
+    "ship": "./scripts/quick-deploy.sh"
   },
   "dependencies": {
     "@types/html2canvas": "^0.5.35",
