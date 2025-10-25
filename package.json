@@ -1,7 +1,7 @@
 {
   "name": "pool-service-bi-dashboard",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "AI-powered Business Intelligence Dashboard for Pool Service Management Companies",
   "scripts": {
