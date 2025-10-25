@@ -14,13 +14,45 @@ const useDatabase = () => {
   const [dbSchema, setDbSchema] = useState('');
   const [dbData, setDbData] = useState(null); // Store serializable database data
 
-  // For testing: Just keep track of database loading state
-  // NOTE: This is a temporary simplified approach for Phase 2 testing
+  // Restore database from IndexedDB on app initialization
   useEffect(() => {
     if (sqlInstance) {
-      console.log('SQL.js is ready, checking for database state');
-      // For now, we'll rely on user re-uploading database
-      // This ensures we can complete Phase 2 testing and move to other phases
+      console.log('SQL.js is ready, checking for persisted database state');
+      restoreDatabaseFromStorage();
+    }
+  }, [sqlInstance]);
+
+  // Function to restore database from IndexedDB storage
+  const restoreDatabaseFromStorage = useCallback(async () => {
+    try {
+      console.log('🔄 Attempting to restore database from IndexedDB...');
+      const storedDb = await databaseStorage.loadDatabase();
+      
+      if (storedDb && storedDb.data) {
+        console.log('📦 Found stored database:', storedDb.name, 'Size:', Math.round(storedDb.size / 1024 / 1024) + 'MB');
+        
+        // Convert stored data back to Uint8Array
+        const uint8Array = new Uint8Array(storedDb.data);
+        const db = new sqlInstance.Database(uint8Array);
+        
+        setDatabase(db);
+        console.log('✅ Database restored successfully from IndexedDB');
+        
+        // Update localStorage with database info
+        const dbInfo = {
+          name: storedDb.name,
+          uploadedAt: storedDb.createdAt
+        };
+        localStorage.setItem('database_info', JSON.stringify(dbInfo));
+        
+        return db;
+      } else {
+        console.log('ℹ️ No stored database found in IndexedDB');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Failed to restore database from storage:', error);
+      return null;
     }
   }, [sqlInstance]);
 
@@ -125,6 +157,18 @@ const useDatabase = () => {
       
       localStorage.setItem('database_info', JSON.stringify(dbInfo));
       console.log('💾 Database info saved to localStorage');
+      
+      // Save database to IndexedDB for persistence
+      try {
+        await databaseStorage.saveDatabase(file.name, uint8Array, {
+          uploadedAt: new Date().toISOString(),
+          size: uint8Array.length
+        });
+        console.log('💾 Database saved to IndexedDB for persistence');
+      } catch (storageError) {
+        console.warn('⚠️ Failed to save database to IndexedDB:', storageError);
+        // Continue anyway - database is still loaded in memory
+      }
       
       setDatabase(db);
       console.log('📊 Database state updated');

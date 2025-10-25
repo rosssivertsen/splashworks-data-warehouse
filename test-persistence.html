@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Persistence Test</title>
+</head>
+<body>
+    <h1>Database Persistence Test</h1>
+    <p>This page tests if the database persistence is working correctly.</p>
+    
+    <div id="status">Checking...</div>
+    
+    <script>
+        // Test IndexedDB functionality
+        async function testPersistence() {
+            const status = document.getElementById('status');
+            
+            try {
+                // Test if IndexedDB is available
+                if (!window.indexedDB) {
+                    status.innerHTML = '❌ IndexedDB not supported';
+                    return;
+                }
+                
+                status.innerHTML = '✅ IndexedDB is supported';
+                
+                // Test database storage
+                const dbName = 'PoolServiceBIStorage';
+                const request = indexedDB.open(dbName, 1);
+                
+                request.onerror = () => {
+                    status.innerHTML = '❌ Failed to open IndexedDB';
+                };
+                
+                request.onsuccess = () => {
+                    status.innerHTML = '✅ IndexedDB opened successfully - Database persistence should work!';
+                };
+                
+            } catch (error) {
+                status.innerHTML = '❌ Error: ' + error.message;
+            }
+        }
+        
+        testPersistence();
+    </script>
+</body>
+</html>

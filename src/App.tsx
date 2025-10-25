@@ -47,15 +47,6 @@ function App() {
     console.log('🎯 App useEffect: selectedDashboard exists?', !!selectedDashboard);
     console.log('🎯 App useEffect: dashboards.length:', dashboards.length);
     
-    // Check if we have database info but no active database
-    if (!database && sqlInstance) {
-      const dbInfo = localStorage.getItem('database_info');
-      if (dbInfo) {
-        console.log('🎯 App useEffect: Found database info in localStorage, but cannot restore without file data');
-        console.log('🎯 App useEffect: User will need to re-upload database');
-      }
-    }
-    
     // Handle dashboard creation when database is loaded but no dashboard exists
     if (database && !selectedDashboard && dashboards.length === 0) {
       console.log('🎯 App useEffect: Database loaded but no dashboards exist, creating default');
