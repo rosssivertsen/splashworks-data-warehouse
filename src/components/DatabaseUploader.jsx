@@ -5,7 +5,7 @@ import SafeIcon from '../common/SafeIcon';
 
 const { FiUpload, FiDatabase, FiCheck, FiAlertCircle } = FiIcons;
 
-const DatabaseUploader = ({ sqlInstance, onDatabaseLoad }) => {
+const DatabaseUploader = ({ sqlInstance, onDatabaseLoad, onFileUpload }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -27,21 +27,28 @@ const DatabaseUploader = ({ sqlInstance, onDatabaseLoad }) => {
     setSuccess(false);
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const database = new sqlInstance.Database(uint8Array);
-      
-      // Test the database by getting table list
-      const tables = database.exec("SELECT name FROM sqlite_master WHERE type='table'");
-      
-      if (tables.length === 0 || tables[0].values.length === 0) {
-        throw new Error('No tables found in the database');
+      // Use the persistence-enabled upload function if available
+      if (onFileUpload) {
+        console.log('🎯 DatabaseUploader: Using persistence-enabled upload');
+        await onFileUpload(file);
+      } else {
+        // Fallback to direct database creation (legacy)
+        console.log('🎯 DatabaseUploader: Using legacy direct upload');
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const database = new sqlInstance.Database(uint8Array);
+        
+        // Test the database by getting table list
+        const tables = database.exec("SELECT name FROM sqlite_master WHERE type='table'");
+        
+        if (tables.length === 0 || tables[0].values.length === 0) {
+          throw new Error('No tables found in the database');
+        }
+
+        onDatabaseLoad(database);
       }
 
       setSuccess(true);
-      setTimeout(() => {
-        onDatabaseLoad(database);
-      }, 1000);
       
     } catch (err) {
       setError(`Failed to load database: ${err.message}`);

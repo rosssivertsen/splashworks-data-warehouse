@@ -21,7 +21,8 @@ function App() {
     sqlInstance, 
     sqlLoading, 
     sqlError, 
-    setDatabase 
+    setDatabase,
+    handleDatabaseUpload
   } = useDatabase()
   
   const { 
@@ -39,30 +40,64 @@ function App() {
   const [queryResults, setQueryResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Handle database restoration from localStorage
+  // Handle initial dashboard restoration - run only when dashboard/database state changes, NOT on tab changes
   useEffect(() => {
-    if (database && !selectedDashboard) {
-      console.log('Database restored from localStorage, switching to AI Assistant tab')
-      setActiveTab('aiAssistant')
-      
-      // Create or restore default dashboard if none exists
-      if (dashboards.length === 0) {
-        const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
-          description: 'Executive dashboard for pool service business metrics (restored)'
-        })
-        setSelectedDashboard(defaultDashboard as any)
+    console.log('🎯 App useEffect: Checking dashboard restoration conditions');
+    console.log('🎯 App useEffect: database exists?', !!database);
+    console.log('🎯 App useEffect: selectedDashboard exists?', !!selectedDashboard);
+    console.log('🎯 App useEffect: dashboards.length:', dashboards.length);
+    
+    // Check if we have database info but no active database
+    if (!database && sqlInstance) {
+      const dbInfo = localStorage.getItem('database_info');
+      if (dbInfo) {
+        console.log('🎯 App useEffect: Found database info in localStorage, but cannot restore without file data');
+        console.log('🎯 App useEffect: User will need to re-upload database');
       }
     }
-  }, [database, selectedDashboard, dashboards, createDashboard, setSelectedDashboard])
+    
+    // Handle dashboard creation when database is loaded but no dashboard exists
+    if (database && !selectedDashboard && dashboards.length === 0) {
+      console.log('🎯 App useEffect: Database loaded but no dashboards exist, creating default');
+      const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
+        description: 'Executive dashboard for pool service business metrics (restored)'
+      })
+      setSelectedDashboard(defaultDashboard as any)
+      setActiveTab('aiAssistant')
+    }
+  }, [database, selectedDashboard, dashboards.length, sqlInstance]) // No activeTab dependency to prevent loops
+
+  // Handle initial tab switching when app loads - run only once
+  useEffect(() => {
+    // Only auto-switch tabs on initial load if we have persisted dashboards
+    if (selectedDashboard && dashboards.length > 0 && activeTab === 'upload') {
+      console.log('🎯 App initial load: Selected dashboard exists, switching to dashboard tab');
+      setActiveTab('dashboard');
+    }
+  }, [selectedDashboard, dashboards.length]) // Only run when dashboard state changes, not activeTab
 
   const handleDatabaseLoad = (db: any) => {
+    console.log('🎯 App: Database loaded, switching to AI Assistant tab and creating dashboard');
+    console.log('🎯 App: Current dashboards length:', dashboards.length);
+    console.log('🎯 App: Current selected dashboard:', selectedDashboard);
+    
     setDatabase(db)
     setActiveTab('aiAssistant')
     // Create default dashboard using the hook
     const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
       description: 'Executive dashboard for pool service business metrics'
     })
+    console.log('🎯 App: Created dashboard:', defaultDashboard);
     setSelectedDashboard(defaultDashboard as any)
+  }
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      const db = await handleDatabaseUpload(file)
+      handleDatabaseLoad(db)
+    } catch (error) {
+      console.error('Failed to upload database:', error)
+    }
   }
 
   const handleQueryExecute = (results: any) => {
@@ -158,7 +193,11 @@ function App() {
         {/* Tab Content */}
         <div className="p-6 min-h-[600px]">
           {activeTab === 'upload' && (
-            <DatabaseUploader sqlInstance={sqlInstance} onDatabaseLoad={handleDatabaseLoad} />
+            <DatabaseUploader 
+              sqlInstance={sqlInstance} 
+              onDatabaseLoad={handleDatabaseLoad} 
+              onFileUpload={handleFileUpload}
+            />
           )}
           {activeTab === 'explorer' && database && (
             <DatabaseExplorer database={database} onQueryExecute={handleQueryExecute} />

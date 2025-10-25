@@ -7,34 +7,41 @@ import React, { useState, useEffect } from 'react';
 
     const { FiPlus, FiEdit2, FiTrash2, FiGrid, FiBarChart2, FiPieChart, FiTrendingUp, FiLayout, FiDownload, FiFileText } = FiIcons;
 
-    const DashboardView = ({
-      database,
-      dashboards,
-      setDashboards,
-      selectedDashboard,
-      setSelectedDashboard,
-      apiKey,
-      onQueryExecute,
-      isLoading,
-      setIsLoading,
-    }) => {
-      const [isGenerating, setIsGenerating] = useState(false);
-      const [isFormatting, setIsFormatting] = useState(false);
-      const [editingName, setEditingName] = useState(false);
-      const [dashboardName, setDashboardName] = useState('');
+const DashboardView = ({
+  database,
+  dashboards,
+  setDashboards,
+  selectedDashboard,
+  setSelectedDashboard,
+  apiKey,
+  onQueryExecute,
+  isLoading,
+  setIsLoading,
+}) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isFormatting, setIsFormatting] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [dashboardName, setDashboardName] = useState('');
 
-      const generateAIDashboard = async () => {
-        if (!apiKey) {
-          alert('Please set your OpenAI API key in Settings to use AI dashboard generation.');
-          return;
-        }
+  // Debug logging for dashboard props (only on significant changes)
+  useEffect(() => {
+    if (selectedDashboard) {
+      console.log('🎯 DashboardView: Dashboard loaded -', selectedDashboard.name, 'with', selectedDashboard.charts?.length || 0, 'charts');
+    }
+  }, [selectedDashboard?.id]); // Only log when dashboard ID changes
 
-        setIsGenerating(true);
-        setIsLoading(true);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+  const generateAIDashboard = async () => {
+    if (!apiKey) {
+      alert('Please set your OpenAI API key in Settings to use AI dashboard generation.');
+      return;
+    }
 
-        try {
+    setIsGenerating(true);
+    setIsLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+
+    try {
           // Get database schema
           let schema = 'Database Schema:\n\n';
           try {
@@ -78,122 +85,122 @@ Important:
 - Chart types must be one of: bar, line, pie, area
 - Each object must have all 4 required fields`;
 
-          console.log('Sending prompt to OpenAI:', prompt);
+      console.log('Sending prompt to OpenAI:', prompt);
 
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a BI expert. Create executive dashboard suggestions based on database schema. Return valid JSON only.'
             },
-            body: JSON.stringify({
-              model: 'gpt-3.5-turbo',
-              messages: [
-                {
-                  role: 'system',
-                  content: 'You are a BI expert. Create executive dashboard suggestions based on database schema. Return valid JSON only.'
-                },
-                {
-                  role: 'user',
-                  content: prompt
-                }
-              ],
-              max_tokens: 800,
-              temperature: 0.3
-            }),
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeoutId);
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`OpenAI API Error: ${errorData.error?.message || response.statusText}`);
-          }
-
-          const data = await response.json();
-          console.log('OpenAI response:', data);
-
-          if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-            throw new Error('Invalid response from OpenAI API');
-          }
-
-          const content = data.choices[0].message.content.trim();
-          console.log('Generated content:', content);
-
-          let chartSuggestions;
-          try {
-            // Try to parse as JSON directly
-            chartSuggestions = JSON.parse(content);
-          } catch (parseError) {
-            // If direct parsing fails, try to extract JSON from the content
-            const jsonMatch = content.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-              chartSuggestions = JSON.parse(jsonMatch[0]);
-            } else {
-              throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
+            {
+              role: 'user',
+              content: prompt
             }
-          }
+          ],
+          max_tokens: 800,
+          temperature: 0.3
+        }),
+        signal: controller.signal,
+      });
 
-          if (!Array.isArray(chartSuggestions)) {
-            throw new Error('AI response is not an array of charts');
-          }
+      clearTimeout(timeoutId);
 
-          console.log('Parsed chart suggestions:', chartSuggestions);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenAI API Error: ${errorData.error?.message || response.statusText}`);
+      }
 
-          // Execute queries and create charts
-          const newCharts = [];
-          for (const suggestion of chartSuggestions) {
-            try {
-              if (!suggestion.query || !suggestion.title || !suggestion.type) {
-                console.warn('Skipping invalid chart suggestion:', suggestion);
-                continue;
-              }
+      const data = await response.json();
+      console.log('OpenAI response:', data);
 
-              const result = database.exec(suggestion.query);
-              if (result.length > 0) {
-                newCharts.push({
-                  id: Date.now() + Math.random(),
-                  type: suggestion.type,
-                  title: suggestion.title,
-                  query: suggestion.query,
-                  description: suggestion.description || '',
-                  data: {
-                    columns: result[0].columns,
-                    values: result[0].values
-                  },
-                  position: { x: 0, y: 0, w: 6, h: 4 }
-                });
-              } else {
-                console.warn('No data returned for query:', suggestion.query);
-              }
-            } catch (error) {
-              console.error('Error executing chart query:', error, 'Query:', suggestion.query);
-            }
-          }
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error('Invalid response from OpenAI API');
+      }
 
-          if (newCharts.length === 0) {
-            throw new Error('No valid charts could be generated from the AI suggestions');
-          }
+      const content = data.choices[0].message.content.trim();
+      console.log('Generated content:', content);
 
-          // Update dashboard with new charts
-          const updatedDashboard = { ...selectedDashboard, charts: newCharts };
-          setDashboards(prev => prev.map(d => d.id === selectedDashboard.id ? updatedDashboard : d));
-          setSelectedDashboard(updatedDashboard);
-
-          console.log(`Successfully generated ${newCharts.length} charts`);
-        } catch (error) {
-          if (error.name === 'AbortError') {
-            error.message = 'Request timed out after 30 seconds.';
-          }
-          console.error('Error generating AI dashboard:', error);
-          alert(`Failed to generate AI dashboard: ${error.message}`);
-        } finally {
-          clearTimeout(timeoutId);
-          setIsGenerating(false);
-          setIsLoading(false);
+      let chartSuggestions;
+      try {
+        // Try to parse as JSON directly
+        chartSuggestions = JSON.parse(content);
+      } catch (parseError) {
+        // If direct parsing fails, try to extract JSON from the content
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          chartSuggestions = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
         }
-      };
+      }
+
+      if (!Array.isArray(chartSuggestions)) {
+        throw new Error('AI response is not an array of charts');
+      }
+
+      console.log('Parsed chart suggestions:', chartSuggestions);
+
+      // Execute queries and create charts
+      const newCharts = [];
+      for (const suggestion of chartSuggestions) {
+        try {
+          if (!suggestion.query || !suggestion.title || !suggestion.type) {
+            console.warn('Skipping invalid chart suggestion:', suggestion);
+            continue;
+          }
+
+          const result = database.exec(suggestion.query);
+          if (result.length > 0) {
+            newCharts.push({
+              id: Date.now() + Math.random(),
+              type: suggestion.type,
+              title: suggestion.title,
+              query: suggestion.query,
+              description: suggestion.description || '',
+              data: {
+                columns: result[0].columns,
+                values: result[0].values
+              },
+              position: { x: 0, y: 0, w: 6, h: 4 }
+            });
+          } else {
+            console.warn('No data returned for query:', suggestion.query);
+          }
+        } catch (error) {
+          console.error('Error executing chart query:', error, 'Query:', suggestion.query);
+        }
+      }
+
+      if (newCharts.length === 0) {
+        throw new Error('No valid charts could be generated from the AI suggestions');
+      }
+
+      // Update dashboard with new charts
+      const updatedDashboard = { ...selectedDashboard, charts: newCharts };
+      setDashboards(prev => prev.map(d => d.id === selectedDashboard.id ? updatedDashboard : d));
+      setSelectedDashboard(updatedDashboard);
+
+      console.log(`Successfully generated ${newCharts.length} charts`);
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        error.message = 'Request timed out after 30 seconds.';
+      }
+      console.error('Error generating AI dashboard:', error);
+      alert(`Failed to generate AI dashboard: ${error.message}`);
+    } finally {
+      clearTimeout(timeoutId);
+      setIsGenerating(false);
+      setIsLoading(false);
+    }
+  };
 
       const createNewDashboard = () => {
         const newDashboard = {

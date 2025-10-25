@@ -13,9 +13,19 @@ const useDashboard = () => {
 
   // Get selectedDashboard from dashboards array using the persisted ID
   const selectedDashboard = dashboards.find(d => d.id === selectedDashboardId) || null;
+  
+  // Only log once when dashboard state changes significantly
+  const dashboardCount = dashboards.length;
+  const selectedName = selectedDashboard?.name;
+  
+  // Debug logging (reduced frequency)
+  if (dashboardCount > 0) {
+    console.log('🎯 useDashboard: Loaded', dashboardCount, 'dashboards, selected:', selectedName || 'none');
+  }
 
   // Create a new dashboard
   const createDashboard = useCallback((name = 'New Dashboard', options = {}) => {
+    console.log('🎯 Creating dashboard with name:', name, 'options:', options);
     const newDashboard = {
       id: Date.now() + Math.random(),
       name,
@@ -34,8 +44,14 @@ const useDashboard = () => {
       ...options
     };
 
-    setDashboards(prev => [...prev, newDashboard]);
+    console.log('🎯 New dashboard created:', newDashboard);
+    setDashboards(prev => {
+      const updated = [...prev, newDashboard];
+      console.log('🎯 Updated dashboards array:', updated);
+      return updated;
+    });
     setSelectedDashboardId(newDashboard.id);
+    console.log('🎯 Selected dashboard ID set to:', newDashboard.id);
     return newDashboard;
   }, [setDashboards]);
 
