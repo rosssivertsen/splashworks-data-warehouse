@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
     import * as FiIcons from 'react-icons/fi';
     import SafeIcon from '../common/SafeIcon';
     import { formatDateWithDefaults, getCurrentDateTime, getDefaultDate } from '../utils/dateUtils';
+    import { buildEnhancedSchemaContext, suggestQueryApproach } from '../utils/schemaMetadata';
 
     const { FiMessageSquare, FiSend, FiLoader, FiDatabase, FiZap } = FiIcons;
 
@@ -20,29 +21,9 @@ import React, { useState, useEffect } from 'react';
 
       const generateDatabaseSchema = () => {
         try {
-          const tables = database.exec("SELECT name FROM sqlite_master WHERE type='table'");
-          let schema = 'Database Schema:\n\n';
-          if (tables.length > 0) {
-            tables[0].values.forEach(([tableName]) => {
-              schema += `Table: ${tableName}\n`;
-              try {
-                const columns = database.exec(`PRAGMA table_info(${tableName})`);
-                if (columns.length > 0) {
-                  columns[0].values.forEach(([, name, type, notNull, defaultValue, pk]) => {
-                    schema += ` - ${name} (${type})`;
-                    if (pk) schema += ' PRIMARY KEY';
-                    if (notNull) schema += ' NOT NULL';
-                    if (defaultValue) schema += ` DEFAULT ${defaultValue}`;
-                    schema += '\n';
-                  });
-                }
-                schema += '\n';
-              } catch (err) {
-                console.error(`Error getting schema for table ${tableName}:`, err);
-              }
-            });
-          }
-          setDbSchema(schema);
+          // Use enhanced schema context with relationships and business context
+          const enhancedSchema = buildEnhancedSchemaContext(database);
+          setDbSchema(enhancedSchema);
         } catch (error) {
           console.error('Error generating database schema:', error);
         }
@@ -56,21 +37,40 @@ import React, { useState, useEffect } from 'react';
         const currentDate = getCurrentDateTime();
         const defaultDate = getDefaultDate();
 
-        const prompt = `Given this SQLite database schema: ${dbSchema}
+        // Get intelligent query routing suggestions
+        const queryApproach = suggestQueryApproach(userQuestion);
+        
+        let approachGuidance = '';
+        if (queryApproach.joinPath) {
+          approachGuidance = `
+    
+    RECOMMENDED APPROACH for this question:
+    - Query Type: ${queryApproach.approach}
+    - Join Path: ${queryApproach.joinPath.description}
+    - Tables to use: ${queryApproach.tables.join(', ')}
+    - Use Case: ${queryApproach.joinPath.useCase}
+    
+    Follow this join pattern:
+    ${queryApproach.joinPath.joins ? queryApproach.joinPath.joins.join('\n    ') : ''}`;
+        }
+
+        const prompt = `Given this pool service business database schema with relationships: ${dbSchema}
 
     Convert this natural language question into a SQL query: "${userQuestion}"
+    ${approachGuidance}
 
-    Pay close attention to all values and conditions specified in the question.
-
-    IMPORTANT DATE FORMATTING RULES:
+    
+    IMPORTANT RULES:
+    - Use the foreign key relationships shown in the schema
+    - For multi-table queries, JOIN tables using the documented foreign keys
+    - Pay close attention to all values and conditions specified in the question
     - All date columns should be returned in ISO 8601 format: "YYYY-MM-DD HH:MM:SS"
     - If a time is not specified in the question, default to "00:00:00" (midnight)
-    - If a date is not specified in the question, default to "1980-01-01 00:00:00"
     - Current datetime is: ${currentDate}
     - Use strftime('%Y-%m-%d %H:%M:%S', column_name) to format dates properly
     - For date comparisons, use the ISO format consistently
 
-    Return only the SQL query without any explanation or formatting. The query should be valid SQLite syntax and follow the date formatting rules above.`;
+    Return only the SQL query without any explanation or formatting. The query should be valid SQLite syntax.`;
 
         try {
           const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -200,11 +200,12 @@ import React, { useState, useEffect } from 'react';
       };
 
       const exampleQuestions = [
-        `Show me records created today (${getCurrentDateTime().split(' ')[0]})`,
-        `Find all records from 1980-01-01`,
-        `Show me records between 2024-01-01 and 2024-12-31`,
-        `List records with timestamps after 00:00:00`,
-        `Show me recent records from the last 30 days`
+        'Show me top 10 customers by revenue',
+        'Which technicians completed the most service stops last month?',
+        'Show pools that received the most chlorine in the last 30 days',
+        'List customers with multiple service locations',
+        'What are the most common work order types?',
+        'Show service stops with chemical readings outside normal range'
       ];
 
       return (

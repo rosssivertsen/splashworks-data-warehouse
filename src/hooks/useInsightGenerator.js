@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { buildEnhancedSchemaContext } from '../utils/schemaMetadata';
 
 const useInsightGenerator = (database, apiKey, setIsLoading) => {
   const [insights, setInsights] = useState([]);
@@ -14,47 +15,46 @@ const useInsightGenerator = (database, apiKey, setIsLoading) => {
     setIsLoading(true);
 
     try {
-      // Get database schema
-      let schema = 'Database Schema:\n\n';
+      // Get enhanced database schema with relationships and business context
+      let schema;
       try {
-        const tables = database.exec("SELECT name FROM sqlite_master WHERE type='table'");
-        if (tables.length > 0) {
-          tables[0].values.forEach(([tableName]) => {
-            schema += `Table: ${tableName}\n`;
-            try {
-              const columns = database.exec(`PRAGMA table_info(${tableName})`);
-              if (columns.length > 0) {
-                columns[0].values.forEach(([, name, type]) => {
-                  schema += ` - ${name} (${type})\n`;
-                });
-              }
-              schema += '\n';
-            } catch (err) {
-              console.error(`Error getting schema for table ${tableName}:`, err);
-              schema += ` - (Schema unavailable)\n\n`;
-            }
-          });
-        } else {
-          throw new Error('No tables found in database');
+        schema = buildEnhancedSchemaContext(database);
+        if (!schema || schema.length < 50) {
+          throw new Error('Schema context is empty or invalid');
         }
       } catch (error) {
         throw new Error(`Failed to read database schema: ${error.message}`);
       }
 
-      const prompt = `Analyze this database schema and provide 5 key business insights that would be valuable for executives: ${schema}
+      const prompt = `Analyze this pool service business database and provide 5 key business insights that would be valuable for executives.
+
+${schema}
+
+IMPORTANT GUIDANCE:
+- Use the relationship information to create multi-table insights
+- Leverage common query patterns shown above
+- Focus on revenue, customer value, operational efficiency, and service quality
+- Use the foreign key relationships to join tables correctly
 
 For each insight, provide:
 1. Title (short, impactful)
-2. Description (what the insight means)
-3. SQL query to verify the insight
+2. Description (what the insight means and why it matters)
+3. SQL query to verify the insight (MUST use proper JOINs based on foreign keys)
 4. Impact level (High/Medium/Low)
 5. Insight type (Trend/Anomaly/Opportunity/Warning)
+
+EXAMPLE MULTI-TABLE INSIGHTS:
+- Customer lifetime value: JOIN Customer → ServiceLocation → InvoiceLocation → Invoice
+- Technician efficiency: JOIN Account → RouteStop → ServiceStop
+- Chemical usage trends: JOIN Pool → ServiceStop → ServiceStopEntry → EntryDescription
+- Equipment failure patterns: JOIN Pool → EquipmentItem → InstalledItem
 
 Format as JSON array with objects containing: title, description, query, impact, type
 
 Important:
 - Return ONLY valid JSON without any explanation or formatting
-- SQL queries must be valid SQLite syntax
+- SQL queries must be valid SQLite syntax with proper JOINs
+- Use the documented foreign key relationships (e.g., CustomerId, ServiceLocationId, PoolId)
 - Impact levels must be: High, Medium, or Low
 - Insight types must be: Trend, Anomaly, Opportunity, or Warning
 - Each object must have all 5 required fields`;
