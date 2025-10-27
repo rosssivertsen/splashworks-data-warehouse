@@ -19,10 +19,10 @@ import React, { useState, useEffect } from 'react';
         }
       }, [database]);
 
-      const generateDatabaseSchema = () => {
+      const generateDatabaseSchema = (userQuestion = '') => {
         try {
-          // Use enhanced schema context with relationships and business context
-          const enhancedSchema = buildEnhancedSchemaContext(database);
+          // Use enhanced schema context with relationships, business context, and semantic layer
+          const enhancedSchema = buildEnhancedSchemaContext(database, userQuestion);
           setDbSchema(enhancedSchema);
         } catch (error) {
           console.error('Error generating database schema:', error);
@@ -156,6 +156,9 @@ import React, { useState, useEffect } from 'react';
         setConversation(prev => [...prev, userMessage]);
 
         try {
+          // Regenerate schema with semantic context for this specific question
+          generateDatabaseSchema(question);
+          
           // Generate SQL from natural language
           const sqlQuery = await generateSQLFromQuestion(question);
           const aiMessage = { type: 'ai', content: `Generated SQL: \`${sqlQuery}\`` };

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { buildEnhancedSchemaContext } from '../utils/schemaMetadata';
+import { getAllBusinessTerms, getAllMetrics } from '../utils/semanticLayer';
 
 const useInsightGenerator = (database, apiKey, setIsLoading) => {
   const [insights, setInsights] = useState([]);
@@ -15,12 +16,34 @@ const useInsightGenerator = (database, apiKey, setIsLoading) => {
     setIsLoading(true);
 
     try {
-      // Get enhanced database schema with relationships and business context
+      // Get enhanced database schema with relationships, business context, and semantic layer
       let schema;
+      let semanticInfo = '';
       try {
         schema = buildEnhancedSchemaContext(database);
         if (!schema || schema.length < 50) {
           throw new Error('Schema context is empty or invalid');
+        }
+        
+        // Add semantic layer context for better insights
+        const businessTerms = getAllBusinessTerms();
+        const metrics = getAllMetrics();
+        
+        if (Object.keys(businessTerms).length > 0) {
+          semanticInfo += '\n\n=== BUSINESS TERMS & PATTERNS ===\n';
+          Object.entries(businessTerms).forEach(([key, term]) => {
+            semanticInfo += `\n${key}: ${term.description}`;
+            if (term.recurrence) semanticInfo += ` (${term.recurrence})`;
+          });
+        }
+        
+        if (Object.keys(metrics).length > 0) {
+          semanticInfo += '\n\n=== KEY METRICS ===\n';
+          Object.entries(metrics).forEach(([key, metric]) => {
+            semanticInfo += `\n${key}: ${metric.description}`;
+            if (metric.target) semanticInfo += ` (Target: ${metric.target})`;
+            if (metric.data_availability) semanticInfo += ` [${metric.data_availability}]`;
+          });
         }
       } catch (error) {
         throw new Error(`Failed to read database schema: ${error.message}`);
@@ -29,8 +52,11 @@ const useInsightGenerator = (database, apiKey, setIsLoading) => {
       const prompt = `Analyze this pool service business database and provide 5 key business insights that would be valuable for executives.
 
 ${schema}
+${semanticInfo}
 
 IMPORTANT GUIDANCE:
+- Consider the business terms and metrics defined above when generating insights
+- Focus on metrics with targets and data availability indicators
 - Use the relationship information to create multi-table insights
 - Leverage common query patterns shown above
 - Focus on revenue, customer value, operational efficiency, and service quality

@@ -9,7 +9,10 @@
  * - Join path suggestions for common queries
  * - Business context for each table
  * - Query templates for multi-table operations
+ * - Integration with semantic layer for business terms and metrics
  */
+
+import { buildSemanticContext, loadSemanticLayer } from './semanticLayer.js';
 
 // ============================================================================
 // TABLE DEFINITIONS WITH BUSINESS CONTEXT
@@ -500,11 +503,12 @@ export function getJoinPathForUseCase(useCase) {
 }
 
 /**
- * Build schema context string for AI prompts
+ * Build schema context string for AI prompts (with semantic layer integration)
  * @param {Object} database - SQL.js database instance
- * @returns {string} - Formatted schema with relationships
+ * @param {string} question - Optional user question for semantic context
+ * @returns {string} - Formatted schema with relationships and semantic layer
  */
-export function buildEnhancedSchemaContext(database) {
+export function buildEnhancedSchemaContext(database, question = '') {
   let context = 'Database Schema with Relationships:\n\n';
   
   try {
@@ -569,7 +573,32 @@ export function buildEnhancedSchemaContext(database) {
     console.error('Error building schema context:', error);
   }
   
+  // Add semantic layer context if question is provided
+  if (question) {
+    try {
+      const semanticContext = buildSemanticContext(question);
+      if (semanticContext) {
+        context += semanticContext;
+      }
+    } catch (error) {
+      console.error('Error building semantic context:', error);
+    }
+  }
+  
   return context;
+}
+
+/**
+ * Initialize semantic layer (should be called on app startup)
+ * @returns {Promise<void>}
+ */
+export async function initializeSemanticLayer() {
+  try {
+    await loadSemanticLayer();
+    console.log('Semantic layer initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize semantic layer:', error);
+  }
 }
 
 /**
