@@ -1,5 +1,6 @@
 name: Pool Service BI Dashboard - CI/CD Pipeline
 
+# Updated: 2025-10-27 - Added Netlify serverless function support
 on:
   push:
     branches: [ main, development, staging ]
