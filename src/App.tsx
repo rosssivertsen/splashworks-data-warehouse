@@ -58,14 +58,15 @@ function App() {
     }
   }, [database, selectedDashboard, dashboards.length, sqlInstance, createDashboard, setSelectedDashboard, setActiveTab])
 
-  // Handle initial tab switching when app loads - run only once
+  // Handle initial tab switching when app loads - run only once on mount
   useEffect(() => {
     // Only auto-switch tabs on initial load if we have persisted dashboards
     if (selectedDashboard && dashboards.length > 0 && activeTab === 'upload') {
       console.log('🎯 App initial load: Selected dashboard exists, switching to dashboard tab');
       setActiveTab('dashboard');
     }
-  }, [selectedDashboard, dashboards.length, activeTab, setActiveTab])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty deps - only run on mount, not when activeTab changes
 
   const handleDatabaseLoad = (db: any) => {
     console.log('🎯 App: Database loaded, switching to AI Assistant tab and creating dashboard');
