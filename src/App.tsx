@@ -56,7 +56,7 @@ function App() {
       setSelectedDashboard(defaultDashboard as any)
       setActiveTab('aiAssistant')
     }
-  }, [database, selectedDashboard, dashboards.length, sqlInstance]) // No activeTab dependency to prevent loops
+  }, [database, selectedDashboard, dashboards.length, sqlInstance, createDashboard, setSelectedDashboard, setActiveTab])
 
   // Handle initial tab switching when app loads - run only once
   useEffect(() => {
@@ -65,7 +65,7 @@ function App() {
       console.log('🎯 App initial load: Selected dashboard exists, switching to dashboard tab');
       setActiveTab('dashboard');
     }
-  }, [selectedDashboard, dashboards.length]) // Only run when dashboard state changes, not activeTab
+  }, [selectedDashboard, dashboards.length, activeTab, setActiveTab])
 
   const handleDatabaseLoad = (db: any) => {
     console.log('🎯 App: Database loaded, switching to AI Assistant tab and creating dashboard');
