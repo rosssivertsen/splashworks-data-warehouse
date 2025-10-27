@@ -11,7 +11,8 @@ import { FiDatabase, FiBarChart2, FiPieChart, FiSearch, FiTrendingUp, FiSettings
 import SafeIcon from './common/SafeIcon'
 import useDatabase from './hooks/useDatabase'
 import useDashboard from './hooks/useDashboard'
-import { useApiKey } from './hooks/useLocalStorage'
+import { useAISettings } from './hooks/useLocalStorage'
+import { AI_PROVIDERS, MODELS, getProviderName } from './services/aiService'
 import './App.css'
 
 function App() {
@@ -33,7 +34,10 @@ function App() {
     setDashboards
   } = useDashboard()
   
-  const { apiKey, setApiKey } = useApiKey()
+  const aiSettings = useAISettings()
+  
+  // For backward compatibility with components that expect apiKey
+  const apiKey = aiSettings.getCurrentApiKey()
   
   // Local component state
   const [activeTab, setActiveTab] = useState('upload')
@@ -246,23 +250,110 @@ function App() {
           )}
           {activeTab === 'settings' && (
             <div className="service-card max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold text-service-900 mb-6">Settings</h2>
+              <h2 className="text-2xl font-bold text-service-900 mb-6">AI Provider Settings</h2>
               <div className="space-y-6">
+                {/* Provider Selection */}
                 <div>
                   <label className="block text-sm font-medium text-service-700 mb-2">
-                    OpenAI API Key
+                    AI Provider
                   </label>
-                  <input
-                    type="password"
-                    value={apiKey || ''}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Enter your OpenAI API key for AI features"
+                  <select
+                    value={aiSettings.settings.provider}
+                    onChange={(e) => aiSettings.setProvider(e.target.value)}
                     className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
-                  />
+                  >
+                    <option value={AI_PROVIDERS.OPENAI}>{getProviderName(AI_PROVIDERS.OPENAI)}</option>
+                    <option value={AI_PROVIDERS.ANTHROPIC}>{getProviderName(AI_PROVIDERS.ANTHROPIC)}</option>
+                  </select>
                   <p className="text-sm text-service-600 mt-2">
-                    Required for AI-powered queries, dashboard generation, and business insights
+                    Select your preferred AI provider for SQL generation
                   </p>
                 </div>
+
+                {/* OpenAI Settings */}
+                {aiSettings.settings.provider === AI_PROVIDERS.OPENAI && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-service-700 mb-2">
+                        OpenAI API Key
+                      </label>
+                      <input
+                        type="password"
+                        value={aiSettings.settings.openaiApiKey || ''}
+                        onChange={(e) => aiSettings.setOpenAIKey(e.target.value)}
+                        placeholder="sk-..."
+                        className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
+                      />
+                      {aiSettings.isValidOpenAIKey && (
+                        <p className="text-sm text-success-600 mt-1">✓ Valid API key format</p>
+                      )}
+                      {aiSettings.settings.openaiApiKey && !aiSettings.isValidOpenAIKey && (
+                        <p className="text-sm text-error-600 mt-1">⚠ Invalid API key format (should start with sk-)</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-service-700 mb-2">
+                        OpenAI Model
+                      </label>
+                      <select
+                        value={aiSettings.settings.openaiModel}
+                        onChange={(e) => aiSettings.setOpenAIModel(e.target.value)}
+                        className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
+                      >
+                        {MODELS.openai.map(model => (
+                          <option key={model.id} value={model.id}>
+                            {model.name} - {model.description}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* Anthropic Settings */}
+                {aiSettings.settings.provider === AI_PROVIDERS.ANTHROPIC && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-service-700 mb-2">
+                        Anthropic API Key
+                      </label>
+                      <input
+                        type="password"
+                        value={aiSettings.settings.anthropicApiKey || ''}
+                        onChange={(e) => aiSettings.setAnthropicKey(e.target.value)}
+                        placeholder="sk-ant-..."
+                        className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
+                      />
+                      {aiSettings.isValidAnthropicKey && (
+                        <p className="text-sm text-success-600 mt-1">✓ Valid API key format</p>
+                      )}
+                      {aiSettings.settings.anthropicApiKey && !aiSettings.isValidAnthropicKey && (
+                        <p className="text-sm text-error-600 mt-1">⚠ Invalid API key format (should start with sk-ant-)</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-service-700 mb-2">
+                        Anthropic Model
+                      </label>
+                      <select
+                        value={aiSettings.settings.anthropicModel}
+                        onChange={(e) => aiSettings.setAnthropicModel(e.target.value)}
+                        className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
+                      >
+                        {MODELS.anthropic.map(model => (
+                          <option key={model.id} value={model.id}>
+                            {model.name} - {model.description}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-sm text-pool-blue-600 mt-2">
+                        💡 <strong>Recommended:</strong> Claude 3.5 Sonnet excels at SQL generation
+                      </p>
+                    </div>
+                  </>
+                )}
                 
                 <div className="bg-pool-blue-50 border border-pool-blue-200 rounded-lg p-4">
                   <h3 className="font-medium text-pool-blue-900 mb-2">Pool Service Features</h3>
@@ -271,6 +362,20 @@ function App() {
                     <li>• Route optimization and technician productivity</li>
                     <li>• Revenue trends and seasonal pattern detection</li>
                     <li>• Equipment maintenance and chemical usage tracking</li>
+                  </ul>
+                </div>
+
+                <div className="bg-success-50 border border-success-200 rounded-lg p-4">
+                  <h3 className="font-medium text-success-900 mb-2">✨ New: Semantic Layer Integration</h3>
+                  <p className="text-sm text-success-800 mb-2">
+                    The AI now understands business concepts like "filter cleaning" and "chlorine usage" 
+                    with proper SQL patterns and recurrence schedules.
+                  </p>
+                  <ul className="text-sm text-success-800 space-y-1">
+                    <li>• Business term recognition with synonyms</li>
+                    <li>• Metric awareness (targets & compliance rates)</li>
+                    <li>• Pre-validated query templates</li>
+                    <li>• Improved multi-table JOIN accuracy</li>
                   </ul>
                 </div>
               </div>

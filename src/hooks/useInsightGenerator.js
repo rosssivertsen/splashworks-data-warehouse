@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { buildEnhancedSchemaContext } from '../utils/schemaMetadata';
 import { getAllBusinessTerms, getAllMetrics } from '../utils/semanticLayer';
+import { useAISettings } from './useLocalStorage';
+import { aiService } from '../services/aiService';
 
 const useInsightGenerator = (database, apiKey, setIsLoading) => {
+  const aiSettings = useAISettings();
   const [insights, setInsights] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generateInsights = async () => {
-    if (!apiKey) {
-      alert('Please set your OpenAI API key in Settings to use AI insights.');
+    const currentApiKey = aiSettings.getCurrentApiKey();
+    
+    if (!currentApiKey) {
+      alert('Please set your AI API key in Settings to use AI insights.');
       return;
     }
 
@@ -85,64 +90,25 @@ Important:
 - Insight types must be: Trend, Anomaly, Opportunity, or Warning
 - Each object must have all 5 required fields`;
 
-      console.log('Sending insights prompt to OpenAI');
+      console.log('Sending insights prompt to AI');
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a business intelligence analyst. Generate actionable insights from database schema. Return valid JSON only.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: 1000,
-          temperature: 0.3
-        })
+      const systemPrompt = 'You are a business intelligence analyst. Generate actionable insights from database schema. Return valid JSON only.';
+      
+      // Use AI service abstraction for provider-agnostic insight generation
+      const content = await aiService.generateInsights({
+        provider: aiSettings.settings.provider,
+        apiKey: currentApiKey,
+        model: aiSettings.getCurrentModel(),
+        prompt: prompt,
+        systemPrompt: systemPrompt,
+        maxTokens: 1000,
+        temperature: 0.3
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`OpenAI API Error: ${errorData.error?.message || response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('OpenAI insights response:', data);
-
-      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error('Invalid response from OpenAI API');
-      }
-
-      const content = data.choices[0].message.content.trim();
       console.log('Generated insights content:', content);
-
-      let generatedInsights;
-      try {
-        // Try to parse as JSON directly
-        generatedInsights = JSON.parse(content);
-      } catch (parseError) {
-        // If direct parsing fails, try to extract JSON from the content
-        const jsonMatch = content.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          generatedInsights = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
-        }
-      }
-
-      if (!Array.isArray(generatedInsights)) {
-        throw new Error('AI response is not an array of insights');
-      }
-
+      
+      // Content is already parsed by aiService.generateInsights()
+      const generatedInsights = Array.isArray(content) ? content : [content];
+      
       console.log('Parsed insights:', generatedInsights);
 
       // Test queries and add results

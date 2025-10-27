@@ -4,10 +4,13 @@ import React, { useState, useEffect } from 'react';
     import SafeIcon from '../common/SafeIcon';
     import { formatDateWithDefaults, getCurrentDateTime, getDefaultDate } from '../utils/dateUtils';
     import { buildEnhancedSchemaContext, suggestQueryApproach } from '../utils/schemaMetadata';
+    import { useAISettings } from '../hooks/useLocalStorage';
+    import { aiService } from '../services/aiService';
 
     const { FiMessageSquare, FiSend, FiLoader, FiDatabase, FiZap } = FiIcons;
 
     const AIQueryInterface = ({ database, apiKey, onQueryExecute, isLoading, setIsLoading }) => {
+      const aiSettings = useAISettings();
       const [question, setQuestion] = useState('');
       const [conversation, setConversation] = useState([]);
       const [dbSchema, setDbSchema] = useState('');
@@ -30,8 +33,10 @@ import React, { useState, useEffect } from 'react';
       };
 
       const generateSQLFromQuestion = async (userQuestion) => {
-        if (!apiKey) {
-          throw new Error('OpenAI API key is required. Please set it in the Settings tab.');
+        const currentApiKey = aiSettings.getCurrentApiKey();
+        
+        if (!currentApiKey) {
+          throw new Error('AI API key is required. Please set it in the Settings tab.');
         }
 
         const currentDate = getCurrentDateTime();
@@ -75,37 +80,19 @@ import React, { useState, useEffect } from 'react';
 
     Return only the SQL query without any explanation or formatting. The query should be valid SQLite syntax.`;
 
+        const systemPrompt = 'You are a SQL expert. Convert natural language questions to SQL queries for SQLite databases. Return only the SQL query without any explanation. Always format dates as YYYY-MM-DD HH:MM:SS.';
+
         try {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: 'gpt-3.5-turbo',
-              messages: [
-                {
-                  role: 'system',
-                  content: 'You are a SQL expert. Convert natural language questions to SQL queries for SQLite databases. Return only the SQL query without any explanation. Always format dates as YYYY-MM-DD HH:MM:SS.'
-                },
-                {
-                  role: 'user',
-                  content: prompt
-                }
-              ],
-              max_tokens: 200,
-              temperature: 0.1
-            })
+          // Use AI service abstraction for provider-agnostic query generation
+          let query = await aiService.generateSQL({
+            provider: aiSettings.settings.provider,
+            apiKey: currentApiKey,
+            model: aiSettings.getCurrentModel(),
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: 500,
+            temperature: 0.1
           });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Failed to generate SQL query');
-          }
-
-          const data = await response.json();
-          let query = data.choices[0].message.content.trim();
 
           // Clean up the query - remove any markdown formatting or explanation
           query = query.replace(/```sql/gi, '').replace(/```/g, '').trim();
@@ -266,7 +253,7 @@ import React, { useState, useEffect } from 'react';
               />
               <button
                 onClick={handleSubmit}
-                disabled={!question.trim() || isLoading || !apiKey}
+                disabled={!question.trim() || isLoading || !aiSettings.hasValidApiKey()}
                 className="bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors self-end"
               >
                 {isLoading ? (
@@ -278,10 +265,10 @@ import React, { useState, useEffect } from 'react';
               </button>
             </div>
 
-            {!apiKey && (
+            {!aiSettings.hasValidApiKey() && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-yellow-800 text-sm">
-                  Please set your OpenAI API key in the Settings tab to use AI queries.
+                  Please set your AI API key in the Settings tab to use AI queries.
                 </p>
               </div>
             )}

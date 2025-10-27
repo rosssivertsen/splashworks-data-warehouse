@@ -112,7 +112,7 @@ const useLocalStorage = (key, initialValue, options = {}) => {
 };
 
 /**
- * Specialized hook for managing API key storage
+ * Specialized hook for managing API key storage (legacy - use useAISettings)
  */
 export const useApiKey = () => {
   const [apiKey, setApiKey, removeApiKey, hasApiKey] = useLocalStorage('openai_api_key', '', {
@@ -148,6 +148,138 @@ export const useApiKey = () => {
     removeApiKey,
     hasApiKey,
     isValidApiKey: isValidApiKey(apiKey)
+  };
+};
+
+/**
+ * Specialized hook for managing AI provider settings
+ * Supports multiple AI providers (OpenAI, Anthropic, etc.)
+ */
+export const useAISettings = () => {
+  const defaultSettings = {
+    provider: 'openai', // 'openai' or 'anthropic'
+    openaiApiKey: '',
+    anthropicApiKey: '',
+    openaiModel: 'gpt-3.5-turbo',
+    anthropicModel: 'claude-3-5-sonnet-20241022'
+  };
+
+  const [settings, setSettings, removeSettings] = useLocalStorage(
+    'ai_settings',
+    defaultSettings,
+    {
+      errorHandler: (message, error) => {
+        console.warn('AI settings storage error:', message, error);
+      }
+    }
+  );
+
+  // Validate API key format
+  const isValidOpenAIKey = useCallback((key) => {
+    return typeof key === 'string' && key.startsWith('sk-') && key.length > 20;
+  }, []);
+
+  const isValidAnthropicKey = useCallback((key) => {
+    return typeof key === 'string' && key.startsWith('sk-ant-') && key.length > 20;
+  }, []);
+
+  // Update a single setting
+  const updateSetting = useCallback((key, value) => {
+    setSettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  }, [setSettings]);
+
+  // Update provider
+  const setProvider = useCallback((provider) => {
+    updateSetting('provider', provider);
+  }, [updateSetting]);
+
+  // Update API keys with validation
+  const setOpenAIKey = useCallback((key) => {
+    if (!key || key.trim() === '') {
+      updateSetting('openaiApiKey', '');
+      return true;
+    }
+    
+    if (isValidOpenAIKey(key)) {
+      updateSetting('openaiApiKey', key);
+      return true;
+    }
+    
+    console.warn('Invalid OpenAI API key format');
+    return false;
+  }, [updateSetting, isValidOpenAIKey]);
+
+  const setAnthropicKey = useCallback((key) => {
+    if (!key || key.trim() === '') {
+      updateSetting('anthropicApiKey', '');
+      return true;
+    }
+    
+    if (isValidAnthropicKey(key)) {
+      updateSetting('anthropicApiKey', key);
+      return true;
+    }
+    
+    console.warn('Invalid Anthropic API key format');
+    return false;
+  }, [updateSetting, isValidAnthropicKey]);
+
+  // Update models
+  const setOpenAIModel = useCallback((model) => {
+    updateSetting('openaiModel', model);
+  }, [updateSetting]);
+
+  const setAnthropicModel = useCallback((model) => {
+    updateSetting('anthropicModel', model);
+  }, [updateSetting]);
+
+  // Get current API key based on selected provider
+  const getCurrentApiKey = useCallback(() => {
+    return settings.provider === 'openai' 
+      ? settings.openaiApiKey 
+      : settings.anthropicApiKey;
+  }, [settings]);
+
+  // Get current model based on selected provider
+  const getCurrentModel = useCallback(() => {
+    return settings.provider === 'openai'
+      ? settings.openaiModel
+      : settings.anthropicModel;
+  }, [settings]);
+
+  // Check if current provider has valid API key
+  const hasValidApiKey = useCallback(() => {
+    if (settings.provider === 'openai') {
+      return isValidOpenAIKey(settings.openaiApiKey);
+    } else if (settings.provider === 'anthropic') {
+      return isValidAnthropicKey(settings.anthropicApiKey);
+    }
+    return false;
+  }, [settings, isValidOpenAIKey, isValidAnthropicKey]);
+
+  // Reset to defaults
+  const resetSettings = useCallback(() => {
+    setSettings(defaultSettings);
+  }, [setSettings]);
+
+  return {
+    settings,
+    setProvider,
+    setOpenAIKey,
+    setAnthropicKey,
+    setOpenAIModel,
+    setAnthropicModel,
+    updateSetting,
+    getCurrentApiKey,
+    getCurrentModel,
+    hasValidApiKey,
+    resetSettings,
+    removeSettings,
+    isValidOpenAIKey: isValidOpenAIKey(settings.openaiApiKey),
+    isValidAnthropicKey: isValidAnthropicKey(settings.anthropicApiKey)
   };
 };
 
