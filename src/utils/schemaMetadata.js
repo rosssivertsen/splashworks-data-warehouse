@@ -215,7 +215,7 @@ export const foreignKeys = [
   { table: 'InstalledItem', column: 'EquipmentItemId', references: 'EquipmentItem', cardinality: 'many:1', required: false },
   { table: 'InstalledItem', column: 'ChemicalId', references: 'Chemical', cardinality: 'many:1', required: false },
   { table: 'InstalledItem', column: 'ProductId', references: 'Product', cardinality: 'many:1', required: false },
-};
+];
 
 // ============================================================================
 // COMMON JOIN PATHS (FOR AI QUERY GENERATION)
