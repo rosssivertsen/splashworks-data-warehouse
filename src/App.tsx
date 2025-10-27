@@ -136,41 +136,41 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pool-blue-50 to-service-100">
-      <div className="container mx-auto">
-        {/* Header */}
-        <header className="bg-white border-b border-service-200 px-6 py-4">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-neutral-50">
+      <div className="mx-auto" style={{ maxWidth: '1400px' }}>
+        {/* Header - 80px desktop, 64px tablet, 56px mobile */}
+        <header className="bg-white border-b border-neutral-200 px-8 md:px-6 lg:px-8 h-14 md:h-16 lg:h-20 flex items-center">
+          <div className="flex items-center justify-between w-full">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-pool-gradient rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
                 <SafeIcon icon={FiDatabase} className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-service-900">Pool Service BI Dashboard</h1>
-                <p className="text-sm text-service-600">AI-powered Business Intelligence</p>
+                <h1 className="text-xl md:text-2xl font-bold text-neutral-900">Pool Service BI Dashboard</h1>
+                <p className="text-xs md:text-sm text-neutral-600">AI-powered Business Intelligence</p>
               </div>
             </div>
             {database && (
               <div className="flex items-center space-x-2 text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-service-600">Database Connected</span>
+                <div className="w-2 h-2 bg-success-500 rounded-full"></div>
+                <span className="text-neutral-600">Database Connected</span>
               </div>
             )}
           </div>
         </header>
 
-        {/* Navigation */}
-        <div className="bg-white border-b border-service-200">
-          <nav className="px-6">
-            <div className="flex space-x-0 overflow-x-auto">
+        {/* Navigation - 64px desktop, 56px tablet/mobile */}
+        <div className="bg-white border-b border-neutral-200">
+          <nav className="px-8 md:px-6 lg:px-8">
+            <div className="flex space-x-0 overflow-x-auto h-14 lg:h-16">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                  className={`flex items-center space-x-2 px-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
                     activeTab === tab.id
-                      ? 'border-pool-blue-500 text-pool-blue-600 bg-pool-blue-50'
-                      : 'border-transparent text-service-600 hover:text-service-800 hover:border-service-300'
+                      ? 'border-primary-500 text-primary-600 bg-primary-50'
+                      : 'border-transparent text-neutral-600 hover:text-neutral-800 hover:border-neutral-300'
                   }`}
                 >
                   <SafeIcon icon={tab.icon} className="w-4 h-4" />
@@ -181,8 +181,8 @@ function App() {
           </nav>
         </div>
 
-        {/* Tab Content */}
-        <div className="p-6 min-h-[600px]">
+        {/* Tab Content - Responsive padding: 24px desktop, 16px tablet, 12px mobile */}
+        <div className="p-3 md:p-4 lg:p-6 min-h-[600px]">
           {activeTab === 'upload' && (
             <DatabaseUploader 
               sqlInstance={sqlInstance} 
