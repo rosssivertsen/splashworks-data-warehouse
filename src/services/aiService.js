@@ -74,36 +74,29 @@ class AIService {
   }
 
   /**
-   * Call OpenAI API
+   * Call OpenAI API via Netlify serverless function
    * @private
    */
   async callOpenAI(apiKey, model, prompt, systemPrompt, maxTokens, temperature) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('/.netlify/functions/ai-query', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        provider: 'openai',
+        apiKey,
         model: model || DEFAULT_MODELS.openai,
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: maxTokens,
-        temperature: temperature
+        prompt,
+        systemPrompt,
+        maxTokens,
+        temperature
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`OpenAI API Error: ${errorData.error?.message || response.statusText}`);
+      throw new Error(`OpenAI API Error: ${errorData.message || errorData.error || response.statusText}`);
     }
 
     const data = await response.json();
@@ -116,34 +109,29 @@ class AIService {
   }
 
   /**
-   * Call Anthropic API
+   * Call Anthropic API via Netlify serverless function
    * @private
    */
   async callAnthropic(apiKey, model, prompt, systemPrompt, maxTokens, temperature) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/.netlify/functions/ai-query', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        provider: 'anthropic',
+        apiKey,
         model: model || DEFAULT_MODELS.anthropic,
-        max_tokens: maxTokens,
-        temperature: temperature,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
+        prompt,
+        systemPrompt,
+        maxTokens,
+        temperature
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Anthropic API Error: ${errorData.error?.message || response.statusText}`);
+      throw new Error(`Anthropic API Error: ${errorData.message || errorData.error || response.statusText}`);
     }
 
     const data = await response.json();

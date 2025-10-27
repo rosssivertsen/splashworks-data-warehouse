@@ -1,0 +1,26 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# Redirect all routes to index.html for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Function configuration
+[functions]
+  # Directory for serverless functions
+  directory = "netlify/functions"
+  
+  # Node version
+  node_bundler = "esbuild"
+
+# Dev server configuration
+[dev]
+  command = "npm run dev"
+  port = 8888
+  targetPort = 5173
+  publish = "dist"
+  functions = "netlify/functions"
