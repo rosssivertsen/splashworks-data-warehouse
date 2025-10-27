@@ -64,6 +64,9 @@ import React, { useState, useEffect } from 'react';
     - Use the foreign key relationships shown in the schema
     - For multi-table queries, JOIN tables using the documented foreign keys
     - Pay close attention to all values and conditions specified in the question
+    - When searching for chemicals, products, or descriptions, ALWAYS use LIKE with wildcards (e.g., "WHERE Description LIKE '%chlorine%'") NOT exact match with =
+    - Chemical names in the database include units like "Chlorine (Oz)" and "Chlorine (gal)" so you must use LIKE '%chemical_name%' to match them
+    - For "most" or "highest" queries, use SUM() aggregation and GROUP BY
     - All date columns should be returned in ISO 8601 format: "YYYY-MM-DD HH:MM:SS"
     - If a time is not specified in the question, default to "00:00:00" (midnight)
     - Current datetime is: ${currentDate}
@@ -202,7 +205,7 @@ import React, { useState, useEffect } from 'react';
       const exampleQuestions = [
         'Show me top 10 customers by revenue',
         'Which technicians completed the most service stops last month?',
-        'Show pools that received the most chlorine in the last 30 days',
+        'Which pools have the highest chemical usage where description contains chlorine?',
         'List customers with multiple service locations',
         'What are the most common work order types?',
         'Show service stops with chemical readings outside normal range'
