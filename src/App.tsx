@@ -147,11 +147,6 @@ function App() {
         <header className="bg-white border-b border-neutral-200 px-8 md:px-6 lg:px-8 h-14 md:h-16 lg:h-20 flex items-center">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center space-x-4">
-              <img 
-                src="/splashworks-logo.svg" 
-                alt="Splashworks" 
-                className="h-8 md:h-10 lg:h-12 w-auto"
-              />
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-neutral-900">Splashworks Pool Service BI Visualizer</h1>
                 <p className="text-xs md:text-sm text-neutral-600">AI-powered Business Intelligence</p>

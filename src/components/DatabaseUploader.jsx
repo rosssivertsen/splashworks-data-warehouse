@@ -78,7 +78,7 @@ const DatabaseUploader = ({ sqlInstance, onDatabaseLoad, onFileUpload }) => {
       <div className="text-center">
         <SafeIcon icon={FiDatabase} className="w-12 h-12 text-blue-500 mx-auto mb-4" />
         <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-          Upload SQLite Database
+          Upload Skimmer Database
         </h2>
         <p className="text-gray-600">
           Select a SQLite database file from your local system to start creating BI dashboards
