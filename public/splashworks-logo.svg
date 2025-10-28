@@ -1,21 +1,43 @@
-<svg width="200" height="60" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
-  <!-- Water/Wave Background -->
-  <circle cx="25" cy="30" r="20" fill="#0EA5E9" opacity="0.1"/>
+<svg width="240" height="60" viewBox="0 0 240 60" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Blue gradient for water -->
+    <linearGradient id="waterGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00B4D8"/>
+      <stop offset="100%" style="stop-color:#0077BE"/>
+    </linearGradient>
+    <!-- Yellow gradient for sun -->
+    <radialGradient id="sunGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#FFD60A"/>
+      <stop offset="100%" style="stop-color:#FFB700"/>
+    </radialGradient>
+  </defs>
   
-  <!-- Sun Element -->
-  <circle cx="25" cy="18" r="8" fill="#F59E0B"/>
-  <path d="M25 5 L27 12 L25 10 L23 12 Z" fill="#F59E0B"/>
-  <path d="M35 18 L28 20 L30 18 L28 16 Z" fill="#F59E0B"/>
-  <path d="M25 31 L23 24 L25 26 L27 24 Z" fill="#F59E0B"/>
-  <path d="M15 18 L22 16 L20 18 L22 20 Z" fill="#F59E0B"/>
+  <!-- Main water circle -->
+  <circle cx="25" cy="30" r="22" fill="url(#waterGradient)" stroke="#0077BE" stroke-width="1"/>
   
-  <!-- Water Waves -->
-  <path d="M8 35 Q15 32 22 35 Q29 38 36 35 Q43 32 50 35" stroke="#0EA5E9" stroke-width="2" fill="none"/>
-  <path d="M5 40 Q12 37 19 40 Q26 43 33 40 Q40 37 47 40" stroke="#0EA5E9" stroke-width="1.5" fill="none" opacity="0.7"/>
+  <!-- Water wave detail inside circle -->
+  <path d="M8 35 Q15 32 25 35 Q35 38 42 35" stroke="#ffffff" stroke-width="1.5" fill="none" opacity="0.6"/>
+  <path d="M10 40 Q20 37 25 40 Q30 43 40 40" stroke="#ffffff" stroke-width="1" fill="none" opacity="0.4"/>
   
-  <!-- Splashworks Text -->
-  <text x="55" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#1E40AF">Splashworks</text>
+  <!-- Sun element -->
+  <circle cx="35" cy="18" r="12" fill="url(#sunGradient)" stroke="#FFB700" stroke-width="0.5"/>
+  
+  <!-- Sun rays -->
+  <g stroke="#FFB700" stroke-width="2" stroke-linecap="round">
+    <line x1="35" y1="2" x2="35" y2="6"/>
+    <line x1="45" y1="8" x2="42" y2="11"/>
+    <line x1="48" y1="18" x2="44" y2="18"/>
+    <line x1="45" y1="28" x2="42" y2="25"/>
+    <line x1="35" y1="34" x2="35" y2="30"/>
+    <line x1="25" y1="28" x2="28" y2="25"/>
+    <line x1="22" y1="18" x2="26" y2="18"/>
+    <line x1="25" y1="8" x2="28" y2="11"/>
+  </g>
+  
+  <!-- Splashworks text -->
+  <text x="60" y="28" font-family="Arial Black, Arial" font-size="22" font-weight="900" fill="#1B365D">Splash</text>
+  <text x="132" y="28" font-family="Arial Black, Arial" font-size="22" font-weight="900" fill="#0077BE">works</text>
   
   <!-- Tagline -->
-  <text x="55" y="38" font-family="Arial, sans-serif" font-size="8" font-weight="normal" fill="#64748B" letter-spacing="1px">POOL MAINTENANCE SIMPLIFIED</text>
+  <text x="60" y="43" font-family="Arial, sans-serif" font-size="9" font-weight="600" fill="#1B365D" letter-spacing="1.2px">POOL MAINTENANCE SIMPLIFIED</text>
 </svg>
