@@ -313,7 +313,7 @@ git push origin --tags
 
 ### Emergency Deployment Process
 
-#### For Critical Hotfixes:
+#### For Critical hotfix:
 ```bash
 # Skip staging for emergency fixes (use with caution)
 npm run promote:direct
