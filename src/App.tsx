@@ -57,7 +57,7 @@ function App() {
       const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
         description: 'Executive dashboard for pool service business metrics (restored)'
       })
-      setSelectedDashboard(defaultDashboard as any)
+      setSelectedDashboard(defaultDashboard)
       setActiveTab('aiAssistant')
     }
   }, [database, selectedDashboard, dashboards.length, sqlInstance, createDashboard, setSelectedDashboard, setActiveTab])
