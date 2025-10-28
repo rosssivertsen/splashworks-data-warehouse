@@ -148,7 +148,7 @@ function App() {
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center space-x-4">
               <img 
-                src="/splashworks-logo.svg" 
+                src="/splashworks-logo.png" 
                 alt="Splashworks" 
                 className="h-8 md:h-10 lg:h-12 w-auto"
               />
