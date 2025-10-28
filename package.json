@@ -1,9 +1,9 @@
 {
-  "name": "pool-service-bi-dashboard",
+  "name": "splashworks-pool-service-bi-visualizer",
   "private": true,
   "version": "1.0.1",
   "type": "module",
-  "description": "AI-powered Business Intelligence Dashboard for Pool Service Management Companies",
+  "description": "Splashworks Pool Service BI Visualizer - AI-powered Business Intelligence Platform",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

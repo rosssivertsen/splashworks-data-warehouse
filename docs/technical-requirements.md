@@ -1,4 +1,4 @@
-# Pool Service BI Dashboard - Technical Requirements & Implementation Guide
+# Splashworks Pool Service BI Visualizer - Technical Requirements & Implementation Guide
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -16,7 +16,7 @@
 
 ## Overview
 
-The Pool Service BI Dashboard is a React-TypeScript application that transforms SQLite databases into interactive, AI-powered business intelligence dashboards. Built specifically for pool service businesses, it features comprehensive data persistence, real-time analytics, and natural language querying capabilities.
+The Splashworks Pool Service BI Visualizer is a React-TypeScript application that transforms SQLite databases into interactive, AI-powered business intelligence dashboards. Built specifically for pool service businesses, it features comprehensive data persistence, real-time analytics, and natural language querying capabilities.
 
 ### Key Features ✅ IMPLEMENTED & TESTED
 - **SQLite Database Processing**: Upload and analyze large databases (54MB-140MB tested)

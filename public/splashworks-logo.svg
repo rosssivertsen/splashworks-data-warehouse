@@ -1,0 +1,21 @@
+<svg width="200" height="60" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <!-- Water/Wave Background -->
+  <circle cx="25" cy="30" r="20" fill="#0EA5E9" opacity="0.1"/>
+  
+  <!-- Sun Element -->
+  <circle cx="25" cy="18" r="8" fill="#F59E0B"/>
+  <path d="M25 5 L27 12 L25 10 L23 12 Z" fill="#F59E0B"/>
+  <path d="M35 18 L28 20 L30 18 L28 16 Z" fill="#F59E0B"/>
+  <path d="M25 31 L23 24 L25 26 L27 24 Z" fill="#F59E0B"/>
+  <path d="M15 18 L22 16 L20 18 L22 20 Z" fill="#F59E0B"/>
+  
+  <!-- Water Waves -->
+  <path d="M8 35 Q15 32 22 35 Q29 38 36 35 Q43 32 50 35" stroke="#0EA5E9" stroke-width="2" fill="none"/>
+  <path d="M5 40 Q12 37 19 40 Q26 43 33 40 Q40 37 47 40" stroke="#0EA5E9" stroke-width="1.5" fill="none" opacity="0.7"/>
+  
+  <!-- Splashworks Text -->
+  <text x="55" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#1E40AF">Splashworks</text>
+  
+  <!-- Tagline -->
+  <text x="55" y="38" font-family="Arial, sans-serif" font-size="8" font-weight="normal" fill="#64748B" letter-spacing="1px">POOL MAINTENANCE SIMPLIFIED</text>
+</svg>

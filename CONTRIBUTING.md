@@ -1,4 +1,4 @@
-# Contributing to Pool Service BI Dashboard
+# Contributing to Splashworks Pool Service BI Visualizer
 
 ## 🎯 Overview
 

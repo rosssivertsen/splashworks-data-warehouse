@@ -146,12 +146,14 @@ function App() {
         {/* Header - 80px desktop, 64px tablet, 56px mobile */}
         <header className="bg-white border-b border-neutral-200 px-8 md:px-6 lg:px-8 h-14 md:h-16 lg:h-20 flex items-center">
           <div className="flex items-center justify-between w-full">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
-                <SafeIcon icon={FiDatabase} className="w-6 h-6 text-white" />
-              </div>
+            <div className="flex items-center space-x-4">
+              <img 
+                src="/splashworks-logo.svg" 
+                alt="Splashworks" 
+                className="h-8 md:h-10 lg:h-12 w-auto"
+              />
               <div>
-                <h1 className="text-xl md:text-2xl font-bold text-neutral-900">Pool Service BI Dashboard</h1>
+                <h1 className="text-xl md:text-2xl font-bold text-neutral-900">Splashworks Pool Service BI Visualizer</h1>
                 <p className="text-xs md:text-sm text-neutral-600">AI-powered Business Intelligence</p>
               </div>
             </div>
