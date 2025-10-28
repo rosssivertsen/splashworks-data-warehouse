@@ -202,11 +202,191 @@ Examples:
 - Automated testing on PR creation
 - Build verification for all branches
 - Automated deployment to appropriate environments
+- **Note**: CI/CD workflows currently disabled - using manual deployment process
 
 ### Quality Gates:
 - Development: All tests pass, ESLint clean
 - Staging: Integration tests pass, performance benchmarks met  
 - Production: Full test suite pass, security scan clean
+
+## 🚀 Manual Deployment Process
+
+### Overview
+Due to GitHub Actions workflow issues, we use a manual deployment process with automated scripts for change promotion between environments.
+
+### Branch Status & Deployment Flow
+```
+development (latest features) → staging (testing) → main (production)
+```
+
+### Phase 1: Development → Staging
+
+#### Prerequisites:
+- All development changes committed and pushed
+- Local testing completed
+- Feature/bug documentation updated
+
+#### Manual Promotion Commands:
+```bash
+# Method 1: Using automated promotion script
+npm run promote:staging
+
+# Method 2: Using direct script
+./scripts/promote.sh development staging
+
+# Method 3: Manual git commands
+git checkout staging
+git pull origin staging
+git merge development
+git push origin staging
+```
+
+#### Validation Steps:
+1. **Build Verification**: `npm run build` (must succeed)
+2. **Local Testing**: `npm run preview` (smoke test)
+3. **Deploy to Staging**: Deploy to staging environment for UAT
+4. **Functional Testing**: Verify core features work correctly
+
+### Phase 2: Staging Testing & Validation
+
+#### Required Testing:
+- **Database Upload Tests**: Verify SQLite file processing
+- **AI Query Functionality**: Test OpenAI and Anthropic integrations
+- **Dashboard Persistence**: Confirm localStorage and dashboard operations
+- **Tab Navigation**: Validate all interface tabs function properly
+- **Settings Management**: Test API key storage and validation
+- **Semantic Layer**: Verify business logic and query enhancement
+
+#### Testing Checklist:
+```bash
+# Build and test locally
+npm run build
+npm run preview
+
+# Deploy to staging environment (if available)
+netlify deploy --dir=dist --site=staging-site-id
+
+# Run test suite
+npm run test
+npm run test:coverage
+```
+
+#### Sign-off Requirements:
+- [ ] Technical validation complete
+- [ ] Business functionality verified  
+- [ ] Performance acceptable
+- [ ] No critical bugs identified
+- [ ] Documentation updated
+
+### Phase 3: Staging → Production (Main)
+
+#### Prerequisites:
+- Staging environment fully tested
+- All stakeholders approve deployment
+- Rollback plan documented
+- Production deployment window scheduled
+
+#### Promotion Commands:
+```bash
+# Method 1: Using automated promotion script
+npm run promote:production
+
+# Method 2: Using direct script
+./scripts/promote.sh staging main
+
+# Method 3: Manual git commands
+git checkout main
+git pull origin main
+git merge staging
+git push origin main
+
+# Optional: Tag release for tracking
+git tag -a v1.2.0 -m "Release v1.2.0: Semantic layer and multi-provider AI"
+git push origin --tags
+```
+
+#### Post-Deployment Verification:
+1. **Production Health Check**: Verify application loads
+2. **Core Functionality Test**: Quick smoke test of key features
+3. **Performance Monitoring**: Check response times and resource usage
+4. **User Notification**: Announce deployment if user-facing changes
+
+### Emergency Deployment Process
+
+#### For Critical Hotfixes:
+```bash
+# Skip staging for emergency fixes (use with caution)
+npm run promote:direct
+# OR
+./scripts/promote.sh development main
+```
+
+#### Emergency Procedures:
+1. **Immediate Impact Assessment**: Document the critical issue
+2. **Hotfix Development**: Create minimal fix in development branch  
+3. **Rapid Testing**: Essential functionality testing only
+4. **Direct Deployment**: Bypass staging with proper authorization
+5. **Post-Deployment**: Full regression testing in staging afterward
+
+### Rollback Procedures
+
+#### Git-Based Rollback:
+```bash
+# Rollback to previous commit
+git checkout main
+git reset --hard HEAD~1
+git push origin main --force-with-lease
+
+# Rollback to specific version
+git checkout main
+git reset --hard [commit-hash]
+git push origin main --force-with-lease
+```
+
+#### Tag-Based Rollback:
+```bash
+# Rollback to tagged release
+git checkout main
+git reset --hard v1.1.0
+git push origin main --force-with-lease
+```
+
+### Deployment Scripts Reference
+
+#### Available NPM Commands:
+```bash
+# Branch promotion commands
+npm run promote:staging        # development → staging  
+npm run promote:production     # staging → main
+npm run promote:direct         # development → main (emergency)
+
+# Pipeline commands  
+npm run pipeline:full          # development → staging → main
+npm run deploy                 # Quick deployment script
+npm run ship                   # Alias for deploy
+```
+
+#### Script Locations:
+- **Promotion Script**: `./scripts/promote.sh`
+- **Deployment Script**: `./scripts/deploy.sh`  
+- **Quick Deploy**: `./scripts/quick-deploy.sh`
+
+### Monitoring & Validation
+
+#### Pre-Deployment Checks:
+- [ ] Code compiles successfully (`npm run build`)
+- [ ] Tests pass (`npm run test`)
+- [ ] Linting clean (`npm run lint`)
+- [ ] Dependencies up to date
+- [ ] Environment variables configured
+
+#### Post-Deployment Validation:
+- [ ] Application accessible
+- [ ] Database connection working
+- [ ] AI services responding
+- [ ] User authentication functional
+- [ ] No console errors
+- [ ] Performance within acceptable ranges
 
 ## 📋 Change Approval Matrix
 
