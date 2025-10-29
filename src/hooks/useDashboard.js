@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import useLocalStorage from './useLocalStorage';
+import useLocalStorage, { useAISettings } from './useLocalStorage';
+import { aiService } from '../services/aiService';
 
 /**
  * Custom hook for managing dashboard state and operations
@@ -160,9 +161,17 @@ const useDashboard = () => {
   }, [getDashboard]);
 
   // Generate AI-powered dashboard
-  const generateAIDashboard = useCallback(async (database, apiKey, name = 'AI Generated Dashboard') => {
-    if (!apiKey) {
-      throw new Error('OpenAI API key is required for AI dashboard generation');
+  const generateAIDashboard = useCallback(async (database, settings, name = 'AI Generated Dashboard') => {
+    // Get current API key and model based on provider
+    const currentApiKey = settings.provider === 'openai' 
+      ? settings.openaiApiKey 
+      : settings.anthropicApiKey;
+    const currentModel = settings.provider === 'openai'
+      ? settings.openaiModel
+      : settings.anthropicModel;
+
+    if (!currentApiKey) {
+      throw new Error('API key is required for AI dashboard generation');
     }
 
     setIsGenerating(true);
@@ -191,18 +200,7 @@ const useDashboard = () => {
       }
 
       // Generate dashboard configuration using AI
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a BI dashboard expert. Create a comprehensive dashboard configuration based on the database schema.
+      const systemPrompt = `You are a BI dashboard expert. Create a comprehensive dashboard configuration based on the database schema.
 
 ${schema}
 
@@ -225,24 +223,19 @@ Rules:
 2. Use different chart types appropriately
 3. Focus on key business metrics
 4. Ensure all SQL queries are valid
-5. Make queries insightful and useful`
-            },
-            {
-              role: 'user',
-              content: 'Generate a comprehensive dashboard for this database'
-            }
-          ],
-          max_tokens: 1500,
-          temperature: 0.3
-        })
+5. Make queries insightful and useful`;
+
+      const response = await aiService.generateSQL({
+        provider: settings.provider,
+        apiKey: currentApiKey,
+        model: currentModel,
+        prompt: 'Generate a comprehensive dashboard for this database',
+        systemPrompt: systemPrompt,
+        maxTokens: 1500,
+        temperature: 0.3
       });
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const dashboardConfig = JSON.parse(data.choices[0].message.content.trim());
+      const dashboardConfig = JSON.parse(response.trim());
 
       // Create the dashboard
       const aiDashboard = createDashboard(dashboardConfig.name || name, {
