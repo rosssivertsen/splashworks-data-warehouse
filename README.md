@@ -1,6 +1,6 @@
-# Pool Service BI Dashboard
+# Splashworks Pool Service BI Visualizer
 
-AI-powered Business Intelligence Dashboard for Pool Service Management Companies
+AI-powered Business Intelligence Platform for Pool Service Management Companies
 
 [![CI/CD](https://github.com/your-org/pool-service-bi/workflows/Pool%20Service%20BI%20Dashboard%20-%20CI/CD/badge.svg)](https://github.com/your-org/pool-service-bi/actions)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -9,7 +9,7 @@ AI-powered Business Intelligence Dashboard for Pool Service Management Companies
 
 ## 🎯 Overview
 
-The Pool Service BI Dashboard is a specialized business intelligence platform designed specifically for pool service management companies. It combines AI-powered analytics with industry-specific insights to help pool service businesses optimize operations, improve customer retention, and increase profitability.
+The Splashworks Pool Service BI Visualizer is a specialized business intelligence platform designed specifically for pool service management companies. It combines AI-powered analytics with industry-specific insights to help pool service businesses optimize operations, improve customer retention, and increase profitability.
 
 ## ✨ Features
 

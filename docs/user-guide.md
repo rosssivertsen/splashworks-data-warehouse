@@ -1,4 +1,4 @@
-# Pool Service BI Dashboard - User Guide
+# Splashworks Pool Service BI Visualizer - User Guide
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -16,7 +16,7 @@
 
 ## Introduction
 
-The Pool Service BI Dashboard is a cutting-edge business intelligence platform designed specifically for pool service companies. Transform your SQLite databases into powerful, AI-driven dashboards that reveal actionable insights about your business operations, customer management, and revenue opportunities.
+The Splashworks Pool Service BI Visualizer is a cutting-edge business intelligence platform designed specifically for pool service companies. Transform your SQLite databases into powerful, AI-driven dashboards that reveal actionable insights about your business operations, customer management, and revenue opportunities.
 
 ### 🎯 Key Benefits for Pool Service Businesses
 
