@@ -124,7 +124,7 @@ async function handleAnthropic(apiKey, model, prompt, systemPrompt, maxTokens = 
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: model || 'claude-3-5-sonnet-20241022',
+        model: model || 'claude-3-5-sonnet-20240620',
         system: systemPrompt || 'You are a helpful assistant.',
         messages: [
           {

@@ -21,7 +21,7 @@ export const MODELS = {
     { id: 'gpt-4', name: 'GPT-4', description: 'Most capable OpenAI model' }
   ],
   anthropic: [
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Best for SQL (recommended)' },
+    { id: 'claude-3-5-sonnet-20240620', name: 'Claude 3.5 Sonnet', description: 'Best for SQL (recommended)' },
     { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', description: 'Most capable Claude model' },
     { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', description: 'Fast and efficient' }
   ]
@@ -30,7 +30,7 @@ export const MODELS = {
 // Default models per provider
 export const DEFAULT_MODELS = {
   openai: 'gpt-3.5-turbo',
-  anthropic: 'claude-3-5-sonnet-20241022'
+  anthropic: 'claude-3-5-sonnet-20240620'
 };
 
 /**
