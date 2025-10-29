@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-    import { motion, AnimatePresence } from 'framer-motion';
-    import * as FiIcons from 'react-icons/fi';
-    import SafeIcon from '../common/SafeIcon';
+import { motion, AnimatePresence } from 'framer-motion';
+import * as FiIcons from 'react-icons/fi';
+import SafeIcon from '../common/SafeIcon';
+import { aiService } from '../services/aiService';
+import { useAISettings } from '../hooks/useLocalStorage';
 
     const {
       FiMessageSquare, FiSend, FiLoader, FiDatabase, FiTrendingUp,
@@ -12,6 +14,7 @@ import React, { useState, useEffect, useRef } from 'react';
       database, apiKey, onQueryExecute, dashboards, setDashboards,
       selectedDashboard, setSelectedDashboard, isLoading, setIsLoading
     }) => {
+      const { settings } = useAISettings();
       const [messages, setMessages] = useState([]);
       const [inputMessage, setInputMessage] = useState('');
       const [isProcessing, setIsProcessing] = useState(false);
@@ -117,31 +120,27 @@ import React, { useState, useEffect, useRef } from 'react';
         }
     
         try {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: 'gpt-3.5-turbo',
-              messages: [{
-                role: 'system',
-                content: 'You are a BI assistant. Respond with valid JSON when requested, otherwise provide helpful responses.'
-              }, {
-                role: 'user',
-                content: prompt
-              }],
-              max_tokens: 1000,
-              temperature: 0.3
-            })
-          });
-    
-          if (!response.ok) {
-            throw new Error('AI service unavailable');
+          // Get current API key and model based on provider
+          const currentApiKey = settings.provider === 'openai' 
+            ? settings.openaiApiKey 
+            : settings.anthropicApiKey;
+          const currentModel = settings.provider === 'openai'
+            ? settings.openaiModel
+            : settings.anthropicModel;
+
+          if (!currentApiKey) {
+            throw new Error('Please set your API key in Settings');
           }
-          const data = await response.json();
-          const content = data.choices[0].message.content.trim();
+
+          const content = await aiService.generateSQL({
+            provider: settings.provider,
+            apiKey: currentApiKey,
+            model: currentModel,
+            prompt: prompt,
+            systemPrompt: 'You are a BI assistant. Respond with valid JSON when requested, otherwise provide helpful responses.',
+            maxTokens: 1000,
+            temperature: 0.3
+          });
     
           if (action === 'general_response') {
             return content;
@@ -306,7 +305,11 @@ import React, { useState, useEffect, useRef } from 'react';
       };
 
       const handleSendMessage = async () => {
-        if (!inputMessage.trim() || isProcessing || !apiKey) return;
+        const currentApiKey = settings.provider === 'openai' 
+          ? settings.openaiApiKey 
+          : settings.anthropicApiKey;
+        
+        if (!inputMessage.trim() || isProcessing || !currentApiKey) return;
         const userMessage = inputMessage.trim();
         setInputMessage('');
         setIsProcessing(true);
@@ -449,10 +452,10 @@ import React, { useState, useEffect, useRef } from 'react';
           </div>
           {/* Input */}
           <div className="space-y-3">
-            {!apiKey && (
+            {(!settings.openaiApiKey && !settings.anthropicApiKey) && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-800">
-                  Please set your OpenAI API key in Settings to use the AI Assistant.
+                  Please set your AI provider API key in Settings to use the AI Assistant.
                 </p>
               </div>
             )}
@@ -465,11 +468,11 @@ import React, { useState, useEffect, useRef } from 'react';
                 placeholder="Ask me anything about your data..."
                 className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                 rows={2}
-                disabled={!apiKey || isProcessing}
+                disabled={(!settings.openaiApiKey && !settings.anthropicApiKey) || isProcessing}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || isProcessing || !apiKey}
+                disabled={!inputMessage.trim() || isProcessing || (!settings.openaiApiKey && !settings.anthropicApiKey)}
                 className="bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors self-end"
               >
                 {isProcessing ? (
