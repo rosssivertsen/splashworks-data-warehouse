@@ -161,7 +161,7 @@ export const useAISettings = () => {
     openaiApiKey: '',
     anthropicApiKey: '',
     openaiModel: 'gpt-3.5-turbo',
-    anthropicModel: 'claude-3-5-sonnet-20241022'
+    anthropicModel: 'claude-3-5-sonnet-20240620'
   };
 
   const [settings, setSettings, removeSettings] = useLocalStorage(
