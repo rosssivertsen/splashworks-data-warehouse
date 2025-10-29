@@ -19,7 +19,7 @@
 
 # Dev server configuration
 [dev]
-  command = "npm run dev"
+  command = "npm run dev:vite"
   port = 8888
   targetPort = 5173
   publish = "dist"

@@ -78,34 +78,48 @@ class AIService {
    * @private
    */
   async callOpenAI(apiKey, model, prompt, systemPrompt, maxTokens, temperature) {
-    const response = await fetch('/.netlify/functions/ai-query', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        provider: 'openai',
-        apiKey,
-        model: model || DEFAULT_MODELS.openai,
-        prompt,
-        systemPrompt,
-        maxTokens,
-        temperature
-      })
-    });
+    try {
+      const response = await fetch('/.netlify/functions/ai-query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          provider: 'openai',
+          apiKey,
+          model: model || DEFAULT_MODELS.openai,
+          prompt,
+          systemPrompt,
+          maxTokens,
+          temperature
+        })
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`OpenAI API Error: ${errorData.message || errorData.error || response.statusText}`);
+      if (!response.ok) {
+        // Try to parse error response
+        let errorMessage = response.statusText;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          // If parsing fails, use status text
+        }
+        throw new Error(`OpenAI API Error: ${errorMessage}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error('Invalid response from OpenAI API');
+      }
+
+      return data.choices[0].message.content.trim();
+    } catch (error) {
+      if (error.message.includes('fetch')) {
+        throw new Error('Cannot connect to AI service. Make sure you are running "npm run dev" (not "npm run dev:vite") to start the Netlify functions.');
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      throw new Error('Invalid response from OpenAI API');
-    }
-
-    return data.choices[0].message.content.trim();
   }
 
   /**
@@ -113,34 +127,48 @@ class AIService {
    * @private
    */
   async callAnthropic(apiKey, model, prompt, systemPrompt, maxTokens, temperature) {
-    const response = await fetch('/.netlify/functions/ai-query', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        provider: 'anthropic',
-        apiKey,
-        model: model || DEFAULT_MODELS.anthropic,
-        prompt,
-        systemPrompt,
-        maxTokens,
-        temperature
-      })
-    });
+    try {
+      const response = await fetch('/.netlify/functions/ai-query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          provider: 'anthropic',
+          apiKey,
+          model: model || DEFAULT_MODELS.anthropic,
+          prompt,
+          systemPrompt,
+          maxTokens,
+          temperature
+        })
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Anthropic API Error: ${errorData.message || errorData.error || response.statusText}`);
+      if (!response.ok) {
+        // Try to parse error response
+        let errorMessage = response.statusText;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          // If parsing fails, use status text
+        }
+        throw new Error(`Anthropic API Error: ${errorMessage}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.content || !data.content[0] || !data.content[0].text) {
+        throw new Error('Invalid response from Anthropic API');
+      }
+
+      return data.content[0].text.trim();
+    } catch (error) {
+      if (error.message.includes('fetch') || error.message.includes('JSON')) {
+        throw new Error('Cannot connect to AI service. Make sure you are running "npm run dev" (not "npm run dev:vite") to start the Netlify functions.');
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    
-    if (!data.content || !data.content[0] || !data.content[0].text) {
-      throw new Error('Invalid response from Anthropic API');
-    }
-
-    return data.content[0].text.trim();
   }
 
   /**

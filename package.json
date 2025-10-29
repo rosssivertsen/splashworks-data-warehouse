@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Splashworks Pool Service BI Visualizer - AI-powered Business Intelligence Platform",
   "scripts": {
-    "dev": "vite",
+    "dev": "netlify dev",
+    "dev:vite": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest",
@@ -53,6 +54,7 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.12",
     "jsdom": "^27.0.1",
+    "netlify-cli": "^17.36.4",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.2",

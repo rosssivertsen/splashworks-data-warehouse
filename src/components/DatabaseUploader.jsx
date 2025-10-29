@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
@@ -81,7 +81,7 @@ const DatabaseUploader = ({ sqlInstance, onDatabaseLoad, onFileUpload }) => {
           Upload Skimmer Database
         </h2>
         <p className="text-gray-600">
-          Select a SQLite database file from your local system to start creating BI dashboards
+          Select a Skimmer database file from your local system to start creating BI dashboards
         </p>
       </div>
 
