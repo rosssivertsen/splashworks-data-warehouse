@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import OnboardingScreen from './components/OnboardingScreen'
 import DatabaseUploader from './components/DatabaseUploader'
 import DatabaseExplorer from './components/DatabaseExplorer'
 import DashboardView from './components/DashboardView'
@@ -16,7 +17,22 @@ import { AI_PROVIDERS, MODELS, getProviderName } from './services/aiService'
 import './App.css'
 
 function App() {
-  // Use custom hooks for centralized state management
+  // Check if onboarding is complete - initialize from localStorage
+  const [onboardingComplete, setOnboardingComplete] = useState(() => {
+    const onboardingData = localStorage.getItem('onboarding_completed')
+    if (onboardingData) {
+      try {
+        const data = JSON.parse(onboardingData)
+        return data.completed === true
+      } catch (error) {
+        console.error('Error parsing onboarding data:', error)
+        return false
+      }
+    }
+    return false
+  })
+
+  // Use custom hooks for centralized state management (must be called before any conditional returns)
   const { 
     database, 
     sqlInstance, 
@@ -43,6 +59,10 @@ function App() {
   const [activeTab, setActiveTab] = useState('upload')
   const [queryResults, setQueryResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  const handleOnboardingComplete = () => {
+    setOnboardingComplete(true)
+  }
 
   // Handle initial dashboard restoration - run only when dashboard/database state changes, NOT on tab changes
   useEffect(() => {
@@ -110,6 +130,11 @@ function App() {
     { id: 'aiAssistant', label: 'AI Assistant', icon: FiCpu },
     { id: 'settings', label: 'Settings', icon: FiSettings },
   ]
+
+  // Show onboarding screen if not completed
+  if (!onboardingComplete) {
+    return <OnboardingScreen onComplete={handleOnboardingComplete} />
+  }
 
   if (sqlLoading) {
     return (
