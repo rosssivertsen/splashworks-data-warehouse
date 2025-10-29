@@ -36,13 +36,62 @@ The Splashworks Pool Service BI Visualizer is a cutting-edge business intelligen
 
 ## Getting Started
 
+### First-Time User Experience
+
+#### 🎉 Welcome & Terms of Use
+
+**Every new user sees a one-time onboarding screen:**
+
+When you first access the Pool Service BI Visualizer, you'll be presented with:
+
+1. **Terms of Use & Privacy Notice**
+   - Comprehensive legal terms covering usage rights and responsibilities
+   - Data privacy and handling policies
+   - Scrollable content for thorough review
+
+2. **Agreement Process**
+   - ✅ Checkbox to confirm you've read and agree to the terms
+   - 📝 Full name field for identification
+   - 📅 Date field (automatically set to today)
+   - 🔵 "Continue to Application" button (enabled when all fields are complete)
+
+3. **What Happens Next**
+   - Your acceptance is logged for compliance purposes
+   - You're immediately taken to the main application
+   - You won't see this screen again (stored in browser)
+
+**Important Notes:**
+- This screen only appears once per browser/device
+- Your acceptance is logged to Netlify Forms with timestamp and IP address
+- This provides legal non-repudiation for compliance purposes
+- Administrators can access the acceptance log via Netlify Dashboard
+
+**Required Fields:**
+- ✅ Agreement checkbox (must be checked)
+- ✅ Full name (required)
+- ✅ Date (defaults to today, can be modified)
+
+**Privacy & Data:**
+- Your acceptance data is securely logged for compliance
+- No personal data is shared with third parties
+- All processing complies with applicable privacy laws
+
 ### Prerequisites
 
 - **Modern Web Browser**: Chrome 90+, Firefox 88+, Safari 14+, or Edge 90+
 - **SQLite Database**: Your pool service data in .db, .sqlite, or .sqlite3 format
 - **OpenAI API Key**: For AI-powered features (get one at [openai.com](https://openai.com))
 
-### Quick Start (3 Steps)
+### Quick Start (4 Steps)
+
+#### Step 0: Accept Terms 📋
+1. Review the Terms of Use & Privacy Notice
+2. Check the agreement box
+3. Enter your full name
+4. Verify the date (or modify if needed)
+5. Click "Continue to Application"
+
+*Note: This step only appears on your first visit*
 
 #### Step 1: Upload Your Database ⬆️
 1. Open the Pool Service BI Dashboard
