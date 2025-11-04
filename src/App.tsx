@@ -39,7 +39,8 @@ function App() {
     sqlLoading, 
     sqlError, 
     setDatabase,
-    handleDatabaseUpload
+    handleDatabaseUpload,
+    unionDatabases
   } = useDatabase()
   
   const { 
@@ -113,6 +114,15 @@ function App() {
       handleDatabaseLoad(db)
     } catch (error) {
       console.error('Failed to upload database:', error)
+    }
+  }
+
+  const handleUnionDatabases = async (files: File[]) => {
+    try {
+      const db = await unionDatabases(files)
+      handleDatabaseLoad(db)
+    } catch (error) {
+      console.error('Failed to union databases:', error)
     }
   }
 
@@ -215,6 +225,7 @@ function App() {
               sqlInstance={sqlInstance} 
               onDatabaseLoad={handleDatabaseLoad} 
               onFileUpload={handleFileUpload}
+              onUnionDatabases={handleUnionDatabases}
             />
           )}
           {activeTab === 'explorer' && database && (
