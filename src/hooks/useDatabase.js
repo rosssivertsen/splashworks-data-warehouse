@@ -256,6 +256,132 @@ const useDatabase = () => {
     }
   }, [database]);
 
+  // Union multiple databases
+  const unionDatabases = useCallback(async (files) => {
+    if (!sqlInstance) {
+      throw new Error('SQL.js is not initialized');
+    }
+
+    if (files.length < 2) {
+      throw new Error('At least 2 databases required for union');
+    }
+
+    setSqlLoading(true);
+    setSqlError(null);
+
+    try {
+      console.log(`🔗 Starting union of ${files.length} databases`);
+
+      // Create a new empty database for the union
+      const unionDb = new sqlInstance.Database();
+
+      // Process each database file
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        console.log(`📥 Processing database ${i + 1}/${files.length}: ${file.name}`);
+
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const tempDb = new sqlInstance.Database(uint8Array);
+
+        // Get all tables from this database
+        const tablesResult = tempDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+        
+        if (tablesResult.length === 0 || !tablesResult[0].values.length) {
+          console.warn(`⚠️ No tables found in ${file.name}`);
+          tempDb.close();
+          continue;
+        }
+
+        const tables = tablesResult[0].values.map(row => row[0]);
+        console.log(`📋 Found ${tables.length} tables in ${file.name}`);
+
+        // For each table, create it in union db if it doesn't exist, then insert data
+        for (const tableName of tables) {
+          try {
+            // Get CREATE TABLE statement
+            const createStmt = tempDb.exec(`SELECT sql FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+            
+            if (createStmt.length > 0 && createStmt[0].values.length > 0) {
+              const createSQL = createStmt[0].values[0][0];
+              
+              // Try to create table (will fail if already exists, which is fine)
+              try {
+                unionDb.exec(createSQL);
+                console.log(`✅ Created table: ${tableName}`);
+              } catch (e) {
+                // Table already exists, that's okay
+                console.log(`ℹ️ Table ${tableName} already exists, appending data`);
+              }
+
+              // Get all data from this table
+              const dataResult = tempDb.exec(`SELECT * FROM ${tableName}`);
+              
+              if (dataResult.length > 0 && dataResult[0].values.length > 0) {
+                const columns = dataResult[0].columns;
+                const values = dataResult[0].values;
+
+                // Insert data into union database
+                const placeholders = columns.map(() => '?').join(',');
+                const insertSQL = `INSERT INTO ${tableName} (${columns.join(',')}) VALUES (${placeholders})`;
+
+                const stmt = unionDb.prepare(insertSQL);
+                for (const row of values) {
+                  stmt.bind(row);
+                  stmt.step();
+                  stmt.reset();
+                }
+                stmt.free();
+
+                console.log(`📊 Inserted ${values.length} rows into ${tableName}`);
+              }
+            }
+          } catch (tableError) {
+            console.error(`❌ Error processing table ${tableName}:`, tableError);
+          }
+        }
+
+        tempDb.close();
+      }
+
+      // Save the united database
+      const unionData = unionDb.export();
+      const unionName = `union_of_${files.length}_databases.db`;
+      
+      try {
+        await databaseStorage.saveDatabase(unionName, unionData, {
+          uploadedAt: new Date().toISOString(),
+          size: unionData.length,
+          isUnion: true,
+          sourceFiles: files.map(f => f.name)
+        });
+        console.log('💾 Union database saved to IndexedDB');
+      } catch (storageError) {
+        console.warn('⚠️ Failed to save union database to IndexedDB:', storageError);
+      }
+
+      // Update localStorage
+      const dbInfo = {
+        name: unionName,
+        uploadedAt: new Date().toISOString(),
+        isUnion: true,
+        sourceFiles: files.map(f => f.name)
+      };
+      localStorage.setItem('database_info', JSON.stringify(dbInfo));
+
+      setDatabase(unionDb);
+      console.log(`✅ Successfully united ${files.length} databases`);
+
+      return unionDb;
+    } catch (error) {
+      console.error('❌ Union failed:', error);
+      setSqlError(`Failed to union databases: ${error.message}`);
+      throw error;
+    } finally {
+      setSqlLoading(false);
+    }
+  }, [sqlInstance]);
+
   // Clear persisted database
   const clearDatabase = useCallback(async () => {
     setDatabase(null);
@@ -286,6 +412,7 @@ const useDatabase = () => {
 
     // Actions
     handleDatabaseUpload,
+    unionDatabases,
     generateDatabaseSchema,
     getTables,
     getTableSchema,
