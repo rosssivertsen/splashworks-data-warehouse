@@ -13,6 +13,7 @@ const useDatabase = () => {
   const [sqlError, setSqlError] = useState(null);
   const [dbSchema, setDbSchema] = useState('');
   const [dbData, setDbData] = useState(null); // Store serializable database data
+  const [databaseHistory, setDatabaseHistory] = useState([]); // Track uploaded/united databases
 
   // Restore database from IndexedDB on app initialization
   useEffect(() => {
@@ -172,6 +173,21 @@ const useDatabase = () => {
       
       setDatabase(db);
       console.log('📊 Database state updated');
+      
+      // Add to history
+      const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
+      const tableCount = tables.length > 0 ? tables[0].values.length : 0;
+      
+      setDatabaseHistory(prev => {
+        const newHistory = prev.map(item => ({ ...item, isActive: false }));
+        return [...newHistory, {
+          name: file.name,
+          uploadedAt: new Date().toISOString(),
+          isUnion: false,
+          tableCount,
+          isActive: true
+        }];
+      });
       
       return db;
       
@@ -371,6 +387,22 @@ const useDatabase = () => {
 
       setDatabase(unionDb);
       console.log(`✅ Successfully united ${files.length} databases`);
+      
+      // Add to history
+      const tables = unionDb.exec("SELECT name FROM sqlite_master WHERE type='table'");
+      const tableCount = tables.length > 0 ? tables[0].values.length : 0;
+      
+      setDatabaseHistory(prev => {
+        const newHistory = prev.map(item => ({ ...item, isActive: false }));
+        return [...newHistory, {
+          name: unionName,
+          uploadedAt: new Date().toISOString(),
+          isUnion: true,
+          unionCount: files.length,
+          tableCount,
+          isActive: true
+        }];
+      });
 
       return unionDb;
     } catch (error) {
@@ -381,6 +413,11 @@ const useDatabase = () => {
       setSqlLoading(false);
     }
   }, [sqlInstance]);
+
+  // Remove database from history
+  const removeDatabaseFromHistory = useCallback((index) => {
+    setDatabaseHistory(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
   // Clear persisted database
   const clearDatabase = useCallback(async () => {
@@ -409,6 +446,7 @@ const useDatabase = () => {
     sqlError,
     dbSchema,
     isDatabaseReady,
+    databaseHistory,
 
     // Actions
     handleDatabaseUpload,
@@ -418,6 +456,7 @@ const useDatabase = () => {
     getTableSchema,
     executeQuery,
     clearDatabase,
+    removeDatabaseFromHistory,
 
     // Internal state setters (for backward compatibility)
     setDatabase

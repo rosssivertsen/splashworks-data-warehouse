@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import OnboardingScreen from './components/OnboardingScreen'
 import DatabaseUploader from './components/DatabaseUploader'
+import DatabaseList from './components/DatabaseList'
 import DatabaseExplorer from './components/DatabaseExplorer'
 import DashboardView from './components/DashboardView'
 import DataExplorer from './components/DataExplorer'
@@ -40,7 +41,9 @@ function App() {
     sqlError, 
     setDatabase,
     handleDatabaseUpload,
-    unionDatabases
+    unionDatabases,
+    databaseHistory,
+    removeDatabaseFromHistory
   } = useDatabase()
   
   const { 
@@ -221,12 +224,18 @@ function App() {
         {/* Tab Content - Responsive padding: 24px desktop, 16px tablet, 12px mobile */}
         <div className="p-3 md:p-4 lg:p-6 min-h-[600px]">
           {activeTab === 'upload' && (
-            <DatabaseUploader 
-              sqlInstance={sqlInstance} 
-              onDatabaseLoad={handleDatabaseLoad} 
-              onFileUpload={handleFileUpload}
-              onUnionDatabases={handleUnionDatabases}
-            />
+            <div className="space-y-6">
+              <DatabaseUploader 
+                sqlInstance={sqlInstance} 
+                onDatabaseLoad={handleDatabaseLoad} 
+                onFileUpload={handleFileUpload}
+                onUnionDatabases={handleUnionDatabases}
+              />
+              <DatabaseList 
+                databases={databaseHistory}
+                onRemove={removeDatabaseFromHistory}
+              />
+            </div>
           )}
           {activeTab === 'explorer' && database && (
             <DatabaseExplorer database={database} onQueryExecute={handleQueryExecute} />
