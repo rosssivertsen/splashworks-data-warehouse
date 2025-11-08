@@ -234,6 +234,7 @@ function App() {
                     sqlInstance={sqlInstance}
                     onDatabaseLoad={handleDatabaseLoad}
                     onFileUpload={handleFileUpload}
+                    onUnionDatabases={handleUnionDatabases}
                   />
                 </div>
               )}
