@@ -196,36 +196,16 @@ export const useAISettings = () => {
     updateSetting('provider', provider);
   }, [updateSetting]);
 
-  // Update API keys with validation
+  // Update API keys (allow all input, validate on display only)
   const setOpenAIKey = useCallback((key) => {
-    if (!key || key.trim() === '') {
-      updateSetting('openaiApiKey', '');
-      return true;
-    }
-    
-    if (isValidOpenAIKey(key)) {
-      updateSetting('openaiApiKey', key);
-      return true;
-    }
-    
-    console.warn('Invalid OpenAI API key format');
-    return false;
-  }, [updateSetting, isValidOpenAIKey]);
+    updateSetting('openaiApiKey', key || '');
+    return true;
+  }, [updateSetting]);
 
   const setAnthropicKey = useCallback((key) => {
-    if (!key || key.trim() === '') {
-      updateSetting('anthropicApiKey', '');
-      return true;
-    }
-    
-    if (isValidAnthropicKey(key)) {
-      updateSetting('anthropicApiKey', key);
-      return true;
-    }
-    
-    console.warn('Invalid Anthropic API key format');
-    return false;
-  }, [updateSetting, isValidAnthropicKey]);
+    updateSetting('anthropicApiKey', key || '');
+    return true;
+  }, [updateSetting]);
 
   // Update models
   const setOpenAIModel = useCallback((model) => {
