@@ -216,9 +216,12 @@ Important:
 
       const deleteDashboard = (dashboardId) => {
         if (confirm('Are you sure you want to delete this dashboard?')) {
-          setDashboards(dashboards.filter(d => d.id !== dashboardId));
+          const updatedDashboards = dashboards.filter(d => d.id !== dashboardId);
+          setDashboards(updatedDashboards);
+          
           if (selectedDashboard?.id === dashboardId) {
-            setSelectedDashboard(dashboards[0] || null);
+            // If we're deleting the selected dashboard, select the first remaining one
+            setSelectedDashboard(updatedDashboards.length > 0 ? updatedDashboards[0] : null);
           }
         }
       };

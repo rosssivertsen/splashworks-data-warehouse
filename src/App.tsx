@@ -99,18 +99,28 @@ function App() {
   }, []) // Empty deps - only run on mount, not when activeTab changes
 
   const handleDatabaseLoad = (db: any) => {
-    console.log('🎯 App: Database loaded, switching to AI Assistant tab and creating dashboard');
+    console.log('🎯 App: Database loaded, switching to AI Assistant tab');
     console.log('🎯 App: Current dashboards length:', dashboards.length);
     console.log('🎯 App: Current selected dashboard:', selectedDashboard);
     
     setDatabase(db)
     setActiveTab('aiAssistant')
-    // Create default dashboard using the hook
-    const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
-      description: 'Executive dashboard for pool service business metrics'
-    })
-    console.log('🎯 App: Created dashboard:', defaultDashboard);
-    setSelectedDashboard(defaultDashboard as any)
+    
+    // Only create default dashboard if none exist
+    if (dashboards.length === 0) {
+      console.log('🎯 App: No dashboards exist, creating default');
+      const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
+        description: 'Executive dashboard for pool service business metrics'
+      })
+      console.log('🎯 App: Created dashboard:', defaultDashboard);
+      setSelectedDashboard(defaultDashboard as any)
+    } else {
+      console.log('🎯 App: Dashboards already exist, using existing');
+      // If dashboards exist but none is selected, select the first one
+      if (!selectedDashboard && dashboards.length > 0) {
+        setSelectedDashboard(dashboards[0] as any)
+      }
+    }
   }
 
   const handleFileUpload = async (file: File) => {
