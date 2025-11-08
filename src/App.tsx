@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import OnboardingScreen from './components/OnboardingScreen'
 import DatabaseUploader from './components/DatabaseUploader'
+import DropboxDatabaseLoader from './components/DropboxDatabaseLoader'
 import DatabaseList from './components/DatabaseList'
 import DatabaseExplorer from './components/DatabaseExplorer'
 import DashboardView from './components/DashboardView'
@@ -15,6 +16,7 @@ import useDatabase from './hooks/useDatabase'
 import useDashboard from './hooks/useDashboard'
 import { useAISettings } from './hooks/useLocalStorage'
 import { AI_PROVIDERS, MODELS, getProviderName } from './services/aiService'
+import { REMOTE_STORAGE_CONFIG } from './config/remote-storage'
 import './App.css'
 
 function App() {
@@ -225,12 +227,28 @@ function App() {
         <div className="p-3 md:p-4 lg:p-6 min-h-[600px]">
           {activeTab === 'upload' && (
             <div className="space-y-6">
-              <DatabaseUploader 
-                sqlInstance={sqlInstance} 
-                onDatabaseLoad={handleDatabaseLoad} 
-                onFileUpload={handleFileUpload}
-                onUnionDatabases={handleUnionDatabases}
-              />
+              {/* Dropbox Remote Storage */}
+              {REMOTE_STORAGE_CONFIG.enabled && (
+                <div className="service-card">
+                  <DropboxDatabaseLoader 
+                    sqlInstance={sqlInstance}
+                    onDatabaseLoad={handleDatabaseLoad}
+                    onFileUpload={handleFileUpload}
+                  />
+                </div>
+              )}
+              
+              {/* Local Upload */}
+              <div className="service-card">
+                <DatabaseUploader 
+                  sqlInstance={sqlInstance} 
+                  onDatabaseLoad={handleDatabaseLoad} 
+                  onFileUpload={handleFileUpload}
+                  onUnionDatabases={handleUnionDatabases}
+                />
+              </div>
+              
+              {/* Database History */}
               <DatabaseList 
                 databases={databaseHistory}
                 onRemove={removeDatabaseFromHistory}
