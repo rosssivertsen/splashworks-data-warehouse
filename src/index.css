@@ -13,6 +13,16 @@
 }
 
 @layer components {
+  /* Hide scrollbar for horizontal navigation on mobile */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
+
   /* Updated gradient using design system primary colors (Indigo) */
   .pool-gradient {
     @apply bg-gradient-to-br from-primary-500 to-primary-700;

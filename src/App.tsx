@@ -193,48 +193,52 @@ function App() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="mx-auto" style={{ maxWidth: '1400px' }}>
-        {/* Header - 80px desktop, 64px tablet, 56px mobile */}
-        <header className="bg-white border-b border-neutral-200 px-8 md:px-6 lg:px-8 h-14 md:h-16 lg:h-20 flex items-center">
+        {/* Header - Responsive sizing */}
+        <header className="bg-white border-b border-neutral-200 px-3 sm:px-4 md:px-6 lg:px-8 py-3 md:py-4 lg:py-5">
           <div className="flex items-center justify-between w-full">
-            <div className="flex items-center space-x-4">
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold text-neutral-900">Splashworks Pool Service BI Visualizer</h1>
-                <p className="text-xs md:text-sm text-neutral-600">AI-powered Business Intelligence</p>
+            <div className="flex items-center space-x-2 md:space-x-4 min-w-0 flex-1">
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-neutral-900 truncate">
+                  Splashworks Pool Service BI Visualizer
+                </h1>
+                <p className="text-xs sm:text-sm text-neutral-600 hidden sm:block">AI-powered Business Intelligence</p>
               </div>
             </div>
             {database && (
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="flex items-center space-x-1.5 md:space-x-2 text-xs sm:text-sm ml-2 flex-shrink-0">
                 <div className="w-2 h-2 bg-success-500 rounded-full"></div>
-                <span className="text-neutral-600">Database Connected</span>
+                <span className="text-neutral-600 hidden sm:inline">Database Connected</span>
+                <span className="text-neutral-600 sm:hidden">DB</span>
               </div>
             )}
           </div>
         </header>
 
-        {/* Navigation - 64px desktop, 56px tablet/mobile */}
-        <div className="bg-white border-b border-neutral-200">
-          <nav className="px-8 md:px-6 lg:px-8">
-            <div className="flex space-x-0 overflow-x-auto h-14 lg:h-16">
+        {/* Navigation - Horizontal scroll on mobile */}
+        <div className="bg-white border-b border-neutral-200 sticky top-0 z-10">
+          <nav className="px-2 sm:px-4 md:px-6 lg:px-8">
+            <div className="flex space-x-0 overflow-x-auto scrollbar-hide h-12 md:h-14 lg:h-16">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                  className={`flex items-center space-x-1.5 md:space-x-2 px-2.5 sm:px-3 md:px-4 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex-shrink-0 ${
                     activeTab === tab.id
                       ? 'border-primary-500 text-primary-600 bg-primary-50'
                       : 'border-transparent text-neutral-600 hover:text-neutral-800 hover:border-neutral-300'
                   }`}
                 >
-                  <SafeIcon icon={tab.icon} className="w-4 h-4" />
-                  <span>{tab.label}</span>
+                  <SafeIcon icon={tab.icon} className="w-4 h-4 flex-shrink-0" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                 </button>
               ))}
             </div>
           </nav>
         </div>
 
-        {/* Tab Content - Responsive padding: 24px desktop, 16px tablet, 12px mobile */}
-        <div className="p-3 md:p-4 lg:p-6 min-h-[600px]">
+        {/* Tab Content - Responsive padding */}
+        <div className="p-3 sm:p-4 md:p-5 lg:p-6 min-h-[400px]">
           {activeTab === 'upload' && (
             <div className="space-y-6">
               {/* Dropbox Remote Storage */}

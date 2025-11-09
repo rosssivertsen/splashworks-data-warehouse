@@ -356,17 +356,18 @@ Important:
       }
 
       return (
-        <div className="space-y-6">
-          {/* Dashboard Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        <div className="space-y-4 md:space-y-6">
+          {/* Dashboard Header - Responsive Layout */}
+          <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
+            {/* Dashboard Selector and Actions - Mobile: Full Width, Desktop: Left Side */}
+            <div className="flex items-center space-x-2 md:space-x-4 min-w-0 flex-1">
               <select
                 value={selectedDashboard?.id || ''}
                 onChange={(e) => {
                   const dashboard = dashboards.find(d => d.id === parseInt(e.target.value));
                   setSelectedDashboard(dashboard);
                 }}
-                className="text-lg font-semibold bg-transparent border-b-2 border-gray-300 focus:border-blue-500 outline-none"
+                className="text-base md:text-lg font-semibold bg-transparent border-b-2 border-gray-300 focus:border-blue-500 outline-none min-w-0 flex-1 truncate"
               >
                 {dashboards.map(dashboard => (
                   <option key={dashboard.id} value={dashboard.id}>
@@ -381,58 +382,63 @@ Important:
                       setEditingName(true);
                       setDashboardName(selectedDashboard.name);
                     }}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 hover:text-gray-700 p-2"
+                    title="Rename Dashboard"
                   >
                     <SafeIcon icon={FiEdit2} className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => deleteDashboard(selectedDashboard.id)}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-500 hover:text-red-700 p-2"
+                    title="Delete Dashboard"
                   >
                     <SafeIcon icon={FiTrash2} className="w-4 h-4" />
                   </button>
                 </>
               )}
             </div>
-            <div className="flex space-x-3">
+            
+            {/* Action Buttons - Mobile: Full Width Row, Desktop: Right Side */}
+            <div className="flex flex-wrap gap-2 md:space-x-2 md:flex-nowrap">
               <button
                 onClick={createNewDashboard}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 flex items-center space-x-2"
+                className="bg-gray-500 text-white px-3 py-2 rounded-lg hover:bg-gray-600 flex items-center justify-center space-x-2 flex-1 md:flex-none"
+                title="New Dashboard"
               >
                 <SafeIcon icon={FiPlus} className="w-4 h-4" />
-                <span>New Dashboard</span>
+                <span className="text-sm md:text-base">New Dashboard</span>
               </button>
               {selectedDashboard && selectedDashboard.charts.length > 0 && (
-                <div className="flex bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={exportDashboardToPDF}
-                    className="px-3 py-2 rounded-md text-sm transition-colors hover:bg-white hover:shadow-sm"
-                    title="Export Dashboard as PDF"
-                  >
-                    <SafeIcon icon={FiFileText} className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={exportDashboardToPDF}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg transition-colors"
+                  title="Export to PDF"
+                >
+                  <SafeIcon icon={FiFileText} className="w-4 h-4" />
+                </button>
               )}
               {selectedDashboard && (
                 <>
                   <button
                     onClick={() => setIsFormatting(true)}
-                    className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 flex items-center space-x-2"
+                    className="bg-gray-500 text-white px-3 py-2 rounded-lg hover:bg-gray-600 flex items-center justify-center space-x-2"
+                    title="Format Dashboard"
                   >
                     <SafeIcon icon={FiLayout} className="w-4 h-4" />
-                    <span>Format</span>
+                    <span className="hidden sm:inline text-sm md:text-base">Format</span>
                   </button>
                   <button
                     onClick={generateAIDashboard}
                     disabled={isGenerating || !apiKey}
-                    className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 disabled:bg-gray-300 flex items-center space-x-2"
+                    className="bg-purple-500 text-white px-3 py-2 rounded-lg hover:bg-purple-600 disabled:bg-gray-300 flex items-center justify-center space-x-2 flex-1 md:flex-none"
+                    title="Generate AI Dashboard"
                   >
                     {isGenerating ? (
                       <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
                     ) : (
                       <SafeIcon icon={FiTrendingUp} className="w-4 h-4" />
                     )}
-                    <span>{isGenerating ? 'Generating...' : 'AI Generate'}</span>
+                    <span className="text-sm md:text-base">{isGenerating ? 'Generating...' : 'AI Generate'}</span>
                   </button>
                 </>
               )}
@@ -472,16 +478,16 @@ Important:
           {/* Dashboard Content */}
           {selectedDashboard ? (
             selectedDashboard.charts.length === 0 ? (
-              <div className="text-center py-16 bg-gray-50 rounded-lg">
-                <SafeIcon icon={FiGrid} className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No charts yet</h3>
-                <p className="text-gray-600 mb-6">
+              <div className="text-center py-12 md:py-16 bg-gray-50 rounded-lg px-4">
+                <SafeIcon icon={FiGrid} className="w-12 h-12 md:w-16 md:h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">No charts yet</h3>
+                <p className="text-sm md:text-base text-gray-600 mb-6">
                   Generate charts with AI or create them manually in the Charts tab
                 </p>
                 <button
                   onClick={generateAIDashboard}
                   disabled={isGenerating || !apiKey}
-                  className="bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-600 disabled:bg-gray-300 flex items-center justify-center"
+                  className="bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-600 disabled:bg-gray-300 inline-flex items-center justify-center mx-auto"
                 >
                   {isGenerating ? (
                     <>
@@ -494,15 +500,14 @@ Important:
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-12 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 md:gap-4">
                 {selectedDashboard.charts.map((chart, index) => (
                   <motion.div
                     key={chart.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    style={{ gridColumn: `span ${chart.position?.w || 6}`, gridRow: `span ${chart.position?.h || 4}` }}
-                    className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
+                    className="lg:col-span-6 bg-white border border-gray-200 rounded-lg p-3 md:p-4 shadow-sm hover:shadow-md transition-shadow"
                   >
                     <ChartRenderer chart={chart} />
                   </motion.div>
@@ -510,10 +515,10 @@ Important:
               </div>
             )
           ) : (
-            <div className="text-center py-16 bg-gray-50 rounded-lg">
-              <SafeIcon icon={FiBarChart2} className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No dashboard selected</h3>
-              <p className="text-gray-600">Create a new dashboard to get started</p>
+            <div className="text-center py-12 md:py-16 bg-gray-50 rounded-lg px-4">
+              <SafeIcon icon={FiBarChart2} className="w-12 h-12 md:w-16 md:h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">No dashboard selected</h3>
+              <p className="text-sm md:text-base text-gray-600">Create a new dashboard to get started</p>
             </div>
           )}
         </div>
