@@ -1,3 +1,4 @@
+# Global build settings
 [build]
   command = "npm run build"
   publish = "dist"
@@ -11,16 +12,45 @@
 
 # Function configuration
 [functions]
-  # Directory for serverless functions
   directory = "netlify/functions"
-  
-  # Node version
   node_bundler = "esbuild"
 
-# Dev server configuration
+# Local development server configuration
 [dev]
   command = "npm run dev:vite"
   port = 8888
   targetPort = 5173
   publish = "dist"
   functions = "netlify/functions"
+
+# Production environment (main branch)
+[context.production]
+  command = "npm run build"
+  [context.production.environment]
+    NODE_ENV = "production"
+    ENVIRONMENT = "production"
+    REACT_APP_ENV = "production"
+
+# Staging environment (staging branch)
+[context.staging]
+  command = "npm run build"
+  [context.staging.environment]
+    NODE_ENV = "staging"
+    ENVIRONMENT = "staging"
+    REACT_APP_ENV = "staging"
+
+# Development environment (development branch)
+[context.development]
+  command = "npm run build"
+  [context.development.environment]
+    NODE_ENV = "development"
+    ENVIRONMENT = "development"
+    REACT_APP_ENV = "development"
+
+# Branch-specific deploy contexts
+[context.deploy-preview]
+  command = "npm run build"
+  [context.deploy-preview.environment]
+    NODE_ENV = "preview"
+    ENVIRONMENT = "preview"
+    REACT_APP_ENV = "preview"

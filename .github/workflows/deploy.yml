@@ -1,0 +1,141 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches: [ development, staging, main ]
+  pull_request:
+    branches: [ main, staging ]
+
+env:
+  NODE_VERSION: '20'
+  
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Lint code
+        run: npm run lint
+
+      - name: 🧪 Run tests
+        run: npm run test
+        env:
+          CI: true
+
+      - name: 🏗️ Build application
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: 📁 Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: 1
+
+  deploy-development:
+    if: github.ref == 'refs/heads/development'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📁 Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: 🚀 Deploy to Netlify Development
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './dist'
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Development: ${{ github.event.head_commit.message }}"
+          alias: development
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN_DEV }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID_DEV }}
+
+  deploy-staging:
+    if: github.ref == 'refs/heads/staging'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📁 Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: 🚀 Deploy to Netlify Staging
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './dist'
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Staging: ${{ github.event.head_commit.message }}"
+          alias: staging
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN_STAGING }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID_STAGING }}
+
+  deploy-production:
+    if: github.ref == 'refs/heads/main'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📁 Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: 🚀 Deploy to Netlify Production
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './dist'
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Production: ${{ github.event.head_commit.message }}"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN_PROD }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID_PROD }}
+
+  notify-deployment:
+    needs: [deploy-development, deploy-staging, deploy-production]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📢 Notify deployment status
+        run: |
+          if [[ "${{ needs.deploy-development.result }}" == "success" ]]; then
+            echo "✅ Development deployment successful"
+          elif [[ "${{ needs.deploy-staging.result }}" == "success" ]]; then
+            echo "✅ Staging deployment successful"
+          elif [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
+            echo "✅ Production deployment successful"
+          fi
