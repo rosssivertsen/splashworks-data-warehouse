@@ -5,6 +5,17 @@ on:
     branches: [ development, staging, main ]
   pull_request:
     branches: [ main, staging ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
 
 env:
   NODE_VERSION: '20'
@@ -46,7 +57,7 @@ jobs:
           retention-days: 1
 
   deploy-development:
-    if: github.ref == 'refs/heads/development'
+    if: github.ref == 'refs/heads/development' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'development')
     needs: build-and-test
     runs-on: ubuntu-latest
     environment: development
@@ -73,7 +84,7 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID_DEV }}
 
   deploy-staging:
-    if: github.ref == 'refs/heads/staging'
+    if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
     needs: build-and-test
     runs-on: ubuntu-latest
     environment: staging
@@ -100,7 +111,7 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID_STAGING }}
 
   deploy-production:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
     needs: build-and-test
     runs-on: ubuntu-latest
     environment: production
