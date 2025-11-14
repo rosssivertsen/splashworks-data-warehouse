@@ -150,11 +150,93 @@ git push origin main
 npm run deploy:production
 ```
 
-## Automated CI/CD
+## Automated CI/CD with GitHub Actions
 
-### GitHub Actions (Optional)
+### Complete Workflow Overview
 
-Create `.github/workflows/deploy.yml` for automated deployments:
+The project includes a fully automated CI/CD pipeline that triggers on every push:
+
+**✅ Automatic Triggers:**
+- Push to `development` branch → Automatically deploys to development environment
+- Push to `staging` branch → Automatically deploys to staging environment  
+- Push to `main` branch → Automatically deploys to production environment
+
+### GitHub Actions Workflow
+
+The `.github/workflows/deploy.yml` file handles:
+
+1. **Build & Test**: Runs on every push and PR
+   - TypeScript compilation
+   - ESLint code quality checks
+   - Vitest unit tests
+   - Build artifact creation
+
+2. **Automated Deployment**: Deploys to environment based on branch
+   - `development` → Development environment
+   - `staging` → Staging environment
+   - `main` → Production environment
+
+### Complete Development Workflow
+
+#### 1. Feature Development
+```bash
+# Work on development branch
+git checkout development
+# ... make changes ...
+git add -A
+git commit -m "feat: new feature"
+git push origin development
+```
+**Result**: ✅ Automatically deploys to development environment via GitHub Actions
+
+#### 2. Promote to Staging
+```bash
+# Use automated promotion script
+npm run promote:staging
+```
+**What happens**:
+- Script merges `development` → `staging` 
+- Pushes to `staging` branch
+- ✅ GitHub Actions automatically deploys to staging environment
+
+#### 3. Promote to Production  
+```bash
+# Use automated promotion script
+npm run promote:production
+```
+**What happens**:
+- Script merges `staging` → `main`
+- Pushes to `main` branch  
+- ✅ GitHub Actions automatically deploys to production environment
+
+### Manual Workflow Execution
+
+You can also trigger the workflow manually:
+
+1. Go to your GitHub repository
+2. Click "Actions" tab
+3. Select "Deploy to Netlify" workflow
+4. Click "Run workflow"
+5. Choose environment: `development`, `staging`, or `production`
+6. Click "Run workflow"
+
+### Pipeline Commands Summary
+
+```bash
+# Complete automated pipeline
+npm run promote:staging     # dev → staging (auto-deploys)
+npm run promote:production  # staging → main (auto-deploys)
+
+# Or run full pipeline at once
+npm run pipeline:full       # dev → staging → main (auto-deploys each)
+
+# Direct promotion (skips staging)
+npm run promote:direct      # dev → main (auto-deploys)
+```
+
+### GitHub Actions Configuration
+
+The workflow includes:
 
 ```yaml
 name: Deploy to Netlify
@@ -162,26 +244,40 @@ name: Deploy to Netlify
 on:
   push:
     branches: [ development, staging, main ]
+  pull_request:
+    branches: [ main, staging ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-      - run: npm ci
-      - run: npm run build
-      - run: npm run test
-      - uses: nwtgck/actions-netlify@v2
-        with:
-          publish-dir: './dist'
-          production-branch: main
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-```
+### Required GitHub Secrets
+
+For the automated workflow to work, configure these secrets in your GitHub repository (Settings → Secrets and variables → Actions):
+
+- `NETLIFY_AUTH_TOKEN_DEV` - Netlify auth token for development site
+- `NETLIFY_SITE_ID_DEV` - Development site ID  
+- `NETLIFY_AUTH_TOKEN_STAGING` - Netlify auth token for staging site
+- `NETLIFY_SITE_ID_STAGING` - Staging site ID
+- `NETLIFY_AUTH_TOKEN_PROD` - Netlify auth token for production site  
+- `NETLIFY_SITE_ID_PROD` - Production site ID
+
+**To get Netlify tokens:**
+1. Go to Netlify → User Settings → Personal Access Tokens
+2. Generate new access token
+3. Copy token to GitHub Secrets
+
+**To get Site IDs:**
+1. Go to Netlify → Site Settings → General → Site Information  
+2. Copy "Site ID"
+3. Add to GitHub Secrets
 
 ## Environment-Specific Features
 
@@ -253,12 +349,14 @@ netlify logs
 ## Performance Optimization
 
 ### Build Optimization
+
 - TypeScript compilation
 - Vite bundling and tree-shaking
 - Asset compression
 - CDN distribution
 
 ### Function Optimization
+
 - CommonJS to ES modules conversion
 - Cold start optimization
 - Memory and timeout configuration
