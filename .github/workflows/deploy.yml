@@ -75,7 +75,7 @@ jobs:
         uses: nwtgck/actions-netlify@v3.0
         with:
           publish-dir: './dist'
-          production-deploy: true
+          production-deploy: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
           deploy-message: "Development: ${{ github.event.head_commit.message }}"
           alias: development
@@ -102,7 +102,7 @@ jobs:
         uses: nwtgck/actions-netlify@v3.0
         with:
           publish-dir: './dist'
-          production-deploy: true
+          production-deploy: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
           deploy-message: "Staging: ${{ github.event.head_commit.message }}"
           alias: staging
