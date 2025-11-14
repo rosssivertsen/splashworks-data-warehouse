@@ -7,7 +7,7 @@
  * Endpoint: /.netlify/functions/ai-query
  */
 
-exports.handler = async (event, context) => {
+exports.handler = async (event) => {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
