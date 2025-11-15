@@ -1,0 +1,18 @@
+name = "swbi-dashboard"
+compatibility_date = "2025-11-15"
+
+# Pages configuration for static assets
+[site]
+bucket = "./dist"
+
+# SPA routing configuration
+[[pages_build_output_dir]]
+# This tells Cloudflare to serve index.html for all routes (SPA support)
+
+# Optional: Add custom headers for security
+[[headers]]
+for = "/*"
+[headers.values]
+X-Frame-Options = "DENY"
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "no-referrer-when-downgrade"
