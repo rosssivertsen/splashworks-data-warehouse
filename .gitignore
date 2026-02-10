@@ -63,3 +63,6 @@ test-databases/*.sqlite3
 !test-databases/*.sql
 # Local Netlify folder
 .netlify
+
+# Windows thumbnail cache
+Thumbs.db
