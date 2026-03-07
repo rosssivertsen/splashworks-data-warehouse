@@ -91,11 +91,12 @@ def run_etl(extract_dir: Path = None, extract_date: date = None) -> dict:
                         continue
 
                     # Drop existing table for this date (idempotent re-run)
-                    drop_raw_table(conn, table_name, extract_date)
+                    drop_raw_table(conn, table_name, extract_date, company_name)
 
                     # Create and load
                     fq_table = create_raw_table(
-                        conn, table_name, columns, sqlite_types, extract_date
+                        conn, table_name, columns, sqlite_types, extract_date,
+                        company_name,
                     )
                     loaded = load_rows_copy(conn, fq_table, columns, rows)
 

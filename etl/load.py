@@ -40,15 +40,17 @@ def create_raw_table(
     columns: list[str],
     sqlite_types: Optional[list[str]] = None,
     extract_date: date = None,
+    company_name: str = "",
 ) -> str:
-    """Create a date-stamped raw table in Postgres.
+    """Create a company- and date-stamped raw table in Postgres.
 
     Returns the fully qualified table name.
     """
     if extract_date is None:
         extract_date = date.today()
 
-    raw_table = f"{table_name}_{extract_date.strftime('%Y%m%d')}"
+    prefix = f"{company_name}_" if company_name else ""
+    raw_table = f"{prefix}{table_name}_{extract_date.strftime('%Y%m%d')}"
 
     col_defs = []
     for i, col in enumerate(columns):
@@ -104,9 +106,10 @@ def load_rows_copy(conn, fq_table: str, columns: list[str], rows: list[tuple]) -
     return len(rows)
 
 
-def drop_raw_table(conn, table_name: str, extract_date: date) -> None:
-    """Drop a date-stamped raw table (for re-runs)."""
-    raw_table = f"{table_name}_{extract_date.strftime('%Y%m%d')}"
+def drop_raw_table(conn, table_name: str, extract_date: date, company_name: str = "") -> None:
+    """Drop a company- and date-stamped raw table (for re-runs)."""
+    prefix = f"{company_name}_" if company_name else ""
+    raw_table = f"{prefix}{table_name}_{extract_date.strftime('%Y%m%d')}"
     with conn.cursor() as cur:
         cur.execute(f'DROP TABLE IF EXISTS {RAW_SCHEMA}."{raw_table}" CASCADE')
     conn.commit()
