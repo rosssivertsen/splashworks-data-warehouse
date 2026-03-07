@@ -70,3 +70,9 @@ work/
 
 # Windows thumbnail cache
 Thumbs.db
+
+# dbt artifacts
+dbt/dbt_packages/
+dbt/target/
+dbt/logs/
+dbt/.user.yml

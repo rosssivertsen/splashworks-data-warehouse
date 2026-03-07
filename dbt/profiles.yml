@@ -1,0 +1,12 @@
+splashworks:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'localhost') }}"
+      port: 5432
+      user: splashworks
+      password: "{{ env_var('DBT_PASSWORD', 'changeme') }}"
+      dbname: splashworks
+      schema: public
+      threads: 2

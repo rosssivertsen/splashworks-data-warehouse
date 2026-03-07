@@ -1,0 +1,43 @@
+version: 2
+
+sources:
+  - name: raw_skimmer
+    schema: raw_skimmer
+    description: "Raw Skimmer nightly SQLite extracts loaded by ETL"
+    tables:
+      - name: Customer
+        description: "Primary customer accounts"
+      - name: ServiceLocation
+        description: "Physical service locations"
+      - name: Pool
+        description: "Bodies of water at service locations"
+      - name: Account
+        description: "Technician and staff accounts"
+      - name: ServiceStop
+        description: "Per-visit service records"
+      - name: ServiceStopEntry
+        description: "Chemical readings and task records per stop"
+      - name: EntryDescription
+        description: "Chemical and task type definitions"
+      - name: RouteStop
+        description: "Scheduled route stops with timing"
+      - name: RouteAssignment
+        description: "Recurring route assignments"
+      - name: WorkOrder
+        description: "Work orders for repairs and maintenance"
+      - name: WorkOrderType
+        description: "Work order type definitions"
+      - name: Invoice
+        description: "Customer invoices"
+      - name: InvoiceItem
+        description: "Invoice line items"
+      - name: InvoiceLocation
+        description: "Invoice to service location mapping"
+      - name: Product
+        description: "Products and chemicals for invoicing"
+      - name: Payment
+        description: "Invoice payments"
+      - name: CustomerTag
+        description: "Customer-tag associations"
+      - name: Tag
+        description: "Customer tags"
