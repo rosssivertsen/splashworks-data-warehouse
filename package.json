@@ -26,7 +26,11 @@
     "pipeline:full": "npm run promote:staging && npm run promote:production",
     "pipeline:direct": "npm run promote:direct",
     "deploy": "./scripts/quick-deploy.sh",
-    "ship": "./scripts/quick-deploy.sh"
+    "ship": "./scripts/quick-deploy.sh",
+    "extract:nightly": "./cli/load-extract.sh",
+    "extract:latest": "./cli/extract-latest.sh",
+    "query": "./cli/query.sh",
+    "gaps": "./cli/data-gaps.sh"
   },
   "dependencies": {
     "@types/html2canvas": "^0.5.35",

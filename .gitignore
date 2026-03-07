@@ -61,6 +61,10 @@ test-databases/*.db
 test-databases/*.sqlite
 test-databases/*.sqlite3
 !test-databases/*.sql
+# Ad hoc working data (extracts, spreadsheets, exports)
+data/
+work/
+
 # Local Netlify folder
 .netlify
 
