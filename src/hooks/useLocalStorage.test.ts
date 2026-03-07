@@ -95,6 +95,29 @@ describe('useLocalStorage', () => {
     expect(result.current[0]).toBe('persisted-value');
   });
 
+  it('should keep multiple hook instances in sync for the same key', () => {
+    const firstHook = renderHook(() => useLocalStorage('shared-key', 'initial'));
+    const secondHook = renderHook(() => useLocalStorage('shared-key', 'initial'));
+
+    act(() => {
+      firstHook.result.current[1]('updated');
+    });
+
+    expect(firstHook.result.current[0]).toBe('updated');
+    expect(secondHook.result.current[0]).toBe('updated');
+  });
+
+  it('should apply sequential functional updates against the latest value', () => {
+    const { result } = renderHook(() => useLocalStorage('counter-key', 0));
+
+    act(() => {
+      result.current[1]((prev: number) => prev + 1);
+      result.current[1]((prev: number) => prev + 1);
+    });
+
+    expect(result.current[0]).toBe(2);
+  });
+
   it('should handle localStorage errors gracefully', () => {
     // Mock localStorage.setItem to throw an error
     const originalSetItem = localStorage.setItem;

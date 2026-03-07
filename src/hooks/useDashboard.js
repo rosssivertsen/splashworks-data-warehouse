@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import useLocalStorage, { useAISettings } from './useLocalStorage';
+import useLocalStorage from './useLocalStorage';
 import { aiService } from '../services/aiService';
 
 /**
@@ -30,14 +30,14 @@ const useDashboard = () => {
     const newDashboard = {
       id: Date.now() + Math.random(),
       name,
-      description: options.description || '',
+      description: options.description ?? '',
       charts: [],
-      layout: options.layout || [],
+      layout: options.layout ?? [],
       settings: {
-        theme: options.theme || 'light',
-        autoRefresh: options.autoRefresh || false,
-        refreshInterval: options.refreshInterval || 30000,
-        showGrid: options.showGrid || true,
+        theme: options.theme ?? 'light',
+        autoRefresh: options.autoRefresh ?? false,
+        refreshInterval: options.refreshInterval ?? 30000,
+        showGrid: options.showGrid ?? true,
         ...options.settings
       },
       createdAt: new Date().toISOString(),
@@ -54,7 +54,7 @@ const useDashboard = () => {
     setSelectedDashboardId(newDashboard.id);
     console.log('🎯 Selected dashboard ID set to:', newDashboard.id);
     return newDashboard;
-  }, [setDashboards]);
+  }, [setDashboards, setSelectedDashboardId]);
 
   // Update dashboard
   const updateDashboard = useCallback((dashboardId, updates) => {
@@ -80,7 +80,7 @@ const useDashboard = () => {
     if (selectedDashboard && selectedDashboard.id === dashboardId) {
       setSelectedDashboardId(null);
     }
-  }, [setDashboards, selectedDashboard]);
+  }, [setDashboards, selectedDashboard, setSelectedDashboardId]);
 
   // Duplicate dashboard
   const duplicateDashboard = useCallback((dashboardId, newName) => {
@@ -101,6 +101,11 @@ const useDashboard = () => {
     return duplicated;
   }, [dashboards, setDashboards]);
 
+  // Get dashboard by ID
+  const getDashboard = useCallback((dashboardId) => {
+    return dashboards.find(dashboard => dashboard.id === dashboardId);
+  }, [dashboards]);
+
   // Add chart to dashboard
   const addChart = useCallback((dashboardId, chartConfig) => {
     const chart = {
@@ -120,7 +125,7 @@ const useDashboard = () => {
     });
 
     return chart;
-  }, [updateDashboard, dashboards]);
+  }, [getDashboard, updateDashboard]);
 
   // Update chart in dashboard
   const updateChart = useCallback((dashboardId, chartId, updates) => {
@@ -136,7 +141,7 @@ const useDashboard = () => {
     );
 
     updateDashboard(dashboardId, { charts: updatedCharts });
-  }, [updateDashboard, dashboards]);
+  }, [getDashboard, updateDashboard]);
 
   // Remove chart from dashboard
   const removeChart = useCallback((dashboardId, chartId) => {
@@ -147,12 +152,7 @@ const useDashboard = () => {
 
     const updatedCharts = dashboard.charts.filter(chart => chart.id !== chartId);
     updateDashboard(dashboardId, { charts: updatedCharts });
-  }, [updateDashboard, dashboards]);
-
-  // Get dashboard by ID
-  const getDashboard = useCallback((dashboardId) => {
-    return dashboards.find(dashboard => dashboard.id === dashboardId);
-  }, [dashboards]);
+  }, [getDashboard, updateDashboard]);
 
   // Get chart by ID within a dashboard
   const getChart = useCallback((dashboardId, chartId) => {

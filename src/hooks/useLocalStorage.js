@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
  * Custom hook for managing localStorage operations with type safety and error handling
@@ -11,36 +11,54 @@ const useLocalStorage = (key, initialValue, options = {}) => {
     errorHandler = console.error
   } = options;
 
+  const parseStoredValue = useCallback((rawValue) => {
+    if (rawValue === null) {
+      return initialValue;
+    }
+
+    if (typeof initialValue === 'string') {
+      return rawValue;
+    }
+
+    try {
+      return deserializer.parse(rawValue);
+    } catch (error) {
+      if (initialValue === null) {
+        return rawValue;
+      }
+      throw error;
+    }
+  }, [initialValue, deserializer]);
+
   // Get stored value or return initial value
   const getStoredValue = useCallback(() => {
     try {
       const storedValue = localStorage.getItem(key);
-      if (storedValue === null) {
-        return initialValue;
-      }
-      
-      // Handle different types of stored values
-      if (typeof initialValue === 'string') {
-        return storedValue;
-      }
-      
-      return deserializer.parse(storedValue);
+      return parseStoredValue(storedValue);
     } catch (error) {
       errorHandler(`Error reading localStorage key "${key}":`, error);
       return initialValue;
     }
-  }, [key, initialValue, deserializer, errorHandler]);
+  }, [key, initialValue, parseStoredValue, errorHandler]);
 
   const [storedValue, setStoredValue] = useState(getStoredValue);
+  const valueRef = useRef(storedValue);
+
+  useEffect(() => {
+    valueRef.current = storedValue;
+  }, [storedValue]);
 
   // Update localStorage when value changes
   const setValue = useCallback((value) => {
     try {
       // Allow value to be a function so we have the same API as useState
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      const previousValue = valueRef.current;
+      const valueToStore = value instanceof Function ? value(previousValue) : value;
+      const oldSerializedValue = localStorage.getItem(key);
       
       // Update state
       setStoredValue(valueToStore);
+      valueRef.current = valueToStore;
       
       // Store in localStorage
       let serializedValue = null;
@@ -57,25 +75,27 @@ const useLocalStorage = (key, initialValue, options = {}) => {
       window.dispatchEvent(new StorageEvent('storage', {
         key,
         newValue: serializedValue,
-        oldValue: localStorage.getItem(key)
+        oldValue: oldSerializedValue
       }));
       
     } catch (error) {
       errorHandler(`Error setting localStorage key "${key}":`, error);
     }
-  }, [key, storedValue, serializer, errorHandler]);
+  }, [key, serializer, errorHandler]);
 
   // Remove item from localStorage
   const removeValue = useCallback(() => {
     try {
+      const oldSerializedValue = localStorage.getItem(key);
       localStorage.removeItem(key);
       setStoredValue(initialValue);
+      valueRef.current = initialValue;
       
       // Dispatch storage event
       window.dispatchEvent(new StorageEvent('storage', {
         key,
         newValue: null,
-        oldValue: localStorage.getItem(key)
+        oldValue: oldSerializedValue
       }));
     } catch (error) {
       errorHandler(`Error removing localStorage key "${key}":`, error);
@@ -92,12 +112,9 @@ const useLocalStorage = (key, initialValue, options = {}) => {
     const handleStorageChange = (e) => {
       if (e.key === key && e.newValue !== e.oldValue) {
         try {
-          const newValue = e.newValue 
-            ? (typeof initialValue === 'string' 
-                ? e.newValue 
-                : deserializer.parse(e.newValue))
-            : initialValue;
+          const newValue = parseStoredValue(e.newValue);
           setStoredValue(newValue);
+          valueRef.current = newValue;
         } catch (error) {
           errorHandler(`Error parsing storage event for key "${key}":`, error);
         }
@@ -106,7 +123,7 @@ const useLocalStorage = (key, initialValue, options = {}) => {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [key, initialValue, deserializer, errorHandler]);
+  }, [key, parseStoredValue, errorHandler]);
 
   return [storedValue, setValue, removeValue, hasValue];
 };
