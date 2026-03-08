@@ -1,4 +1,9 @@
 import { useState } from "react";
+import { QueryView } from "./views/QueryView";
+import { ExplorerView } from "./views/ExplorerView";
+import { DataView } from "./views/DataView";
+import { DashboardView } from "./views/DashboardView";
+import { StatusBar } from "./components/StatusBar";
 
 type Tab = "ai-query" | "db-explorer" | "data-explorer" | "dashboard";
 
@@ -14,19 +19,20 @@ const tabs: TabDef[] = [
   { id: "dashboard", label: "Dashboard" },
 ];
 
-function Placeholder({ name }: { name: string }) {
-  return (
-    <div className="flex items-center justify-center h-64 text-neutral-500">
-      <p className="text-lg">{name} view not yet implemented</p>
-    </div>
-  );
-}
+const VIEW_COMPONENTS: Record<Tab, React.ComponentType> = {
+  "ai-query": QueryView,
+  "db-explorer": ExplorerView,
+  "data-explorer": DataView,
+  dashboard: DashboardView,
+};
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("ai-query");
 
+  const ActiveView = VIEW_COMPONENTS[activeTab];
+
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-neutral-200 px-6 py-4">
         <h1 className="text-xl font-semibold text-primary-700">
@@ -54,12 +60,12 @@ export default function App() {
       </nav>
 
       {/* Content */}
-      <main className="p-6">
-        {activeTab === "ai-query" && <Placeholder name="AI Query" />}
-        {activeTab === "db-explorer" && <Placeholder name="Database Explorer" />}
-        {activeTab === "data-explorer" && <Placeholder name="Data Explorer" />}
-        {activeTab === "dashboard" && <Placeholder name="Dashboard" />}
+      <main className="flex-1 p-6">
+        <ActiveView />
       </main>
+
+      {/* Status Bar */}
+      <StatusBar />
     </div>
   );
 }
