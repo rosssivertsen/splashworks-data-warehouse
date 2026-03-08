@@ -8,6 +8,7 @@ from api.models.responses import (
     BusinessTerm,
     ColumnInfo,
     DictionaryResponse,
+    PromptsResponse,
     Relationship,
     SchemaResponse,
     TableInfo,
@@ -110,3 +111,11 @@ def get_dictionary():
         relationships=relationships,
         verified_queries=verified_queries,
     )
+
+
+@router.get("/api/prompts", response_model=PromptsResponse)
+def get_prompts():
+    """Return starter prompt questions from the semantic layer."""
+    sl = load_semantic_layer()
+    prompts = [vq.get("question", "") for vq in sl.get("verified_queries", []) if vq.get("question")]
+    return PromptsResponse(prompts=prompts)

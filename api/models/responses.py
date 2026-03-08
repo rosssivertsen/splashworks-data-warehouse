@@ -66,3 +66,7 @@ class DictionaryResponse(BaseModel):
     business_terms: list[BusinessTerm]
     relationships: list[Relationship]
     verified_queries: list[VerifiedQuery]
+
+
+class PromptsResponse(BaseModel):
+    prompts: list[str]
