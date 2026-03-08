@@ -63,6 +63,15 @@
 
 - Step 0.2 (critical bug fixes) deferred — Dropbox token revocation + SQL injection fixes should be applied before any production deployment
 
+## Pre-Production Hardening (after all functionality verified)
+
+- [ ] Create `splashworks` system user on VPS, move file ownership
+- [ ] Add to `docker` group, run Docker Compose as non-root
+- [ ] Run cloudflared as non-root (systemd `User=` directive)
+- [ ] Move cron to non-root user's crontab
+- [ ] Ensure FastAPI/frontend containers run as non-root internally
+- [ ] Review `.env` permissions and secrets management
+
 ---
 
 ## Session Log
