@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from pathlib import Path
 
 import yaml
@@ -145,5 +146,29 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
     lines.append("- When joining facts to dimensions, match on BOTH the ID column AND _company_name")
     lines.append("- Data covers a trailing ~6 month window. When a user says 'December' or 'last month' without a year, use the most recent occurrence in the data — NOT a historical year")
     lines.append("- Date columns (service_date, payment_date, etc.) are stored as TEXT, not timestamp. Use string comparisons with ISO date literals (e.g., payment_date >= '2026-03-01'). Do NOT use DATE_TRUNC(), CURRENT_DATE, INTERVAL, or any date/time functions — they will fail on text columns")
+
+    # Dynamic date references — computed at query time
+    lines.append("")
+    lines.append("## Date Reference (computed server-side, use these exact values)")
+    lines.append("")
+    today = date.today()
+    this_month_start = today.replace(day=1)
+    next_month_start = (this_month_start + timedelta(days=32)).replace(day=1)
+    last_month_start = (this_month_start - timedelta(days=1)).replace(day=1)
+    two_months_ago_start = (last_month_start - timedelta(days=1)).replace(day=1)
+    this_year_start = today.replace(month=1, day=1)
+    next_year_start = today.replace(year=today.year + 1, month=1, day=1)
+    last_year_start = today.replace(year=today.year - 1, month=1, day=1)
+
+    lines.append(f"- **today**: '{today.isoformat()}'")
+    lines.append(f"- **this month**: >= '{this_month_start.isoformat()}' AND < '{next_month_start.isoformat()}'")
+    lines.append(f"- **last month**: >= '{last_month_start.isoformat()}' AND < '{this_month_start.isoformat()}'")
+    lines.append(f"- **two months ago**: >= '{two_months_ago_start.isoformat()}' AND < '{last_month_start.isoformat()}'")
+    lines.append(f"- **next month**: >= '{next_month_start.isoformat()}' AND < '{(next_month_start + timedelta(days=32)).replace(day=1).isoformat()}'")
+    lines.append(f"- **this year**: >= '{this_year_start.isoformat()}' AND < '{next_year_start.isoformat()}'")
+    lines.append(f"- **last year**: >= '{last_year_start.isoformat()}' AND < '{this_year_start.isoformat()}'")
+    lines.append(f"- **last 30 days**: >= '{(today - timedelta(days=30)).isoformat()}'")
+    lines.append(f"- **last 90 days**: >= '{(today - timedelta(days=90)).isoformat()}'")
+    lines.append("- For any other relative date, compute the ISO date string the same way")
 
     return "\n".join(lines)
