@@ -69,3 +69,27 @@ export interface RawQueryRequest {
 export interface ApiError {
   detail: string;
 }
+
+export interface PromptsResponse {
+  prompts: string[];
+}
+
+export type ChartType = "table" | "bar" | "line" | "pie" | "area";
+
+export interface DashboardCard {
+  id: string;
+  title: string;
+  sql: string;
+  results: { columns: string[]; rows: (string | number | boolean | null)[][] } | null;
+  chartType: ChartType;
+  xColumn: string | null;
+  yColumn: string | null;
+}
+
+export interface Dashboard {
+  id: string;
+  name: string;
+  cards: DashboardCard[];
+  createdAt: string;
+  updatedAt: string;
+}

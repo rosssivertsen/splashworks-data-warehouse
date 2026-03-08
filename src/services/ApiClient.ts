@@ -3,6 +3,7 @@ import type {
   QueryResponse,
   SchemaResponse,
   DictionaryResponse,
+  PromptsResponse,
   ApiError,
 } from "../types/api";
 
@@ -63,6 +64,10 @@ export class ApiClient {
 
   async getDictionary(): Promise<DictionaryResponse> {
     return this.request<DictionaryResponse>("/schema/dictionary", { method: "GET" });
+  }
+
+  async getPrompts(): Promise<PromptsResponse> {
+    return this.request<PromptsResponse>("/prompts", { method: "GET" });
   }
 }
 
