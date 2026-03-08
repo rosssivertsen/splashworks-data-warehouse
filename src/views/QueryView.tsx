@@ -6,7 +6,11 @@ import { ExportButton } from "../components/ExportButton";
 import { StarterPrompts } from "../components/StarterPrompts";
 import type { QueryResponse } from "../types/api";
 
-export function QueryView() {
+interface QueryViewProps {
+  onAddToDashboard?: (title: string, sql: string, results: { columns: string[]; rows: (string | number | boolean | null)[][] }) => void;
+}
+
+export function QueryView({ onAddToDashboard }: QueryViewProps) {
   const [question, setQuestion] = useState("");
   const [sql, setSql] = useState("");
   const [explanation, setExplanation] = useState("");
@@ -125,7 +129,17 @@ export function QueryView() {
             <h3 className="text-sm font-medium text-neutral-700">
               Results ({result.row_count} rows)
             </h3>
-            <ExportButton columns={result.columns} rows={result.results} filename="query-results" />
+            <div className="flex gap-2">
+              {onAddToDashboard && (
+                <button
+                  onClick={() => onAddToDashboard(question || "Query Result", sql, { columns: result.columns, rows: result.results })}
+                  className="px-3 py-1.5 text-sm border border-primary-300 text-primary-700 rounded-md hover:bg-primary-50"
+                >
+                  + Dashboard
+                </button>
+              )}
+              <ExportButton columns={result.columns} rows={result.results} filename="query-results" />
+            </div>
           </div>
           <ResultsTable columns={result.columns} rows={result.results} />
         </div>

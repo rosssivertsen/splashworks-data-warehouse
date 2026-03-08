@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { apiClient } from "../services/ApiClient";
 import { ChartCard } from "../components/ChartCard";
-import { useDashboards } from "../hooks/useDashboards";
+import type { useDashboards } from "../hooks/useDashboards";
 
 const SAMPLE_CARDS = [
   {
@@ -18,7 +18,11 @@ const SAMPLE_CARDS = [
   },
 ];
 
-export function DashboardView() {
+interface DashboardViewProps {
+  dashboardState: ReturnType<typeof useDashboards>;
+}
+
+export function DashboardView({ dashboardState }: DashboardViewProps) {
   const {
     dashboards,
     activeDashboard,
@@ -30,7 +34,7 @@ export function DashboardView() {
     addCard,
     updateCard,
     removeCard,
-  } = useDashboards();
+  } = dashboardState;
 
   const [newCardTitle, setNewCardTitle] = useState("");
   const [newCardSql, setNewCardSql] = useState("");

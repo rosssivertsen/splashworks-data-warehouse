@@ -22,6 +22,21 @@ vi.mock("../components/StatusBar", () => ({
   StatusBar: () => <div data-testid="status-bar">StatusBar</div>,
 }));
 
+vi.mock("../hooks/useDashboards", () => ({
+  useDashboards: () => ({
+    dashboards: [],
+    activeDashboard: null,
+    activeId: null,
+    createDashboard: vi.fn(),
+    renameDashboard: vi.fn(),
+    deleteDashboard: vi.fn(),
+    setActiveDashboard: vi.fn(),
+    addCard: vi.fn(),
+    updateCard: vi.fn(),
+    removeCard: vi.fn(),
+  }),
+}));
+
 import App from "../App";
 
 describe("App", () => {

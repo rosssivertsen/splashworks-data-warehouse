@@ -4,6 +4,7 @@ import { ExplorerView } from "./views/ExplorerView";
 import { DataView } from "./views/DataView";
 import { DashboardView } from "./views/DashboardView";
 import { StatusBar } from "./components/StatusBar";
+import { useDashboards } from "./hooks/useDashboards";
 
 type Tab = "ai-query" | "db-explorer" | "data-explorer" | "dashboard";
 
@@ -19,28 +20,31 @@ const tabs: TabDef[] = [
   { id: "dashboard", label: "Dashboard" },
 ];
 
-const VIEW_COMPONENTS: Record<Tab, React.ComponentType> = {
-  "ai-query": QueryView,
-  "db-explorer": ExplorerView,
-  "data-explorer": DataView,
-  dashboard: DashboardView,
-};
-
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("ai-query");
+  const dashboardState = useDashboards();
 
-  const ActiveView = VIEW_COMPONENTS[activeTab];
+  const handleAddToDashboard = (title: string, sql: string, results: { columns: string[]; rows: (string | number | boolean | null)[][] }) => {
+    const target = dashboardState.activeDashboard;
+    if (!target) {
+      // Create a dashboard if none exists
+      dashboardState.createDashboard("My Dashboard");
+    }
+    // Use the active dashboard (or the newly created one)
+    const dashId = dashboardState.activeId ?? dashboardState.dashboards[0]?.id;
+    if (dashId) {
+      dashboardState.addCard(dashId, { title, sql, results });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 flex flex-col">
-      {/* Header */}
       <header className="bg-white border-b border-neutral-200 px-6 py-4">
         <h1 className="text-xl font-semibold text-primary-700">
           Splashworks Warehouse
         </h1>
       </header>
 
-      {/* Tab Navigation */}
       <nav className="bg-white border-b border-neutral-200 px-6">
         <div className="flex space-x-1">
           {tabs.map((tab) => (
@@ -59,12 +63,19 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Content */}
       <main className="flex-1 p-6">
-        <ActiveView />
+        {activeTab === "ai-query" && (
+          <QueryView onAddToDashboard={handleAddToDashboard} />
+        )}
+        {activeTab === "db-explorer" && <ExplorerView />}
+        {activeTab === "data-explorer" && (
+          <DataView onAddToDashboard={handleAddToDashboard} />
+        )}
+        {activeTab === "dashboard" && (
+          <DashboardView dashboardState={dashboardState} />
+        )}
       </main>
 
-      {/* Status Bar */}
       <StatusBar />
     </div>
   );

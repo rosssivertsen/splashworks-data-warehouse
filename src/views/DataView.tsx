@@ -5,7 +5,11 @@ import { SqlEditor } from "../components/SqlEditor";
 import { ExportButton } from "../components/ExportButton";
 import type { QueryResponse } from "../types/api";
 
-export function DataView() {
+interface DataViewProps {
+  onAddToDashboard?: (title: string, sql: string, results: { columns: string[]; rows: (string | number | boolean | null)[][] }) => void;
+}
+
+export function DataView({ onAddToDashboard }: DataViewProps) {
   const [sql, setSql] = useState("");
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,7 +62,17 @@ export function DataView() {
             <h3 className="text-sm font-medium text-neutral-700">
               Results ({result.row_count} rows)
             </h3>
-            <ExportButton columns={result.columns} rows={result.results} filename="data-export" />
+            <div className="flex gap-2">
+              {onAddToDashboard && (
+                <button
+                  onClick={() => onAddToDashboard(sql.slice(0, 50) || "Query Result", sql, { columns: result.columns, rows: result.results })}
+                  className="px-3 py-1.5 text-sm border border-primary-300 text-primary-700 rounded-md hover:bg-primary-50"
+                >
+                  + Dashboard
+                </button>
+              )}
+              <ExportButton columns={result.columns} rows={result.results} filename="data-export" />
+            </div>
           </div>
           <ResultsTable columns={result.columns} rows={result.results} />
         </div>

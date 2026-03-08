@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { QueryResponse } from "../../types/api";
+import { useDashboards } from "../../hooks/useDashboards";
+import { DashboardView } from "../DashboardView";
 
 vi.mock("../../services/ApiClient", () => ({
   apiClient: {
@@ -37,6 +39,12 @@ const localStorageMock = (() => {
 
 Object.defineProperty(window, "localStorage", { value: localStorageMock });
 
+/** Wrapper that provides useDashboards state as a prop */
+function DashboardViewWithHook() {
+  const dashboardState = useDashboards();
+  return <DashboardView dashboardState={dashboardState} />;
+}
+
 describe("DashboardView", () => {
   let apiClient: typeof import("../../services/ApiClient")["apiClient"];
 
@@ -50,8 +58,7 @@ describe("DashboardView", () => {
   it("creates sample dashboard on first visit", async () => {
     vi.mocked(apiClient.queryRaw).mockResolvedValue(mockResponse);
 
-    const { DashboardView } = await import("../DashboardView");
-    render(<DashboardView />);
+    render(<DashboardViewWithHook />);
 
     // Should see the "Operations Overview" dashboard in the selector
     await waitFor(() => {
@@ -62,8 +69,7 @@ describe("DashboardView", () => {
   it("shows dashboard selector and action buttons", async () => {
     vi.mocked(apiClient.queryRaw).mockResolvedValue(mockResponse);
 
-    const { DashboardView } = await import("../DashboardView");
-    render(<DashboardView />);
+    render(<DashboardViewWithHook />);
 
     await waitFor(() => {
       expect(screen.getByText("Operations Overview")).toBeInTheDocument();
@@ -79,8 +85,7 @@ describe("DashboardView", () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.queryRaw).mockResolvedValue(mockResponse);
 
-    const { DashboardView } = await import("../DashboardView");
-    render(<DashboardView />);
+    render(<DashboardViewWithHook />);
 
     await waitFor(() => {
       expect(screen.getByText("+ Add Card")).toBeInTheDocument();
@@ -96,8 +101,7 @@ describe("DashboardView", () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.queryRaw).mockResolvedValue(mockResponse);
 
-    const { DashboardView } = await import("../DashboardView");
-    render(<DashboardView />);
+    render(<DashboardViewWithHook />);
 
     // Wait for sample dashboard to be created and loaded
     await waitFor(() => {
