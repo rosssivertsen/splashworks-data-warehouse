@@ -1,472 +1,71 @@
-import { useState, useEffect } from 'react'
-import OnboardingScreen from './components/OnboardingScreen'
-import DatabaseUploader from './components/DatabaseUploader'
-import DropboxDatabaseLoader from './components/DropboxDatabaseLoader'
-import DatabaseList from './components/DatabaseList'
-import DatabaseExplorer from './components/DatabaseExplorer'
-import DashboardView from './components/DashboardView'
-import DataExplorer from './components/DataExplorer'
-import InsightsPanel from './components/InsightsPanel'
-import QueryResults from './components/QueryResults'
-import AIQueryInterface from './components/AIQueryInterface'
-import AIAssistant from './components/AIAssistant'
-import { FiDatabase, FiBarChart2, FiPieChart, FiSearch, FiTrendingUp, FiSettings, FiMessageSquare, FiCpu } from 'react-icons/fi'
-import SafeIcon from './common/SafeIcon'
-import useDatabase from './hooks/useDatabase'
-import useDashboard from './hooks/useDashboard'
-import { useAISettings } from './hooks/useLocalStorage'
-import { AI_PROVIDERS, MODELS, getProviderName } from './services/aiService'
-import { REMOTE_STORAGE_CONFIG } from './config/remote-storage'
-import './App.css'
+import { useState } from "react";
+import { QueryView } from "./views/QueryView";
+import { ExplorerView } from "./views/ExplorerView";
+import { DataView } from "./views/DataView";
+import { DashboardView } from "./views/DashboardView";
+import { StatusBar } from "./components/StatusBar";
 
-function App() {
-  // Check if onboarding is complete - initialize from localStorage
-  const [onboardingComplete, setOnboardingComplete] = useState(() => {
-    const onboardingData = localStorage.getItem('onboarding_completed')
-    if (onboardingData) {
-      try {
-        const data = JSON.parse(onboardingData)
-        return data.completed === true
-      } catch (error) {
-        console.error('Error parsing onboarding data:', error)
-        return false
-      }
-    }
-    return false
-  })
+type Tab = "ai-query" | "db-explorer" | "data-explorer" | "dashboard";
 
-  // Use custom hooks for centralized state management (must be called before any conditional returns)
-  const { 
-    database, 
-    sqlInstance, 
-    sqlLoading, 
-    sqlError, 
-    setDatabase,
-    handleDatabaseUpload,
-    unionDatabases,
-    databaseHistory,
-    removeDatabaseFromHistory
-  } = useDatabase()
-  
-  const { 
-    dashboards, 
-    selectedDashboard, 
-    setSelectedDashboard, 
-    createDashboard,
-    setDashboards
-  } = useDashboard()
-  
-  const aiSettings = useAISettings()
-  
-  // For backward compatibility with components that expect apiKey
-  const apiKey = aiSettings.getCurrentApiKey()
-  
-  // Local component state
-  const [activeTab, setActiveTab] = useState('upload')
-  const [queryResults, setQueryResults] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleOnboardingComplete = () => {
-    setOnboardingComplete(true)
-  }
-
-  // Handle initial dashboard restoration - run only when dashboard/database state changes, NOT on tab changes
-  useEffect(() => {
-    console.log('🎯 App useEffect: Checking dashboard restoration conditions');
-    console.log('🎯 App useEffect: database exists?', !!database);
-    console.log('🎯 App useEffect: selectedDashboard exists?', !!selectedDashboard);
-    console.log('🎯 App useEffect: dashboards.length:', dashboards.length);
-    
-    // Handle dashboard creation when database is loaded but no dashboard exists
-    if (database && !selectedDashboard && dashboards.length === 0) {
-      console.log('🎯 App useEffect: Database loaded but no dashboards exist, creating default');
-      const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
-        description: 'Executive dashboard for pool service business metrics (restored)'
-      })
-      setSelectedDashboard(defaultDashboard)
-      setActiveTab('aiAssistant')
-    }
-  }, [database, selectedDashboard, dashboards.length, sqlInstance, createDashboard, setSelectedDashboard, setActiveTab])
-
-  // Handle initial tab switching when app loads - run only once on mount
-  useEffect(() => {
-    // Only auto-switch tabs on initial load if we have persisted dashboards
-    if (selectedDashboard && dashboards.length > 0 && activeTab === 'upload') {
-      console.log('🎯 App initial load: Selected dashboard exists, switching to dashboard tab');
-      setActiveTab('dashboard');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty deps - only run on mount, not when activeTab changes
-
-  const handleDatabaseLoad = (db: any) => {
-    console.log('🎯 App: Database loaded, switching to AI Assistant tab');
-    console.log('🎯 App: Current dashboards length:', dashboards.length);
-    console.log('🎯 App: Current selected dashboard:', selectedDashboard);
-    
-    setDatabase(db)
-    setActiveTab('aiAssistant')
-    
-    // Only create default dashboard if none exist
-    if (dashboards.length === 0) {
-      console.log('🎯 App: No dashboards exist, creating default');
-      const defaultDashboard = createDashboard('Pool Service Executive Dashboard', {
-        description: 'Executive dashboard for pool service business metrics'
-      })
-      console.log('🎯 App: Created dashboard:', defaultDashboard);
-      setSelectedDashboard(defaultDashboard as any)
-    } else {
-      console.log('🎯 App: Dashboards already exist, using existing');
-      // If dashboards exist but none is selected, select the first one
-      if (!selectedDashboard && dashboards.length > 0) {
-        setSelectedDashboard(dashboards[0] as any)
-      }
-    }
-  }
-
-  const handleFileUpload = async (file: File) => {
-    try {
-      const db = await handleDatabaseUpload(file)
-      handleDatabaseLoad(db)
-    } catch (error) {
-      console.error('Failed to upload database:', error)
-    }
-  }
-
-  const handleUnionDatabases = async (files: File[]) => {
-    try {
-      const db = await unionDatabases(files)
-      handleDatabaseLoad(db)
-    } catch (error) {
-      console.error('Failed to union databases:', error)
-    }
-  }
-
-  const handleQueryExecute = (results: any) => {
-    setQueryResults(results)
-  }
-
-  const tabs = [
-    { id: 'upload', label: 'Upload Database', icon: FiDatabase },
-    { id: 'explorer', label: 'Database Explorer', icon: FiBarChart2 },
-    { id: 'dataExplorer', label: 'Data Explorer', icon: FiPieChart },
-    { id: 'aiQuery', label: 'AI Query Interface', icon: FiSearch },
-    { id: 'insights', label: 'Business Insights', icon: FiTrendingUp },
-    { id: 'dashboard', label: 'Executive Dashboard', icon: FiMessageSquare },
-    { id: 'aiAssistant', label: 'AI Assistant', icon: FiCpu },
-    { id: 'settings', label: 'Settings', icon: FiSettings },
-  ]
-
-  // Show onboarding screen if not completed
-  if (!onboardingComplete) {
-    return <OnboardingScreen onComplete={handleOnboardingComplete} />
-  }
-
-  if (sqlLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-pool-blue-50 to-service-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-pool-blue-600 mx-auto mb-4"></div>
-          <p className="text-lg text-service-700">Loading Pool Service BI Dashboard...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (sqlError) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-pool-blue-50 to-service-100 flex items-center justify-center">
-        <div className="service-card max-w-md">
-          <h2 className="text-xl font-bold text-red-600 mb-4">Initialization Error</h2>
-          <p className="text-service-600 mb-4">Failed to load SQL.js library:</p>
-          <p className="text-sm bg-red-50 p-3 rounded text-red-700">{sqlError}</p>
-          <button 
-            className="btn-primary w-full mt-4"
-            onClick={() => window.location.reload()}
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="mx-auto" style={{ maxWidth: '1400px' }}>
-        {/* Header - Responsive sizing */}
-        <header className="bg-white border-b border-neutral-200 px-3 sm:px-4 md:px-6 lg:px-8 py-3 md:py-4 lg:py-5">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center space-x-2 md:space-x-4 min-w-0 flex-1">
-              <div className="min-w-0">
-                <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-neutral-900 truncate">
-                  Splashworks Pool Service BI Visualizer
-                </h1>
-                <p className="text-xs sm:text-sm text-neutral-600 hidden sm:block">AI-powered Business Intelligence</p>
-              </div>
-            </div>
-            {database && (
-              <div className="flex items-center space-x-1.5 md:space-x-2 text-xs sm:text-sm ml-2 flex-shrink-0">
-                <div className="w-2 h-2 bg-success-500 rounded-full"></div>
-                <span className="text-neutral-600 hidden sm:inline">Database Connected</span>
-                <span className="text-neutral-600 sm:hidden">DB</span>
-              </div>
-            )}
-          </div>
-        </header>
-
-        {/* Navigation - Horizontal scroll on mobile */}
-        <div className="bg-white border-b border-neutral-200 sticky top-0 z-10">
-          <nav className="px-2 sm:px-4 md:px-6 lg:px-8">
-            <div className="flex space-x-0 overflow-x-auto scrollbar-hide h-12 md:h-14 lg:h-16">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-1.5 md:space-x-2 px-2.5 sm:px-3 md:px-4 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex-shrink-0 ${
-                    activeTab === tab.id
-                      ? 'border-primary-500 text-primary-600 bg-primary-50'
-                      : 'border-transparent text-neutral-600 hover:text-neutral-800 hover:border-neutral-300'
-                  }`}
-                >
-                  <SafeIcon icon={tab.icon} className="w-4 h-4 flex-shrink-0" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
-                </button>
-              ))}
-            </div>
-          </nav>
-        </div>
-
-        {/* Tab Content - Responsive padding */}
-        <div className="p-3 sm:p-4 md:p-5 lg:p-6 min-h-[400px]">
-          {activeTab === 'upload' && (
-            <div className="space-y-6">
-              {/* Dropbox Remote Storage */}
-              {REMOTE_STORAGE_CONFIG.enabled && (
-                <div className="service-card">
-                  <DropboxDatabaseLoader 
-                    sqlInstance={sqlInstance}
-                    onDatabaseLoad={handleDatabaseLoad}
-                    onFileUpload={handleFileUpload}
-                    onUnionDatabases={handleUnionDatabases}
-                  />
-                </div>
-              )}
-              
-              {/* Local Upload */}
-              <div className="service-card">
-                <DatabaseUploader 
-                  sqlInstance={sqlInstance} 
-                  onDatabaseLoad={handleDatabaseLoad} 
-                  onFileUpload={handleFileUpload}
-                  onUnionDatabases={handleUnionDatabases}
-                />
-              </div>
-              
-              {/* Database History */}
-              <DatabaseList 
-                databases={databaseHistory}
-                onRemove={removeDatabaseFromHistory}
-              />
-            </div>
-          )}
-          {activeTab === 'explorer' && database && (
-            <DatabaseExplorer database={database} onQueryExecute={handleQueryExecute} />
-          )}
-          {activeTab === 'aiAssistant' && database && (
-            <AIAssistant
-              database={database}
-              apiKey={apiKey}
-              onQueryExecute={handleQueryExecute}
-              dashboards={dashboards}
-              setDashboards={setDashboards}
-              selectedDashboard={selectedDashboard}
-              setSelectedDashboard={setSelectedDashboard}
-              isLoading={isLoading}
-              setIsLoading={setIsLoading}
-            />
-          )}
-          {activeTab === 'aiQuery' && database && (
-            <AIQueryInterface
-              database={database}
-              apiKey={apiKey}
-              onQueryExecute={handleQueryExecute}
-              isLoading={isLoading}
-              setIsLoading={setIsLoading}
-            />
-          )}
-          {activeTab === 'dashboard' && database && (
-            <DashboardView
-              database={database}
-              dashboards={dashboards}
-              setDashboards={setDashboards}
-              selectedDashboard={selectedDashboard}
-              setSelectedDashboard={setSelectedDashboard}
-              apiKey={apiKey}
-              onQueryExecute={handleQueryExecute}
-              isLoading={isLoading}
-              setIsLoading={setIsLoading}
-            />
-          )}
-          {activeTab === 'insights' && database && (
-            <InsightsPanel
-              database={database}
-              apiKey={apiKey}
-              onQueryExecute={handleQueryExecute}
-              isLoading={isLoading}
-              setIsLoading={setIsLoading}
-            />
-          )}
-          {activeTab === 'dataExplorer' && database && (
-            <DataExplorer
-              database={database}
-              onQueryExecute={handleQueryExecute}
-            />
-          )}
-          {activeTab === 'settings' && (
-            <div className="service-card max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold text-service-900 mb-6">AI Provider Settings</h2>
-              <div className="space-y-6">
-                {/* Provider Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-service-700 mb-2">
-                    AI Provider
-                  </label>
-                  <select
-                    value={aiSettings.settings.provider}
-                    onChange={(e) => aiSettings.setProvider(e.target.value)}
-                    className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
-                  >
-                    <option value={AI_PROVIDERS.OPENAI}>{getProviderName(AI_PROVIDERS.OPENAI)}</option>
-                    <option value={AI_PROVIDERS.ANTHROPIC}>{getProviderName(AI_PROVIDERS.ANTHROPIC)}</option>
-                  </select>
-                  <p className="text-sm text-service-600 mt-2">
-                    Select your preferred AI provider for SQL generation
-                  </p>
-                </div>
-
-                {/* OpenAI Settings */}
-                {aiSettings.settings.provider === AI_PROVIDERS.OPENAI && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-service-700 mb-2">
-                        OpenAI API Key
-                      </label>
-                      <input
-                        type="password"
-                        value={aiSettings.settings.openaiApiKey || ''}
-                        onChange={(e) => aiSettings.setOpenAIKey(e.target.value)}
-                        placeholder="sk-..."
-                        className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
-                      />
-                      {aiSettings.isValidOpenAIKey && (
-                        <p className="text-sm text-success-600 mt-1">✓ Valid API key format</p>
-                      )}
-                      {aiSettings.settings.openaiApiKey && !aiSettings.isValidOpenAIKey && (
-                        <p className="text-sm text-error-600 mt-1">⚠ Invalid API key format (should start with sk-)</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-service-700 mb-2">
-                        OpenAI Model
-                      </label>
-                      <select
-                        value={aiSettings.settings.openaiModel}
-                        onChange={(e) => aiSettings.setOpenAIModel(e.target.value)}
-                        className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
-                      >
-                        {MODELS.openai.map(model => (
-                          <option key={model.id} value={model.id}>
-                            {model.name} - {model.description}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </>
-                )}
-
-                {/* Anthropic Settings */}
-                {aiSettings.settings.provider === AI_PROVIDERS.ANTHROPIC && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-service-700 mb-2">
-                        Anthropic API Key
-                      </label>
-                      <input
-                        type="password"
-                        value={aiSettings.settings.anthropicApiKey || ''}
-                        onChange={(e) => aiSettings.setAnthropicKey(e.target.value)}
-                        placeholder="sk-ant-..."
-                        className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
-                      />
-                      {aiSettings.isValidAnthropicKey && (
-                        <p className="text-sm text-success-600 mt-1">✓ Valid API key format</p>
-                      )}
-                      {aiSettings.settings.anthropicApiKey && !aiSettings.isValidAnthropicKey && (
-                        <p className="text-sm text-error-600 mt-1">⚠ Invalid API key format (should start with sk-ant-)</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-service-700 mb-2">
-                        Anthropic Model
-                      </label>
-                      <select
-                        value={aiSettings.settings.anthropicModel}
-                        onChange={(e) => aiSettings.setAnthropicModel(e.target.value)}
-                        className="w-full p-3 border border-service-300 rounded-lg focus:ring-2 focus:ring-pool-blue-500 focus:border-transparent"
-                      >
-                        {MODELS.anthropic.map(model => (
-                          <option key={model.id} value={model.id}>
-                            {model.name} - {model.description}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-sm text-pool-blue-600 mt-2">
-                        💡 <strong>Recommended:</strong> Claude 3.5 Sonnet excels at SQL generation
-                      </p>
-                    </div>
-                  </>
-                )}
-                
-                <div className="bg-pool-blue-50 border border-pool-blue-200 rounded-lg p-4">
-                  <h3 className="font-medium text-pool-blue-900 mb-2">Pool Service Features</h3>
-                  <ul className="text-sm text-pool-blue-800 space-y-1">
-                    <li>• Customer retention and lifetime value analysis</li>
-                    <li>• Route optimization and technician productivity</li>
-                    <li>• Revenue trends and seasonal pattern detection</li>
-                    <li>• Equipment maintenance and chemical usage tracking</li>
-                  </ul>
-                </div>
-
-                <div className="bg-success-50 border border-success-200 rounded-lg p-4">
-                  <h3 className="font-medium text-success-900 mb-2">✨ New: Semantic Layer Integration</h3>
-                  <p className="text-sm text-success-800 mb-2">
-                    The AI now understands business concepts like "filter cleaning" and "chlorine usage" 
-                    with proper SQL patterns and recurrence schedules.
-                  </p>
-                  <ul className="text-sm text-success-800 space-y-1">
-                    <li>• Business term recognition with synonyms</li>
-                    <li>• Metric awareness (targets & compliance rates)</li>
-                    <li>• Pre-validated query templates</li>
-                    <li>• Improved multi-table JOIN accuracy</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Query Results */}
-          {queryResults && (
-            <div className="mt-8">
-              <QueryResults results={queryResults} />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+interface TabDef {
+  id: Tab;
+  label: string;
 }
 
-export default App
+const tabs: TabDef[] = [
+  { id: "ai-query", label: "AI Query" },
+  { id: "db-explorer", label: "Database Explorer" },
+  { id: "data-explorer", label: "Data Explorer" },
+  { id: "dashboard", label: "Dashboard" },
+];
+
+const VIEW_COMPONENTS: Record<Tab, React.ComponentType> = {
+  "ai-query": QueryView,
+  "db-explorer": ExplorerView,
+  "data-explorer": DataView,
+  dashboard: DashboardView,
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<Tab>("ai-query");
+
+  const ActiveView = VIEW_COMPONENTS[activeTab];
+
+  return (
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 flex flex-col">
+      {/* Header */}
+      <header className="bg-white border-b border-neutral-200 px-6 py-4">
+        <h1 className="text-xl font-semibold text-primary-700">
+          Splashworks Warehouse
+        </h1>
+      </header>
+
+      {/* Tab Navigation */}
+      <nav className="bg-white border-b border-neutral-200 px-6">
+        <div className="flex space-x-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? "border-primary-600 text-primary-700"
+                  : "border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Content */}
+      <main className="flex-1 p-6">
+        <ActiveView />
+      </main>
+
+      {/* Status Bar */}
+      <StatusBar />
+    </div>
+  );
+}
