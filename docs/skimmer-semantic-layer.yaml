@@ -1,182 +1,372 @@
-# Pool Service Semantic Layer Consolidated YAML
+# Splashworks Pool Service — Semantic Layer
+# Target: PostgreSQL warehouse (dbt-managed schemas)
+# Last updated: 2026-03-10
+
+warehouse_schema:
+  staging: public_staging
+  warehouse: public_warehouse
+  semantic: public_semantic
 
 business_terms:
+  active_customer:
+    description: "Customer currently receiving pool service (is_inactive = 0 in dim_customer)"
+    sql_pattern: "WHERE is_inactive = 0"
+    tables: [dim_customer]
+    skimmer_doc: "https://help.getskimmer.com/article/56-add-edit-or-delete-a-body-of-water-web"
+
+  rate_type:
+    description: "How a customer is billed. Values: FlatMonthlyRateIncludingChemicals, FlatMonthlyRatePlusChemicals, PerStopIncludingChemicals, PerStopPlusChemicals, None"
+    sql_pattern: "dim_service_location.rate_type"
+    tables: [dim_service_location]
+    skimmer_doc: "https://help.getskimmer.com/article/199-how-to-charge-for-chemical-dosages"
+
+  profit:
+    description: "Service Rate minus Labor Cost minus Dosage Cost. Matches Skimmer's Profit Report."
+    sql_pattern: "semantic_profit.profit = service_rate - total_cost"
+    tables: [semantic_profit]
+    skimmer_doc: "https://help.getskimmer.com/article/299-profit-report"
+
+  service_stop:
+    description: "A single visit to a pool by a technician. Grain of operational reporting. One row per route_stop (visit)."
+    sql_pattern: "SELECT * FROM public_warehouse.fact_service_stop"
+    tables: [fact_service_stop]
+    skimmer_doc: "https://help.getskimmer.com/article/80-view-customer-service-history-web"
+
+  minutes_at_stop:
+    description: "Duration of a service visit in minutes (typical range 15-90, average ~27 min)"
+    sql_pattern: "fact_service_stop.minutes_at_stop"
+    tables: [fact_service_stop]
+    skimmer_doc: "https://help.getskimmer.com/article/119-how-time-tracking-works-app"
+
+  service_status:
+    description: "Whether a service visit was completed (1) or skipped/incomplete (0). Derived from Skimmer's sentinel timestamp."
+    sql_pattern: "fact_service_stop.service_status = 1 for completed, = 0 for skipped"
+    tables: [fact_service_stop]
+    synonyms: ["completed", "skipped", "visit status"]
+
+  skipped_stop:
+    description: "Route stop not completed. Tracked with optional reasons and email alerts. Filter: service_status = 0"
+    sql_pattern: "WHERE fact_service_stop.service_status = 0"
+    tables: [fact_service_stop]
+    skimmer_doc: "https://help.getskimmer.com/article/160-skipped-stops-skip-tracking-reasons-and-email-alerts"
+
+  payment_method:
+    description: "How a customer paid. Values: Card, Check, Credit, Other, Bank, Cash"
+    sql_pattern: "fact_payment.payment_method"
+    tables: [fact_payment]
+    skimmer_doc: "https://help.getskimmer.com/article/151-skimmer-billing-how-to-manage-payments"
+
+  ar_aging:
+    description: "Accounts receivable aging: Current, 30-day, 60-day, 90-day+ overdue buckets. Derive from invoice due_date vs current_date."
+    sql_pattern: "Use fact_invoice.due_date and payment_status to calculate aging buckets"
+    tables: [fact_invoice, fact_payment]
+    skimmer_doc: "https://help.getskimmer.com/article/157-skimmer-billing-report-ar-aging-summary"
+
+  pool:
+    description: "Body of water at a service location. Has gallons, filter baseline PSI, name (Pool/Spa/Fountain/etc.)"
+    sql_pattern: "SELECT * FROM public_warehouse.dim_pool"
+    tables: [dim_pool]
+    skimmer_doc: "https://help.getskimmer.com/article/56-add-edit-or-delete-a-body-of-water-web"
+
+  labor_cost_type:
+    description: "How tech labor is costed. Values: PerStop, PerMonth, None"
+    sql_pattern: "dim_service_location.labor_cost_type"
+    tables: [dim_service_location]
+    skimmer_doc: "https://help.getskimmer.com/article/302-labor-report"
+
+  can_include_with_service:
+    description: "Boolean flag on chemicals — determines if dosage cost is bundled with service or separately charged"
+    sql_pattern: "dim_chemical.can_include_with_service"
+    tables: [dim_chemical]
+    skimmer_doc: "https://help.getskimmer.com/article/199-how-to-charge-for-chemical-dosages"
+
+  chemical_dosage:
+    description: "Chemical administered during service with volume, cost, price, and profit"
+    sql_pattern: "SELECT * FROM public_warehouse.fact_dosage"
+    tables: [fact_dosage]
+    skimmer_doc: "https://help.getskimmer.com/article/300-chemical-dosages-report"
+
   chlorine_usage:
     description: "Total amount of chlorine chemicals added to pools"
-    sql_pattern: |
-      WHERE EntryDescription.Description LIKE '%Chlorine%'
-      AND ServiceStopEntry.EntryType = 'Dosage'
-    tables_required: [ServiceStopEntry, EntryDescription, Pool]
-    unit: "Measured in EntryDescription.UnitOfMeasure (oz, lbs, gallons)"
+    sql_pattern: "WHERE fact_dosage.entry_description LIKE '%Chlorine%'"
+    tables: [fact_dosage]
     synonyms: ["chlorine dosage", "chlorine added", "chlorine chemicals"]
 
+  installed_item:
+    description: "Parts/chemicals marked installed during service. NOT YET IN WAREHOUSE — raw data only."
+    tables: []
+    skimmer_doc: "https://help.getskimmer.com/article/301-installed-items-report"
+    data_availability: "not_available"
+
+  equipment:
+    description: "Pool equipment (pumps, filters, salt systems) tracked by Category/Make/Model. NOT YET IN WAREHOUSE."
+    tables: []
+    skimmer_doc: "https://help.getskimmer.com/article/59-add-and-delete-equipment-web"
+    data_availability: "not_available"
+
 tables:
-  Customer:
-    description: "Primary customer accounts who receive pool service"
-    business_context: "One customer can have multiple service locations (home, rental properties)"
-    key_columns:
-      id:
-        data_type: "TEXT (UUID)"
-        description: "Unique customer identifier"
-        is_primary_key: true
-      IsActive:
-        data_type: "BOOLEAN"
-        description: "Whether customer is currently receiving service"
-        sample_values: [true, false]
-        business_rule: "Use for filtering active customer lists"
+  dim_customer:
+    schema: public_warehouse
+    description: "Customer dimension — one row per customer per company"
+    key_columns: [customer_id, _company_name, clean_customer_name, is_inactive, billing_city, billing_state]
+    primary_key: customer_id
+    active_filter: "is_inactive = 0"
+
+  dim_service_location:
+    schema: public_warehouse
+    description: "Service location dimension — customer addresses with rate and labor cost configuration"
+    key_columns: [service_location_id, customer_id, _company_name, city, state, zip, rate, rate_type, labor_cost, labor_cost_type]
+    primary_key: service_location_id
+    joins_to: dim_customer via customer_id
+
+  dim_pool:
+    schema: public_warehouse
+    description: "Pool/body of water dimension — gallons, type, filter baseline pressure"
+    key_columns: [pool_id, service_location_id, customer_id, _company_name, pool_name, gallons, baseline_filter_pressure]
+    primary_key: pool_id
+    joins_to: dim_service_location via service_location_id, dim_customer via customer_id
+
+  dim_tech:
+    schema: public_warehouse
+    description: "Technician/account dimension — staff who service pools"
+    key_columns: [tech_id, _company_name, full_name, role_type, is_active]
+    primary_key: tech_id
+
+  dim_chemical:
+    schema: public_warehouse
+    description: "Chemical/entry description dimension — readings and dosage types"
+    key_columns: [chemical_id, _company_name, description, entry_type, unit_of_measure, dosage_type, cost, price]
+    primary_key: chemical_id
+
+  dim_date:
+    schema: public_warehouse
+    description: "Date dimension — 2024-2027 date spine with day/week/month/quarter/year/season"
+    key_columns: [date_key, day_of_week, month_num, month_name, quarter, year, year_month, season]
+    primary_key: date_key
+
+  fact_dosage:
+    schema: public_warehouse
+    description: "Chemical dosage events per service stop — volume, cost, price"
+    key_columns: [service_stop_id, route_stop_id, service_date, service_month, tech_id, customer_id, entry_description, dosage_cost, dosage_price]
+    grain: "one row per dosage entry per service stop"
+
+  fact_labor:
+    schema: public_warehouse
+    description: "Labor facts — time and cost per route stop"
+    key_columns: [service_stop_id, route_stop_id, service_date, service_month, tech_id, customer_id, minutes_at_stop, service_status, rate, labor_cost]
+    grain: "one row per service stop"
+
+  fact_invoice:
+    schema: public_warehouse
+    description: "Invoice facts with customer, location, and line item detail"
+    key_columns: [invoice_id, customer_id, _company_name, invoice_date, invoice_status, payment_status, line_total, product_name]
+    grain: "one row per invoice line item"
+
+  fact_service_stop:
+    schema: public_warehouse
+    description: "Core operational grain — one row per visit per pool. Answers duration, frequency, and completion questions."
+    key_columns: [route_stop_id, service_stop_id, service_location_id, customer_id, pool_id, tech_id, service_date, minutes_at_stop, service_status, notes]
+    grain: "one row per route stop (visit)"
+    note: "LEFT JOIN to stg_service_stop — skipped stops have no service_stop record but still appear as rows"
+
+  fact_payment:
+    schema: public_warehouse
+    description: "Payment records — amount, date, method per invoice"
+    key_columns: [payment_id, invoice_id, customer_id, _company_name, amount, payment_date, payment_method]
+    grain: "one row per payment"
+
+  fact_work_order:
+    schema: public_warehouse
+    description: "Work order facts — ad hoc maintenance tasks"
+    key_columns: [work_order_id, service_location_id, tech_id, service_date, service_status, labor_cost, price]
+    grain: "one row per work order"
+
+  semantic_profit:
+    schema: public_semantic
+    description: "Per-customer, per-month profitability. Matches Skimmer's Profit Report: profit = service_rate - labor_cost - dosage_cost"
+    key_columns: [customer_id, _company_name, customer_name, service_month, rate_type, service_rate, labor_cost, dosage_cost, total_cost, profit, stop_count]
+    grain: "one row per customer per month"
 
 relationships:
-  customer_to_chemical_usage:
-    description: "Complete path from customer to chemical dosages"
-    join_path:
-      - "Customer"
-      - "JOIN ServiceLocation ON Customer.id = ServiceLocation.CustomerId"
-      - "JOIN Pool ON ServiceLocation.id = Pool.ServiceLocationId"
-      - "JOIN ServiceStop ON Pool.id = ServiceStop.PoolId"
-      - "JOIN ServiceStopEntry ON ServiceStop.id = ServiceStopEntry.ServiceStopId"
-      - "JOIN EntryDescription ON ServiceStopEntry.EntryDescriptionId = EntryDescription.id"
-    use_cases: ["Customer chemical usage analysis", "Service history by customer"]
-  active_customers:
-    description: "Customers currently receiving service"
-    sql_pattern: |
-      WHERE Customer.IsActive = 1 AND Customer.Deleted = 0
-    tables_required: [Customer]
-    synonyms: ["current customers", "paying customers"]
+  customer_to_location:
+    description: "Customer to service locations (1:many)"
+    join: "dim_customer.customer_id = dim_service_location.customer_id AND dim_customer._company_name = dim_service_location._company_name"
 
-  filter_cleaning:
-    description: "Scheduled filter cleaning and maintenance performed every 4 weeks"
-    sql_pattern: |
-      WHERE ServiceStopEntry.EntryType = 'Task'
-      AND EntryDescription.Description LIKE '%Filter%'
-      AND ServiceStopEntry.ServiceDate >= DATE('now', '-4 weeks')
-    tables_required: [ServiceStopEntry, EntryDescription, ServiceStop]
-    recurrence: "Every 4 weeks (monthly)"
-    synonyms: ["filter service", "filter maintenance", "filter backwash"]
+  location_to_pool:
+    description: "Service location to pools/bodies of water (1:many)"
+    join: "dim_service_location.service_location_id = dim_pool.service_location_id"
 
-  salt_cell_cleaning:
-    description: "Salt cell cleaning and inspection performed every 12 weeks"
-    sql_pattern: |
-      WHERE ServiceStopEntry.EntryType = 'Task'
-      AND (EntryDescription.Description LIKE '%Salt Cell%' OR EntryDescription.Description LIKE '%Salt System%')
-      AND ServiceStopEntry.ServiceDate >= DATE('now', '-12 weeks')
-    tables_required: [ServiceStopEntry, EntryDescription, ServiceStop]
-    recurrence: "Every 12 weeks (quarterly)"
-    synonyms: ["salt system cleaning", "salt cell service"]
+  customer_to_pool:
+    description: "Customer to pools (through service location)"
+    join: "dim_customer.customer_id = dim_pool.customer_id AND dim_customer._company_name = dim_pool._company_name"
 
-  lsi_test:
-    description: "Langelier Saturation Index test performed monthly to assess water balance"
-    sql_pattern: |
-      WHERE ServiceStopEntry.EntryType = 'Reading'
-      AND EntryDescription.Description = 'LSI'
-      AND ServiceStopEntry.ServiceDate >= DATE('now', 'start of month')
-    tables_required: [ServiceStopEntry, EntryDescription, Pool]
-    recurrence: "Once a month"
-    unit: "LSI value (optimal: -0.3 to +0.3)"
-    calculation_note: "LSI = pH + Temperature Factor + Calcium Hardness Factor + Total Alkalinity Factor - TDS Factor"
-    data_availability: "⚠️ PARTIAL - Requires pH, temp, calcium, alkalinity readings"
+  customer_to_service_stop:
+    description: "Customer to service visits (1:many)"
+    join: "dim_customer.customer_id = fact_service_stop.customer_id AND dim_customer._company_name = fact_service_stop._company_name"
 
-  # Add other entries similarly...
+  customer_to_dosage:
+    description: "Customer to chemical dosages"
+    join: "dim_customer.customer_id = fact_dosage.customer_id AND dim_customer._company_name = fact_dosage._company_name"
+
+  customer_to_invoice:
+    description: "Customer to invoices"
+    join: "dim_customer.customer_id = fact_invoice.customer_id AND dim_customer._company_name = fact_invoice._company_name"
+
+  customer_to_payment:
+    description: "Customer to payments (through invoice)"
+    join: "dim_customer.customer_id = fact_payment.customer_id AND dim_customer._company_name = fact_payment._company_name"
+
+  customer_to_profit:
+    description: "Customer to profitability summary"
+    join: "dim_customer.customer_id = semantic_profit.customer_id AND dim_customer._company_name = semantic_profit._company_name"
+
+  tech_to_service_stop:
+    description: "Technician to service visits"
+    join: "dim_tech.tech_id = fact_service_stop.tech_id AND dim_tech._company_name = fact_service_stop._company_name"
 
 metrics:
-  filter_maintenance_compliance:
-    description: "Percentage of pools receiving filter cleaning on 4-week schedule"
-    formula: "(Pools with filter cleaning in last 4 weeks / Total active pools) * 100"
-    tables_required: [Pool, ServiceStopEntry, EntryDescription]
-    unit: "Percentage (%)"
-    target: "95%+ compliance"
-    data_availability: "✅ AVAILABLE - If filter cleaning logged in ServiceStopEntry"
+  profit:
+    description: "Per-customer monthly profit"
+    formula: "service_rate - (labor_cost + dosage_cost)"
+    table: semantic_profit
+    skimmer_doc: "https://help.getskimmer.com/article/299-profit-report"
 
-  lsi_compliance_rate:
-    description: "Percentage of pools with LSI readings within acceptable range (-0.3 to +0.3)"
-    formula: "(Pools with LSI between -0.3 and +0.3 / Total pools tested) * 100"
-    tables_required: [Pool, ServiceStopEntry, EntryDescription]
-    unit: "Percentage (%)"
-    target: "80%+ in acceptable range"
-    data_availability: "❌ NOT AVAILABLE - Requires LSI calculation implementation"
+  avg_minutes_at_stop:
+    description: "Average service visit duration in minutes"
+    formula: "AVG(fact_service_stop.minutes_at_stop) WHERE service_status = 1"
+    table: fact_service_stop
 
-  # Add other metrics...
+  completion_rate:
+    description: "Percentage of scheduled stops that were completed"
+    formula: "SUM(service_status) / COUNT(*) * 100"
+    table: fact_service_stop
+
+  skipped_stop_count:
+    description: "Number of stops not completed"
+    formula: "COUNT(*) WHERE service_status = 0"
+    table: fact_service_stop
 
 verified_queries:
-  - question: "What is the average pool size (in gallons) across all active service locations?"
-    sql_query: |
-      SELECT 
-        AVG(p.Gallons) AS AvgPoolGallons,
-        MIN(p.Gallons) AS MinPoolGallons,
-        MAX(p.Gallons) AS MaxPoolGallons,
-        COUNT(p.id) AS TotalPools
-      FROM Pool p
-      JOIN ServiceLocation sl ON p.ServiceLocationId = sl.id
-      JOIN Customer c ON sl.CustomerId = c.id
-      WHERE c.IsInactive = 0
-        AND p.Deleted = 0
-        AND p.Gallons IS NOT NULL;
-    expected_result_columns: ["AvgPoolGallons", "MinPoolGallons", "MaxPoolGallons", "TotalPools"]
-    data_availability: "✅ AVAILABLE"
-    business_logic:
-      - "Only include active customers (IsInactive = 0)"
-      - "Filter out soft-deleted pools"
-      - "Exclude pools with NULL gallons"
+  - question: "How many active customers does each company have?"
+    sql: |
+      SELECT _company_name, COUNT(*) AS active_customers
+      FROM public_warehouse.dim_customer
+      WHERE is_inactive = 0
+      GROUP BY _company_name
+      ORDER BY _company_name
+    expected: "AQPS: 859, JOMO: 2402"
 
-  # Add other verified queries...
+  - question: "What is the average pool size in gallons by company?"
+    sql: |
+      SELECT p._company_name, AVG(p.gallons) AS avg_gallons, COUNT(*) AS pool_count
+      FROM public_warehouse.dim_pool p
+      JOIN public_warehouse.dim_customer c
+        ON p.customer_id = c.customer_id AND p._company_name = c._company_name
+      WHERE c.is_inactive = 0 AND p.gallons IS NOT NULL
+      GROUP BY p._company_name
+    expected: "Pool gallons averages by company"
+
+  - question: "Show me customers with pools larger than 10000 gallons"
+    sql: |
+      SELECT c.clean_customer_name, c._company_name, p.pool_name, p.gallons
+      FROM public_warehouse.dim_pool p
+      JOIN public_warehouse.dim_customer c
+        ON p.customer_id = c.customer_id AND p._company_name = c._company_name
+      WHERE p.gallons > 10000 AND c.is_inactive = 0
+      ORDER BY p.gallons DESC
+    expected: "Customers with large pools"
+
+  - question: "What is the average time spent at a stop in January?"
+    sql: |
+      SELECT _company_name, AVG(minutes_at_stop) AS avg_minutes, COUNT(*) AS stop_count
+      FROM public_warehouse.fact_service_stop
+      WHERE service_status = 1
+        AND service_date >= '2026-01-01' AND service_date < '2026-02-01'
+      GROUP BY _company_name
+    expected: "Average ~27 minutes per stop"
+
+  - question: "How many skipped stops were there last month?"
+    sql: |
+      SELECT _company_name, COUNT(*) AS skipped_count
+      FROM public_warehouse.fact_service_stop
+      WHERE service_status = 0
+        AND service_date >= '2026-02-01' AND service_date < '2026-03-01'
+      GROUP BY _company_name
+    expected: "Count of skipped stops by company"
+
+  - question: "Show payments received this month by method"
+    sql: |
+      SELECT _company_name, payment_method, COUNT(*) AS payment_count, SUM(amount) AS total_amount
+      FROM public_warehouse.fact_payment
+      WHERE payment_date >= '2026-03-01' AND payment_date < '2026-04-01'
+      GROUP BY _company_name, payment_method
+      ORDER BY total_amount DESC
+    expected: "Card is most common, then Check"
+
+  - question: "Which customers are most profitable?"
+    sql: |
+      SELECT customer_name, _company_name, service_month, service_rate, total_cost, profit
+      FROM public_semantic.semantic_profit
+      ORDER BY profit DESC
+      LIMIT 20
+    expected: "Top 20 most profitable customers"
+
+  - question: "What are the most common chemical readings?"
+    sql: |
+      SELECT entry_description, COUNT(*) AS reading_count
+      FROM public_warehouse.fact_dosage
+      GROUP BY entry_description
+      ORDER BY reading_count DESC
+      LIMIT 10
+    expected: "Chemical types ranked by frequency"
+
+data_gaps:
+  - name: "Equipment/Parts"
+    description: "5 raw tables (Equipment, EquipmentItem, etc.) not yet staged or modeled"
+    impact: "Cannot answer questions about pool equipment lifecycle"
+
+  - name: "Installed Items"
+    description: "Parts/chemicals marked installed during service not in warehouse"
+    impact: "Cannot generate Installed Items Report equivalent"
+    skimmer_doc: "https://help.getskimmer.com/article/301-installed-items-report"
+
+  - name: "Route Optimization"
+    description: "RouteMove, RouteSkip tables may not be in nightly extract"
+    impact: "Cannot analyze route efficiency or skip reasons"
+
+  - name: "Product Categories"
+    description: "Product table staged but not dimensionalized with categories"
+    impact: "Limited product-level reporting"
+
+  - name: "LSI Calculation"
+    description: "Langelier Saturation Index formula documented but not operationalized as a model"
+    impact: "Cannot calculate water balance index from readings"
 
 lsi_calculation:
   formula: "pH + TempFactor + CalciumFactor + AlkalinityFactor - TDSFactor"
-  inputs:
-    ph:
-      source: "ServiceStopEntry WHERE EntryDescription.Description = 'pH'"
-      unit: "pH units (7.0-8.0 typical)"
-    temperature:
-      source: "ServiceStopEntry WHERE EntryDescription.Description = 'Water Temperature'"
-      unit: "Fahrenheit (°F)"
-      factor_table:
-        32: 0.0
-        37: 0.1
-        46: 0.2
-        53: 0.3
-        60: 0.4
-        66: 0.5
-        76: 0.6
-        84: 0.7
-        94: 0.8
-        105: 0.9
-    calcium_hardness:
-      source: "ServiceStopEntry WHERE EntryDescription.Description = 'Calcium Hardness'"
-      unit: "ppm (parts per million)"
-      factor_table:
-        25: 1.0
-        50: 1.3
-        75: 1.5
-        100: 1.6
-        150: 1.8
-        200: 1.9
-        250: 2.0
-        300: 2.1
-        400: 2.2
-        800: 2.5
-    total_alkalinity:
-      source: "ServiceStopEntry WHERE EntryDescription.Description = 'Total Alkalinity'"
-      unit: "ppm"
-      adjustment: "Subtract Cyanuric Acid correction factor based on current pH"
-      factor_table:
-        25: 1.4
-        50: 1.7
-        75: 1.9
-        100: 2.0
-        150: 2.2
-        200: 2.3
-        300: 2.5
-        400: 2.6
-    cyanuric_acid:
-      source: "ServiceStopEntry WHERE EntryDescription.Description = 'Cyanuric Acid'"
-      unit: "ppm"
-      purpose: "Correction factor for alkalinity based on pH"
-    tds:
-      source: "ServiceStopEntry WHERE EntryDescription.Description = 'Total Dissolved Solids'"
-      unit: "ppm"
-      factor: "12.2 (constant)"
-  interpretation:
-    lsi_negative: "Water is corrosive (under-saturated with calcium carbonate)"
-    lsi_zero: "Water is balanced (ideal)"
-    lsi_positive: "Water is scale-forming (over-saturated)"
-    acceptable_range: "-0.3 to +0.3"
-  implementation_reference: "https://www.orendatech.com/pool-dosing-calculator"
+  status: "documented_only"
+  reference: "https://www.orendatech.com/pool-dosing-calculator"
+  note: "Requires pH, temperature, calcium hardness, total alkalinity, cyanuric acid, TDS readings"
+
+skimmer_reports:
+  - name: "Profit Report"
+    warehouse_table: semantic_profit
+    skimmer_doc: "https://help.getskimmer.com/article/299-profit-report"
+  - name: "Chemical Dosages Report"
+    warehouse_table: fact_dosage
+    skimmer_doc: "https://help.getskimmer.com/article/300-chemical-dosages-report"
+  - name: "Labor Report"
+    warehouse_table: "fact_labor + fact_service_stop"
+    skimmer_doc: "https://help.getskimmer.com/article/302-labor-report"
+  - name: "AR Aging Summary"
+    warehouse_table: "fact_payment + fact_invoice"
+    skimmer_doc: "https://help.getskimmer.com/article/157-skimmer-billing-report-ar-aging-summary"
+  - name: "Service History"
+    warehouse_table: fact_service_stop
+    skimmer_doc: "https://help.getskimmer.com/article/80-view-customer-service-history-web"
+  - name: "Installed Items Report"
+    warehouse_table: "NOT AVAILABLE"
+    skimmer_doc: "https://help.getskimmer.com/article/301-installed-items-report"
+  - name: "Invoice Detail"
+    warehouse_table: fact_invoice
+    skimmer_doc: "https://help.getskimmer.com/article/312-billing-report-invoice-details"
