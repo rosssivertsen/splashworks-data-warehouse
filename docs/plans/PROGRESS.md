@@ -2,15 +2,15 @@
 
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
-**Last Updated:** 2026-03-10
+**Last Updated:** 2026-03-10 (Batch C complete)
 
 ---
 
 ## Current Status
 
-**Phase:** 1 — Crawl (Batch C: React Frontend & Full-Stack Integration)
-**Status:** Steps 1.1-1.8 COMPLETE, Batch C design approved
-**Next:** Batch C implementation — clean-room React frontend, new API endpoints, Nginx container, E2E tests
+**Phase:** 1 — Crawl (Batch C: COMPLETE)
+**Status:** All Phase 1 steps COMPLETE (1.1-1.9). Metabase (1.10) and Cloudflare Access (1.11) deferred to backlog.
+**Next:** Deploy Batch C to VPS, run E2E tests, then Phase 2 planning
 **Design Doc:** [2026-03-10-phase1-batch-c-frontend-design.md](./2026-03-10-phase1-batch-c-frontend-design.md)
 
 ---
@@ -42,9 +42,12 @@
 | 1.6 | FastAPI backend | DONE | POST /api/query + GET /api/health, 22 unit tests, Docker container on VPS |
 | 1.7 | Semantic layer on backend | DONE | YAML-loaded business terms + relationships feed Claude's system prompt |
 | 1.8 | Query guardrails | DONE | SELECT-only validation, 10s timeout, 10K row limit, 12 validator tests |
-| 1.9 | React frontend updated | PENDING |
-| 1.10 | Metabase connected | PENDING |
-| 1.11 | Cloudflare Access | PENDING |
+| 1.9a | New API endpoints | DONE | POST /api/query/raw, GET /api/schema, GET /api/schema/dictionary — 14 unit tests |
+| 1.9b | Clean-room React frontend | DONE | 4 views (AI Query, Explorer, Data, Dashboard), 6 shared components, all TypeScript — 47 unit tests |
+| 1.9c | Nginx container | DONE | Multi-stage Docker build, API proxy, static serving |
+| 1.9d | E2E tests | DONE | Smoke (active customer count) + Acid (chemical drill-down) — 8 tests |
+| 1.10 | Metabase connected | DEFERRED | Backlog — React dashboard validates data layer first |
+| 1.11 | Cloudflare Access | DEFERRED | Backlog — no external users during MVP |
 
 ## Phase 2-4: See design doc
 
@@ -90,3 +93,4 @@
 | 2026-03-08 | VPS deployment | Docker + Postgres on VPS, rclone OneDrive sync (76MB synced, cron set), Cloudflare tunnel live (3 subdomains) |
 | 2026-03-09 | Phase 1 Batch A | ETL on VPS (712K rows), 18 staging + 12 warehouse + 8 semantic models + 2 snapshots, dbt build 41/41 pass |
 | 2026-03-09 | Phase 1 Batch B | FastAPI backend: 2 endpoints, 22 unit tests + 4 integration tests, Docker container on VPS, Cloudflare tunnel live, layer switching validated |
+| 2026-03-10 | Phase 1 Batch C | Clean-room React frontend: 3 new API endpoints (14 tests), 4 views + 6 components (47 tests), Nginx container, E2E tests (8 tests), frontend swap complete |
