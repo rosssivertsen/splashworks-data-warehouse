@@ -8,9 +8,10 @@
 
 ## Current Status
 
-**Phase:** 1 — Crawl (Batch B: FastAPI Backend)
-**Status:** Steps 1.1-1.8 COMPLETE
-**Next:** Phase 1 Batch C — React frontend, Metabase, Cloudflare Access
+**Phase:** 1 — Crawl (Batch C: React Frontend & Full-Stack Integration)
+**Status:** Steps 1.1-1.8 COMPLETE, Batch C design approved
+**Next:** Batch C implementation — clean-room React frontend, new API endpoints, Nginx container, E2E tests
+**Design Doc:** [2026-03-10-phase1-batch-c-frontend-design.md](./2026-03-10-phase1-batch-c-frontend-design.md)
 
 ---
 
