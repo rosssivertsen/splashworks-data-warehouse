@@ -2,15 +2,15 @@
 
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
-**Last Updated:** 2026-03-07
+**Last Updated:** 2026-03-08
 
 ---
 
 ## Current Status
 
 **Phase:** 0 — Foundation
-**Status:** COMPLETE (local development)
-**Next:** Phase 0 remaining items (VPS deployment, rclone, Cloudflare tunnel) then Phase 1
+**Status:** COMPLETE (local + VPS)
+**Next:** Phase 1 — Crawl
 
 ---
 
@@ -25,9 +25,9 @@
 | 0.5 | ETL real data test | DONE | 712,267 rows loaded (44 tables x 2 companies), checksum skip verified |
 | 0.6 | dbt project scaffolded | DONE | debug passes, company_lookup seed loaded |
 | 0.7 | Smoke test script | DONE | 7/7 checks passing |
-| 0.8 | VPS setup: Docker on VPS | PENDING | srv1317522.hstgr.cloud |
-| 0.9 | rclone configured for OneDrive | PENDING | |
-| 0.10 | Cloudflare tunnel live | PENDING | splshwrks.com |
+| 0.8 | VPS setup: Docker on VPS | DONE | Docker 29.3.0, Postgres 16+pgvector healthy, all schemas created |
+| 0.9 | rclone configured for OneDrive | DONE | Both extracts synced (76MB), nightly cron 1AM UTC |
+| 0.10 | Cloudflare tunnel live | DONE | 3 subdomains routed, systemd service, 502s confirm tunnel works |
 
 ## Phase 1: Crawl (Week 3-6)
 
@@ -71,3 +71,4 @@
 |------|---------|-----------|
 | 2026-03-07 | Design | Codebase review, brainstorming, design doc approved |
 | 2026-03-07 | Phase 0 implementation | Docker Compose, ETL package, real data load (712K rows), dbt scaffold, smoke tests — all passing |
+| 2026-03-08 | VPS deployment | Docker + Postgres on VPS, rclone OneDrive sync (76MB synced, cron set), Cloudflare tunnel live (3 subdomains) |
