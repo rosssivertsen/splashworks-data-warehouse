@@ -1,0 +1,9 @@
+node_modules
+data
+test-databases
+.git
+*.db
+*.db.gz
+src-legacy
+SkimmerExports
+SQL-Semantic-Queries
