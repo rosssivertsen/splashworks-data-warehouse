@@ -6,6 +6,14 @@ interface ResultsTableProps {
   pageSize?: number;
 }
 
+function formatCell(cell: string | number | boolean | null): React.ReactNode {
+  if (cell === null) return <span className="italic text-neutral-400">null</span>;
+  if (typeof cell === "number") {
+    return cell.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return String(cell);
+}
+
 export function ResultsTable({ columns, rows, pageSize = 50 }: ResultsTableProps) {
   const [page, setPage] = useState(0);
 
@@ -40,13 +48,7 @@ export function ResultsTable({ columns, rows, pageSize = 50 }: ResultsTableProps
             >
               {row.map((cell, cellIdx) => (
                 <td key={cellIdx} className="px-3 py-2 text-neutral-900">
-                  {cell === null ? (
-                    <span className="italic text-neutral-400">null</span>
-                  ) : typeof cell === "number" && !Number.isInteger(cell) ? (
-                    cell.toFixed(2)
-                  ) : (
-                    String(cell)
-                  )}
+                  {formatCell(cell)}
                 </td>
               ))}
             </tr>
