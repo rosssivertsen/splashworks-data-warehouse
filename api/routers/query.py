@@ -16,18 +16,21 @@ def query(req: QueryRequest):
     # 1. Build schema context
     try:
         conn = psycopg2.connect(DATABASE_URL)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    try:
         schema = get_schema_metadata(conn, layer=req.layer)
+    finally:
         conn.close()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database connection failed: {e}")
 
     system_prompt = build_system_prompt(schema, layer=req.layer)
 
     # 2. Generate SQL via Claude
     try:
         sql, explanation = generate_sql(req.question, system_prompt)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"AI service error: {e}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="AI service error")
 
     if sql is None:
         raise HTTPException(
@@ -44,9 +47,9 @@ def query(req: QueryRequest):
     try:
         columns, rows = execute_query(sql)
     except psycopg2.extensions.QueryCanceledError:
-        raise HTTPException(status_code=408, detail=f"Query timed out: {sql}")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Query execution error: {e}")
+        raise HTTPException(status_code=408, detail="Query timed out")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Query execution error")
 
     # 5. Return results
     return QueryResponse(
@@ -69,8 +72,8 @@ def query_raw(req: RawQueryRequest):
         columns, rows = execute_query(req.sql)
     except psycopg2.extensions.QueryCanceledError:
         raise HTTPException(status_code=408, detail="Query timed out")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Query execution error: {e}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Query execution error")
 
     return QueryResponse(
         sql=req.sql,

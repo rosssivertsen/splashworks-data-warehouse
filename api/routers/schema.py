@@ -31,6 +31,10 @@ def get_schema(layer: LayerParam = Query(default=LayerParam.warehouse)):
 
     try:
         conn = psycopg2.connect(DATABASE_URL)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    try:
         cur = conn.cursor()
         cur.execute(f"""
             SELECT table_schema, table_name, column_name, data_type,
@@ -41,9 +45,8 @@ def get_schema(layer: LayerParam = Query(default=LayerParam.warehouse)):
         """, schemas)
         rows = cur.fetchall()
         cur.close()
+    finally:
         conn.close()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database connection failed: {e}")
 
     # Group rows into TableInfo objects
     tables_map: dict[tuple[str, str], list[ColumnInfo]] = {}
