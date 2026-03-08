@@ -1,5 +1,8 @@
 import re
 
+import psycopg2
+import psycopg2.extras
+
 from api.config import DATABASE_URL, ROW_LIMIT, STATEMENT_TIMEOUT
 
 PROHIBITED_KEYWORDS = re.compile(
@@ -34,3 +37,30 @@ def validate_sql(sql: str | None) -> str | None:
         return "Multi-statement queries are not allowed"
 
     return None
+
+
+def execute_query(sql: str, database_url: str = None) -> tuple[list[str], list[list]]:
+    """Execute a validated SELECT query against Postgres.
+
+    Applies statement timeout and row limit guardrails.
+    Returns (column_names, rows).
+    """
+    if database_url is None:
+        database_url = DATABASE_URL
+
+    conn = psycopg2.connect(database_url)
+    try:
+        cur = conn.cursor()
+        cur.execute(f"SET statement_timeout = '{STATEMENT_TIMEOUT}'")
+
+        # Wrap in row limit
+        limited_sql = f"SELECT * FROM ({sql.rstrip(';')}) sub LIMIT {ROW_LIMIT}"
+        cur.execute(limited_sql)
+
+        columns = [desc[0] for desc in cur.description]
+        rows = [list(row) for row in cur.fetchall()]
+
+        cur.close()
+        return columns, rows
+    finally:
+        conn.close()
