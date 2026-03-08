@@ -2,15 +2,15 @@
 
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
-**Last Updated:** 2026-03-10 (Semantic enrichment design approved)
+**Last Updated:** 2026-03-10 (Semantic enrichment batch complete)
 
 ---
 
 ## Current Status
 
-**Phase:** Interstitial — Semantic Enrichment (DESIGN APPROVED)
-**Status:** Phase 1 complete and deployed. Semantic enrichment design approved, implementation plan next.
-**Next:** Write implementation plan, then execute semantic enrichment batch
+**Phase:** Semantic enrichment COMPLETE. UI refinements batch next.
+**Status:** Phase 1 + semantic enrichment deployed. 15/15 E2E tests passing.
+**Next:** UI refinements batch (starter prompts, dashboard charts, save/restore, export)
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API)
 **Design Doc:** [2026-03-10-semantic-enrichment-design.md](./2026-03-10-semantic-enrichment-design.md)
 
@@ -49,6 +49,19 @@
 | 1.9d | E2E tests | DONE | Smoke (active customer count) + Acid (chemical drill-down) — 8 tests |
 | 1.10 | Metabase connected | DEFERRED | Backlog — React dashboard validates data layer first |
 | 1.11 | Cloudflare Access | DEFERRED | Backlog — no external users during MVP |
+
+## Interstitial: Semantic Enrichment
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| SE.1 | Semantic layer YAML rewrite (16 business terms, 8 verified queries) | DONE |
+| SE.2 | System prompt builder update (tables, metrics, data gaps, join clauses) | DONE |
+| SE.3 | dim_pool warehouse model (7,049 rows) | DONE |
+| SE.4 | fact_service_stop warehouse model (69,030 rows) | DONE |
+| SE.5 | fact_payment warehouse model (12,135 rows) | DONE |
+| SE.6 | semantic_profit semantic model (16,935 rows) | DONE |
+| SE.7 | E2E enrichment tests (7 tests) | DONE |
+| SE.8 | VPS deployment + validation (15/15 E2E passing) | DONE |
 
 ## Phase 2-4: See design doc
 
@@ -97,3 +110,4 @@
 | 2026-03-10 | Phase 1 Batch C | Clean-room React frontend: 3 new API endpoints (14 tests), 4 views + 6 components (47 tests), Nginx container, E2E tests (8 tests), frontend swap complete |
 | 2026-03-10 | VPS Deploy | Batch C deployed: 3 Docker containers (postgres, api, frontend), 8/8 E2E tests passing, app.splshwrks.com live. Fixed: cross-platform Docker build, exception detail leakage, connection leaks, E2E test column names |
 | 2026-03-10 | Semantic Research | Scraped Skimmer help docs (17 reports, 7 categories). Gap analysis: 46% warehouse coverage, critical gaps in pools, service stops, payments, profit. Design approved for interstitial semantic enrichment batch: YAML rewrite + 4 dbt models (dim_pool, fact_service_stop, fact_payment, semantic_profit) |
+| 2026-03-10 | Semantic Enrichment | YAML rewrite (16 terms, 8 queries), system prompt update, 4 dbt models (dim_pool 7K, fact_service_stop 69K, fact_payment 12K, semantic_profit 17K), 7 E2E tests, deployed to VPS — 15/15 E2E passing. "Pools > 10000 gallons" query now works. |
