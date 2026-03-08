@@ -42,6 +42,8 @@ export function ResultsTable({ columns, rows, pageSize = 50 }: ResultsTableProps
                 <td key={cellIdx} className="px-3 py-2 text-neutral-900">
                   {cell === null ? (
                     <span className="italic text-neutral-400">null</span>
+                  ) : typeof cell === "number" && !Number.isInteger(cell) ? (
+                    cell.toFixed(2)
                   ) : (
                     String(cell)
                   )}
