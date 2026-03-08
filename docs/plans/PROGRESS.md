@@ -2,15 +2,16 @@
 
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
-**Last Updated:** 2026-03-10 (Batch C complete)
+**Last Updated:** 2026-03-10 (Batch C deployed to VPS)
 
 ---
 
 ## Current Status
 
-**Phase:** 1 — Crawl (Batch C: COMPLETE)
-**Status:** All Phase 1 steps COMPLETE (1.1-1.9). Metabase (1.10) and Cloudflare Access (1.11) deferred to backlog.
-**Next:** Deploy Batch C to VPS, run E2E tests, then Phase 2 planning
+**Phase:** 1 — Crawl (COMPLETE, DEPLOYED)
+**Status:** All Phase 1 steps COMPLETE (1.1-1.9), deployed to VPS, 8/8 E2E tests passing. Metabase (1.10) and Cloudflare Access (1.11) deferred to backlog.
+**Next:** Phase 2 planning
+**Live:** app.splshwrks.com (frontend), api.splshwrks.com (API)
 **Design Doc:** [2026-03-10-phase1-batch-c-frontend-design.md](./2026-03-10-phase1-batch-c-frontend-design.md)
 
 ---
@@ -94,3 +95,4 @@
 | 2026-03-09 | Phase 1 Batch A | ETL on VPS (712K rows), 18 staging + 12 warehouse + 8 semantic models + 2 snapshots, dbt build 41/41 pass |
 | 2026-03-09 | Phase 1 Batch B | FastAPI backend: 2 endpoints, 22 unit tests + 4 integration tests, Docker container on VPS, Cloudflare tunnel live, layer switching validated |
 | 2026-03-10 | Phase 1 Batch C | Clean-room React frontend: 3 new API endpoints (14 tests), 4 views + 6 components (47 tests), Nginx container, E2E tests (8 tests), frontend swap complete |
+| 2026-03-10 | VPS Deploy | Batch C deployed: 3 Docker containers (postgres, api, frontend), 8/8 E2E tests passing, app.splshwrks.com live. Fixed: cross-platform Docker build, exception detail leakage, connection leaks, E2E test column names |
