@@ -22,6 +22,6 @@
     "allowJs": true,
     "noImplicitAny": false
   },
-  "include": ["src"],
+  "include": ["src", "src-warehouse"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
