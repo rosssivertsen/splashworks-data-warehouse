@@ -1,0 +1,51 @@
+select 
+a.CompanyId as ServiceStopCompanyId,
+a.id as ServiceStopId,
+a.routestopId as ServiceStopRouteStopId,
+a.poolid as ServiceStopPoolId,
+a.servicedate as ServiceStopServiceDate,
+strftime('%Y-%m',a.servicedate) as ServiceStopServiceMonthDate,
+
+b.accountid as RouteStopTechAccountId,
+b.RouteAssignmentId as RouteStopRouteAssignmentId,
+b.ServiceLocationId as RouteStopServiceLocationId,
+
+
+c.customerid as ServiceLocationCustomerId,
+c.city as ServiceLocationCity,
+c.state as ServiceLocationState,
+c.zip as ServiceLocationZipCode,
+c.Rate as ServiceLocationRate,
+c.RateType as ServiceLocationRateType,
+c.laborcost as ServiceLocationLaborCost,
+c.LaborCostType as ServiceLocationLaborCostType,
+
+d.dayofweek as RouteAssignmentDayOfWeek,
+d.Frequency as RouteAssignmentFrequency,
+
+a.companyid||b.accountid as 'uid_cmp_account_id_techtbl',
+
+a.companyid||c.CustomerId||a.poolid as 'uid_cmp_cust_pool_id_custtbl',
+
+a.CompanyId||c.CustomerId||a.poolid||a.ServiceDate as 'uid_cmp_cust_pool_id_srvc_date_dosagetbl',
+
+a.companyId||c.customerId||a.poolid||strftime('%Y-%m',a.servicedate) as 'uid_cmp_cust_pool_id_srvc_date_srvcdtetbl'
+
+
+from servicestop a
+
+left join routestop b
+            on a.RouteStopId = b.id
+            and a.ServiceDate = b.servicedate
+
+            
+left join servicelocation c
+            on b.servicelocationid = c.id
+            
+left join routeassignment d
+            on b.RouteAssignmentId = d.id
+            and b.AccountId = d.AccountId
+
+
+where
+a.deleted = 0

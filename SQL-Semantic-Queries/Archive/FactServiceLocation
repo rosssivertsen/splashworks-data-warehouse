@@ -1,0 +1,53 @@
+select
+a.id as WorkOrderId,
+a.WorkOrderTypeId,
+b.description as WorkOrderTypeDescription,
+a.servicelocationid as ServiceLocationId,
+c.state as ServiceLocationState,
+c.city as ServiceLocationCity,
+d.Firstname as AccountFirstName,
+d.LastName as AccountLastName,
+d.RoleType as AccountRoleType,
+d.isactive as AccountIsActive,
+e.firstname as CustomerFirstName,
+e.lastname as CustomerLastName,
+e.CompanyName as CustomerCompanyName,
+e.DisplayAsCompany as CustomerDisplayAsCompany,
+e.BillingCity as CustomerBillingCity,
+e.billingstate as CustomerBillingState,
+e.billingzip as CustomerBillingZip,
+e.isinactive as CustomerIsInActive,
+
+a.servicedate as WorkOrderServiceDate,
+
+a.laborcost as WorkOrderLaborCost,
+a.price as WorkOrderPrice,
+a.Isinvoiced as WorkOrderIsInvoiced,
+
+f.id as InvoiceId,
+f.invoicenumber as InvoiceNumber,
+f.InvoiceDate as InvoiceDate,
+f.duedate as InvoiceDueDate,
+f.total as InvoiceTotalAmount,
+f.subtotal as InvoiceSubTotal,
+f.taxamount as InvoiceTaxAmount,
+f.amountdue as InvoiceAmountDue,
+f.status as InvoiceStatus,
+f.paymentstatus as InvoicePaymentStatus,
+f.paidamount as InvoicePaidAmount
+
+
+
+from workorder a
+
+left join workordertype b on a.WorkOrderTypeId = b.id
+left join servicelocation c on a.servicelocationid = c.id
+left join account d on a.accountid = d.id
+left join customer e on c.customerid = e.id
+left join invoice f on e.id = f.customerid
+
+
+where 
+a.deleted = 0
+
+

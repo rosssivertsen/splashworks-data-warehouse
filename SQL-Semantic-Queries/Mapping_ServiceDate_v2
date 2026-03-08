@@ -1,0 +1,15 @@
+SELECT a.companyid AS CompanyId,
+       a.AccountId AS AccountId,
+       a.servicedate AS ServiceDate,
+       strftime('%Y-%m', a.ServiceDate) AS ServiceDateYearMonth,
+       CASE WHEN a.startTime = '2010-01-01 12:00:00' AND
+                 a.completeTime = '2010-01-01 12:00:00' THEN 0 WHEN a.startTime <> '2010-01-01 12:00:00' AND
+                                                                    a.completeTime = '2010-01-01 12:00:00' THEN 0 ELSE 1 END AS ServiceStatus,
+       a.starttime AS StartTime,
+       a.completetime AS CompleteTime,
+       b.CustomerId AS CustomerId
+  FROM routestop a
+       LEFT JOIN
+       servicelocation b ON a.servicelocationid = b.id AND
+                            b.deleted = 0
+ WHERE a.deleted = 0;

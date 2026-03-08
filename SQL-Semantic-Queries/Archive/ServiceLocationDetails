@@ -1,0 +1,12 @@
+SELECT id AS ServiceLocationId,
+       City AS ServiceLocationCity,
+       State AS ServiceLocationState,
+       Zip AS ServiceLocationZipCode,
+       LocationCode AS ServiceLocationLocationCode
+  FROM servicelocation
+ WHERE deleted = 0
+ GROUP BY id,
+          city,
+          state,
+          zip,
+          code;

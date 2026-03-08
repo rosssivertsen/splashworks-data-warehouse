@@ -1,0 +1,80 @@
+select
+a.id as InvoiceId,
+a.InvoiceNumber as InvoiceNumber,
+a.InvoiceDate as InvoiceDate,
+a.DueDate as InvoiceDueDate,
+a.total as InvoiceTotalAmount,
+a.subtotal as InvoiceSubTotal,
+a.taxamount as InvoiceTaxAmount,
+a.amountdue as InvoiceAmountDue,
+a.status as InvoiceStatus,
+a.paymentstatus as InvoicePaymentStatus,
+a.paidamount as InvoicePaidAmount,
+
+b.id as CustomerId,
+b.firstname as CustomerFirstName,
+b.lastname as CustomerLastName,
+b.companyname as CustomerCompanyName,
+b.displayAscompany as CustomerDisplayAsCompany,
+b.billingcity as CustomerBillingCity,
+b.billingState as CustomerBillingState,
+b.billingzip as CustomerBillingZipCode,
+b.isinactive as CustomerIsInActive,
+
+
+e.id as ServiceLocationId,
+e.city as ServiceLocationCity,
+e.state as ServiceLocationState,
+e.zip as ServiceLocationZipCode,
+e.rate as ServiceLocationRate,
+e.laborcost as ServiceLocationLaborCost,
+e.laborcosttype as ServiceLocationLaborCostType,
+e.RateType as ServiceLocationRateType,
+
+f.id as WorkOrderId,
+f.servicedate as WorkOrderServiceDate,
+f.laborcost as WorkOrderLaborCost,
+f.price as WorkOrderPrice,
+f.isinvoiced as WorkOrderIsInvoice,
+
+g.description as WorkOrderTypeDescription,
+
+i.id as AccountTechId,
+i.firstname as AccountTechFirstName,
+i.lastname as AccountTechLastName,
+i.roletype as AccountTechRoleType,
+i.isactive as AccountTechIsActive
+
+from invoice a
+
+left join customer b 
+        on a.customerid = b.id
+        and a.deleted = b.deleted
+        and b.IsInactive = 1
+                
+left join servicelocation e 
+        on a.customerid = e.customerid
+        and a.deleted = e.deleted
+        
+left join workorder f
+        on e.id = f.servicelocationid
+        and e.deleted = f.Deleted
+        
+left join workordertype g
+        on f.workordertypeid = g.id
+        and f.deleted = f.deleted
+        
+left join routeassignment h
+        on e.id = h.servicelocationid
+        and e.deleted = h.deleted
+
+left join account i
+        on h.accountid = i.id
+        and h.deleted = i.deleted
+        
+
+
+where
+a.deleted = 0
+and a.Status = 'Sent'
+

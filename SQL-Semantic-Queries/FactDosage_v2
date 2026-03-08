@@ -1,0 +1,100 @@
+select 
+a.companyid as ServiceStopCompanyId,
+a.id as ServiceStopId,
+a.RouteStopId as ServiceStopRouteStopId,
+--a.poolid as ServiceStopPoolId,
+
+strftime('%Y-%m-%d',b.ServiceDate)  as RouteStopServiceDate,
+strftime('%Y-%m',b.servicedate) as RouteStopServiceMonthDate,
+b.accountid as RouteStopTechAccountId,
+b.ServiceLocationId as RouteStopServiceLocationId,
+
+e.customerid as ServiceLocationCustomerId,
+
+--f.id as CustomerId,    
+
+i.EntryType as ServiceStopEntryEntryType,
+i.Value as ServiceStopEntryValue,
+
+j.Description as EntryDescription,
+j.unitofmeasure as EntryDescriptionUnitOfMeasure,
+j.readingtype as EntryDescriptionReadingType,
+j.dosagetype as EntryDescriptionDosageType,
+j.Cost as EntryDescriptionCost,
+j.price as EntryDescriptionPrice,
+j.canincludewithservice as EntryDescriptionCanIncludeWithService,
+
+(i.value * j.cost) as DosageCost,
+(i.value * j.price) as DosagePrice
+
+--a.companyid||b.accountid as 'uid_cmp_tech_id_techtbl',
+
+--a.companyid||f.id as 'uid_cmp_cust_id_custtbl',
+
+--a.companyid||f.id||a.servicedate as 'uid_cmp_cust_pool_srvcdate_labortbl'
+
+
+from servicestop a
+
+left join routestop b
+            on a.RouteStopId = b.id
+            and b.deleted = 0
+                        
+            
+left join servicelocation e
+            on b.ServiceLocationId = e.id
+            and e.deleted = 0
+
+--left join customer f
+        --    on e.CustomerId  = f.id
+        --    and f.deleted = 0
+            
+--left join pool g
+    --        on a.PoolId = g.id
+      --      and g.deleted = 0
+            
+          
+left join servicestopentry i
+            on a.id = i.servicestopid
+            and a.PoolId = i.poolid
+            and a.servicedate = i.servicedate
+            and i.EntryType = 'Dosage'
+            and i.deleted = 0
+            
+            
+left join entrydescription j
+            on i.EntryDescriptionId = j.id
+            and j.Deleted = 0
+          
+                 
+            
+
+
+where 
+a.deleted = 0
+--and f.id = 'd79fdb1b6e5f443a9deb62c8cf6dc764'
+--and a.servicedate = '2025-08-15 12:00:00'  
+
+
+group by
+
+a.companyid,
+a.id,
+a.RouteStopId,
+a.poolid,
+
+b.servicedate,
+b.id,
+
+e.id,
+ 
+i.EntryType,
+i.Value,
+
+j.Description,
+j.unitofmeasure,
+j.readingtype,
+j.dosagetype,
+j.Cost,
+j.price,
+j.canincludewithservice

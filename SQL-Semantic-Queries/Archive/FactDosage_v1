@@ -1,0 +1,124 @@
+select 
+a.companyid as ServiceStopCompanyId,
+a.id as ServiceStopId,
+a.RouteStopId as ServiceStopRouteStopId,
+a.poolid as ServiceStopPoolId,
+strftime('%Y-%m-%d',a.ServiceDate)  as ServiceStopServiceDate,
+strftime('%Y-%m',a.servicedate) as ServiceStopServiceMonthDate,
+
+
+b.id as RouteStopId,
+
+c.id as RouteAssignmentId,
+--c.DayOfWeek as RouteAssignmentDayOfWeek,
+--c.frequency as RouteAssignmentFrequency,
+
+d.id as AccountId,
+
+    
+e.id as ServiceLocationId,
+--e.city as ServiceLocationCity,
+--e.State as ServiceLocationState,
+--e.Zip as ServiceLocationZipCode,
+--e.rate as ServiceLocationRate,
+--e.RateType as ServiceLocationRateType,
+--e.laborcost as ServiceLocationLaborCost,
+--e.LaborCostType as ServiceLocationLaborCostType,
+
+f.id as CustomerId,
+
+
+i.id as ServiceStopEntryId,
+i.EntryType as ServiceStopEntryEntryType,
+i.Value as ServiceStopEntryValue,
+
+j.id as EntryDescriptionId,    
+j.Description as EntryDescription,
+j.unitofmeasure as EntryDescriptionUnitOfMeasure,
+j.EntryType as EntryDescriptionEntryType,
+j.readingtype as EntryDescriptionReadingType,
+j.dosagetype as EntryDescriptionDosageType,
+j.Cost as EntryDescriptionCost,
+j.price as EntryDescriptionPrice,
+j.canincludewithservice as EntryDescriptionCanIncludeWithService,
+
+a.companyid||d.id as 'uid_cmp_tech_id_techtbl',
+
+a.companyid||f.id||a.poolid as 'uid_cmp_cust_pool_id_custtbl',
+
+a.companyid||f.id||a.poolid||a.servicedate as 'uid_cmp_cust_pool_srvcdate_labortbl'
+
+
+
+from servicestop a
+
+left join routestop b
+            on a.RouteStopId = b.id
+            
+            
+left join routeassignment c
+            on b.routeassignmentid = c.id
+            
+left join account d
+            on c.accountid = d.id
+            
+left join servicelocation e
+            on b.ServiceLocationId = e.id
+
+left join customer f
+            on e.CustomerId  = f.id
+            
+left join pool g
+            on a.PoolId = g.id
+            
+          
+left join servicestopentry i
+            on a.id = i.servicestopid
+            and a.PoolId = i.poolid
+            and a.servicedate = i.servicedate
+            --and i.EntryType = 'Dosage'
+            
+            
+left join entrydescription j
+            on i.EntryDescriptionId = j.id
+          
+                 
+            
+
+
+where 
+a.deleted = 0
+--and e.id = '7664a8153356408c8bd0c5a02a5e6411'
+--and a.servicedate between '2025-06-01 12:00:00'  and '2025-06-30 12:00:00'  
+
+group by
+
+a.companyid,
+a.id,
+a.RouteStopId,
+a.ServiceDate,
+
+b.id,
+
+c.id,
+
+d.id,
+  
+e.id,
+
+
+f.id,
+
+i.id,
+i.EntryType,
+i.Value,
+
+j.id,    
+j.Description,
+j.unitofmeasure,
+j.EntryType,
+j.readingtype,
+j.dosagetype,
+j.Cost,
+j.price,
+j.canincludewithservice

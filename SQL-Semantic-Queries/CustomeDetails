@@ -1,0 +1,43 @@
+select
+
+a.companyid as CompanyId,
+a.id as CustomerId,
+(a.FirstName || ' ' || a.LastName) AS CustomerFullName,
+a.CompanyName as CompanyName,
+a.DisplayAsCompany as DisplayAsCompany,
+case when a.displayascompany = 1 then a.companyname else (a.FirstName || ' '|| a.LastName) end as CleanCustomerName,
+a.billingAddress as BillingAddress,
+a.BillingCity as BillingCity,
+a.BillingZip as BillingZip,
+a.QboCustomerId as QBOCustomerId,
+a.isinactive as IsInactive,
+
+b.address as ServiceLocationAddress,
+b.city as ServiceLocationCity,
+b.zip as ServiceLocationZipCode,
+
+c.status as InvoiceStatus,
+c.PaymentStatus as InvoicePaymentStatus,
+c.InvoiceNumber as InvoiceNumber,
+c.InvoiceDate as InvoiceDate,
+c.duedate as InvoiceDueDate,
+c.total as InvoiceTotal,
+c.subtotal as InvoiceSubTotal,
+c.taxamount as InvoiceTaxAmount,
+c.PaidAmount as InvoicePaidAmount,
+c.canautopay as InvoiceCanAutoPay,
+c.autopaymethodexists as InvoiceAutoPayMethodExists
+
+from  customer a
+
+left join servicelocation b
+            on a.id = b.customerid
+            and b.deleted = 0
+            
+left join invoice c
+            on a.id = c.CustomerId
+            and c.deleted = 0
+                        
+
+where 
+a.deleted = 0

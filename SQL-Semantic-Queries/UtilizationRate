@@ -1,0 +1,59 @@
+select 
+       a.companyid as CompanyId,
+       a.servicelocationid as ServiceLocationId,
+       a.accountid as Accountid,
+       a.servicedate as ServiceDate,
+       strftime('%Y-%m', a.ServiceDate) as ServiceDateYearMonth,
+       a.starttime as StartTime,
+       a.completetime as CompleteTime,
+       case when a.startTime = '2010-01-01 12:00:00' 
+             and a.completeTime = '2010-01-01 12:00:00' then 0 
+            when a.startTime <> '2010-01-01 12:00:00' 
+             and a.completeTime = '2010-01-01 12:00:00' then 0 
+            else 1  end as RouteStopStatus,
+        a.minutesatstop as ServiceStopMinutesAtStop,
+                    
+       '' as WorkOrderStatus,
+       '' as WorkOrderEstimatedMinutes,
+
+b.customerId as CustomerId 
+      
+from routestop a
+
+left join servicelocation b
+           on a.servicelocationid = b.id
+           and b.deleted = 0
+       
+where a.deleted = 0
+
+union all
+
+select
+       a.companyid as CompanyId,
+       a.servicelocationid as ServiceLocationId,
+       a.accountid as AccountId,
+       a.servicedate as ServiceDate,
+       strftime('%Y-%m', a.ServiceDate) as ServiceDateYearMonth,
+       a.starttime as StartTime,
+       a.completetime as CompleteTime,
+       
+       '' as RouteStopStatus,
+       '' as ServiceStopMinutesAtStop,
+       
+       case when a.startTime = '2010-01-01 12:00:00' 
+             and a.completeTime = '2010-01-01 12:00:00' then 0 
+            when a.startTime <> '2010-01-01 12:00:00' 
+             and a.completeTime = '2010-01-01 12:00:00' then 0 
+            else 1  end as WorkOrderStatus,
+        a.EstimatedMinutes as WorkOrderEstimatedMinutes,
+            
+b.CustomerId as CustomerId
+       
+from workorder a
+
+left join servicelocation b
+          on a.ServiceLocationId = b.id
+          and b.Deleted = 0
+            
+where 
+a.deleted = 0

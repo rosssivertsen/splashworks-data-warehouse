@@ -1,0 +1,63 @@
+select 
+
+a.companyid as RouteStopCompanyId,
+a.AccountId as RouteStopAccountId,
+strftime('%Y-%m-%d', a.ServiceDate)  as RouteStopServiceDate,
+strftime('%Y-%m', a.servicedate) as RouteStopServiceMonthDate,
+
+b.customerid as ServiceLocationId,
+b.city as ServiceLocationCity,
+b.State as ServiceLocationState,
+b.Zip as ServiceLocationZip,
+b.rate as ServiceLocationRate,
+b.ratetype as ServiceLocationRateType,
+b.laborcost as ServiceLocationLaborCost,
+b.LaborCostType as ServiceLocationLaborCost,
+
+d.entrytype as ServiceStopEntryEntryType,
+d.value as ServiceStopEntryValue,
+
+e.description as EntryDescription,
+e.UnitOfMeasure as EntryDescriptionUnitOfMeasure,
+e.ReadingType as EntryDescriptionReadingType,
+e.dosagetype as EntryDescriptionDosageType,
+e.cost as EntryDescriptionCost,
+e.price as EntryDescriptionPrice,
+
+(d.value * e.cost) as DosageCost,
+(d.value * e.price) as DosagePrice
+
+
+from routestop a
+
+left join servicelocation b
+            on a.servicelocationid = b.id
+            and b.deleted = 0
+            
+left join 
+            (select routestopid, max(id) as keepid
+                from servicestop
+                where deleted = 0
+                group by routestopid
+            ) rt
+           on a.id = rt.routestopid
+left join servicestop c
+            on c.RouteStopId = rt.keepid
+           and a.ServiceDate = c.ServiceDate
+           and c.deleted = 0
+           
+left join servicestopentry d
+            on c.id = d.ServiceStopId
+            and a.servicedate = d.ServiceDate
+            and d.deleted = 0
+            and d.entrytype = 'Dosage'
+            
+left join entrydescription e
+            on d.entrydescriptionid = e.id
+            and e.deleted = 0
+            and e.entrytype = 'Dosage'
+            
+
+
+where
+a.deleted = 0

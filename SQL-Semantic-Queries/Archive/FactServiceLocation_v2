@@ -1,0 +1,25 @@
+select
+
+a.id as ServiceLocationId,
+a.customerid as ServiceLocationCustomerId,
+a.City as ServiceLocationCity,
+a.State as ServiceLocationState,
+a.Zip as ServiceLocationZipCode,
+a.rate as ServiceLocationRate,
+a.RateType as ServiceLocationRateType,
+a.LaborCost as ServiceLocationLaborCost,
+a.laborcosttype as ServiceLocationLaborCostType,
+
+b.id as PoolId,
+
+a.customerid||b.id as 'uid_cust_pool_id'
+
+from servicelocation a
+
+left join pool b
+            on a.id = b.ServiceLocationId 
+
+
+where
+a.deleted = 0
+--and a.id = '00184F38-E448-490F-9FC9-57BF99F65CE4'

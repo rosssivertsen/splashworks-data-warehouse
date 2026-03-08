@@ -1,0 +1,53 @@
+select 
+ a.id as CustomerId,
+ a.FirstName as CustomerFirstName,
+ a.LastName as CustomerLastName,
+(a.FirstName ||' '|| a.LastName) AS CustomerFullName,
+ a.companyname as CustomerCompanyName,
+ a.displayasCompany as CustomerDisplayAsCompany,
+ a.isinactive as CustomerIsInActive,
+ a.billingcity as CustomerBillingCity,
+ a.billingstate as CustomerBillingState,
+ a.BillingZip as CustomerBillingZipCode,
+
+e.id as PoolId,
+e.name as PoolName,
+e.Gallons as PoolGallons,
+e.BaselineFilterPressure as PoolBaselineFilterPressure
+
+
+from customer a
+
+left join servicelocation b
+            on a.id = b.customerid
+            
+left join routestop c
+           on b.id = c.ServiceLocationId
+            
+left join servicestop d
+          on c.id = d.routestopid
+
+left join pool e
+         on d.poolid = e.id
+        and b.id = e.ServiceLocationId
+            
+where
+a.deleted = 0
+--and e.id = 'b0d417da5dec47e8b8276a25c6abfb40'
+
+
+group by
+a.id,
+a.firstname,
+a.LastName,
+a.companyname,
+a.displayascompany,
+a.IsInactive,
+a.billingcity,
+ a.billingstate,
+ a.BillingZip,
+
+e.id,
+e.name,
+e.Gallons,
+e.BaselineFilterPressure

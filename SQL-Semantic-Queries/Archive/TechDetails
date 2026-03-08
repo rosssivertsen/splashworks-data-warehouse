@@ -1,0 +1,20 @@
+Dim.TechDetails
+
+select 
+a.CompanyId as AccountCompanyId,
+a.id as AccountTechId,
+(a.LastName || ', ' || a.FirstName) as AccountTechFullName,
+a.LastName as AccountLastName,
+a.FirstName as AccountFirstName,
+a.UserName as AccountUserName,
+a.roletype as AccountRoleType,
+a.IsActive as AccountIsActive,
+a.CanManageRoutes as AccountCanManageRoutes,
+a.CanManageAdminPanel as AccountCanManageAdminPanel,
+a.CanManageSettings as AccountCanManageSettings
+
+
+from account a
+
+where 
+a.deleted = 0

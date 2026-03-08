@@ -1,0 +1,36 @@
+select
+
+a.CompanyId as InvoiceCompanyId,
+a.customerId as InvoiceCustomerId,
+cast(strftime('%m', a.InvoiceDate)as Integer) as InvoiceMonthNum,
+cast(strftime('%Y', a.InvoiceDate) AS integer) as InvoiceYear,
+sum(a.total) as InvoiceTotal,
+a.status as InvoiceStatus,
+a.PaymentStatus as InvoicePaymentStatus,
+sum(a.PaidAmount) as InvoicePaidAmount,
+
+case when b.displayascompany = 1 then b.CompanyName else b.LastName || ', ' || b.FirstName end as CleanCustomerName
+
+
+from invoice a
+
+left join customer b
+            on a.CustomerId = b.id
+            and b.deleted = 0
+            
+
+where
+a.deleted = 0
+and a.Status = 'Sent'
+
+group by
+a.customerid,
+a.invoicenumber,
+a.invoicedate,
+a.status,
+a.PaymentStatus,
+a.paidamount,
+b.displayascompany,
+b.companyname,
+b.lastname,
+b.firstname

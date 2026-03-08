@@ -1,0 +1,11 @@
+select
+a.companyid as ServiceLocationCompanyId,
+a.id as ServiceLocationId,
+a.city as ServiceLocationCity,
+a.State as ServiceLocationState,
+a.zip as ServiceLocationZip
+
+from servicelocation a
+
+where
+a.deleted = 0

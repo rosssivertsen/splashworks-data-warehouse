@@ -1,0 +1,100 @@
+SELECT 
+        a.id AS InvoiceItemId,
+       a.sequence AS InvoiceItemSequenceLines,
+       a.item AS InvoiceItemName,
+       a.Description AS InvoiceItemDescription,
+       a.amount AS InvoiceItemTotalAmount,
+       a.Subtotal AS InvoiceItemSubTotal,
+       case when a.rate is null then 0 else a.rate end as InvoiceItemRate,
+       case when a.CostQuantity is null then 0 else a.costquantity end as InvoiceItemCostQuantity,
+       case when a.Cost is null then 0 else a.cost end as InvoiceItemCost,
+       a.workorderid AS InvoiceItemWorkOrderId,
+       a.routestopid as InvoiceItemRouteStopId,
+       a.WorkOrderTypeId as InvoiceItemWorkOrderTypeId,
+       a.EntryDescriptionId as InvoiceItemEntryDescriptionId,
+       
+       b.ServiceLocationId as InvoiceLocationServiceLocationId,
+       
+       c.customerid AS InvoiceCustomerId,
+       c.id as InvoiceId,
+       c.invoicenumber AS InvoiceNumber,
+       c.invoicedate AS InvoiceDate,
+       c.duedate AS InvoiceDueDate,
+       c.status AS InvoiceStatus,
+       c.PaymentStatus AS InvoicePaymentStatus,
+       
+       d.FirstName AS CustomerFirstName,
+       d.LastName AS CustomerLastName,
+       d.CompanyName AS CustomerCompanyName,
+       d.DisplayAsCompany AS CustomerDisplayAsCompany,
+       d.IsInactive AS CustomerIsInActive,
+       d.createdat as CustomerCreatedAt,
+       d.updatedat as CustomerUpdatedAt,
+       
+       e.id AS WorkOrderId,
+       
+       f.id AS WorkOrderTypeId,
+       f.Description AS WorkOrderTypeDescription,
+       
+       g.City AS ServiceLocationCity,
+       g.State AS ServiceLocationState,
+       g.zip AS ServiceLocationZipCode,
+       case when g.rate is null then 0 else g.rate end AS ServiceLocationRate,
+       g.RateType AS ServiceLocationRateType,
+       case when g.laborcost is null then 0 else g.laborcost end AS ServiceLocationLaborCost,
+       g.LaborCostType AS ServiceLocationLaborCostType,
+       
+        h.AccountId as RouteStopAccountId,
+        
+        i.firstname as AccountTechFirstName,
+        i.LastName as AccountTechLastName,
+        i.RoleType as AccountTechRoleType,
+        i.isactive as AccountTechIsActive,
+        
+       case when j.cost is null then 0 else j.cost end as EntryDescriptionCost,
+        case when j.price is null then 0 else j.price end as EntryDescriptionPrice, 
+        j.entrytype as EntryDescriptionEntryType
+        
+       
+  FROM invoiceitem a
+  
+       LEFT JOIN invoicelocation b 
+                       ON a.invoicelocationid = b.id 
+                       AND b.deleted = 0
+                       
+       LEFT JOIN invoice c 
+                       ON b.InvoiceId = c.id 
+                       AND c.Deleted = 0
+                      
+       LEFT JOIN customer d 
+                   ON c.CustomerId = d.id 
+                    AND d.deleted = 0
+                    
+       LEFT JOIN workorder e 
+                   ON a.WorkOrderId = e.id 
+                   AND e.deleted = 0
+                   
+       LEFT JOIN workordertype f 
+                   ON e.WorkOrderTypeId = f.id 
+                   AND f.deleted = 0
+                   
+       LEFT JOIN servicelocation g 
+                   ON c.customerid = g.customerid 
+                   AND b.ServiceLocationId = g.id 
+                   AND g.deleted = 0
+                   
+        left join routestop h
+                 on a.RouteStopId = h.id
+                 and h.deleted = 0
+                 
+        left join account i
+                on h.AccountId = i.id 
+                and i.deleted = 0
+                
+         left join entrydescription j
+                on a.EntryDescriptionId = j.id
+                and j.deleted = 0
+                 
+                   
+ WHERE 
+ a.deleted = 0 

@@ -1,0 +1,41 @@
+select 
+a.CompanyId as ServiceStopCompanyId,
+
+b.servicedate as RouteStopServiceDate,
+strftime('%Y-%m',b.servicedate) as RouteStopServiceMonthDate,
+b.accountid as RouteStopTechAccountId,
+b.minutesatstop as RouteStopMinutesAtStop,
+ case 
+        when b.startTime = '2010-01-01 12:00:00' 
+         and b.completeTime = '2010-01-01 12:00:00'  then 0
+         
+        when b.startTime <> '2010-01-01 12:00:00'
+         and b.completeTime = '2010-01-01 12:00:00'  then 0
+        else  1 end as ServiceDateStatus,
+
+
+c.customerid as ServiceLocationCustomerId,
+c.rate as ServiceLocationRate,
+c.RateType as ServiceLocationRateType,
+c.laborcost as ServiceLocationLaborCost,
+c.LaborCostType as ServiceLocationLaborCostType
+
+
+
+
+from servicestop a
+
+left join routestop b
+            on a.RouteStopId = b.id
+            and a.ServiceDate = b.servicedate
+            and b.deleted = 0
+
+            
+left join servicelocation c
+            on b.servicelocationid = c.id
+            and b.deleted = 0
+
+
+
+where
+a.deleted = 0

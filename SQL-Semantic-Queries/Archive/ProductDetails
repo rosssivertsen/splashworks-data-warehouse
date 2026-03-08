@@ -1,0 +1,21 @@
+select
+a.id as PartCategoryId,
+a.Description as PartCategoryDescription,
+a.ItemDescription as PartCategoryItemDescrption,
+b.id as PartMakeId,
+b.Description as PartMakeDescription,
+c.id as PartModelId,
+c.Description as PartModelDescription
+
+
+from partcategory a
+
+left join partmake b on a.id = b.PartCategoryId
+left join partmodel c on b.id = c.partmakeid
+
+where 
+a.Deleted = 0
+
+
+
+

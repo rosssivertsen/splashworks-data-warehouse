@@ -71,6 +71,15 @@ work/
 # Windows thumbnail cache
 Thumbs.db
 
+# Binary data files (keep SQL queries, exclude binaries)
+SQL-Semantic-Queries/*.pbix
+SQL-Semantic-Queries/*.xlsb
+
+# Python
+__pycache__/
+*.py[cod]
+etl/.venv/
+
 # dbt artifacts
 dbt/dbt_packages/
 dbt/target/

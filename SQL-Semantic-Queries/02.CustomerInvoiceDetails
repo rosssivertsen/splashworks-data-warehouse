@@ -1,0 +1,65 @@
+select 
+a.companyid as CompanyId,
+a.id as CustomerId,
+(a.FirstName || ' ' || a.LastName) as CustomerFullName,
+a.companyname as CompanyName,
+a.displayascompany as DisplayAsCompany,
+a.QboCustomerId as QBOCustomerId,
+a.isinactive as IsInActive,
+
+b.id as InvoiceId,
+b.InvoiceNumber as InvoiceNumber,
+b.invoiceDate as InvoiceDate,
+b.Status as InvoiceStatus,
+b.PaymentStatus as InvoicePaymentStatus,
+
+d.Address as ServiceLocationAddress,
+d.City as ServiceLocationCity,
+d.state as ServiceLocationState,
+d.Zip as ServiceLocationZipCode,
+d.rate as ServiceLocationRate,
+d.RateType as ServiceLocationRateType,
+
+e.item as InvoiceItem,
+e.Description as InvoiceItemDescription,
+e.Quantity as InvoiveItemQuantity,
+e.rate as InvoceItemRate,
+e.Amount as InvoiceItemLineTotal,
+e.Subtotal as InvoiceItemSubTotal,
+
+f.name as ProductName,
+f.QboItemId as ProductQBOItemId
+
+
+
+from customer a
+
+left join invoice b
+            on a.id = b.customerid
+            and b.Deleted = 0
+            and b.status = 'Sent'
+
+left join invoicelocation c
+            on b.id = c.invoiceid
+            and c.deleted = 0            
+
+left join servicelocation d
+            on a.id = d.customerid
+            and c.ServiceLocationId = d.id
+            and d.deleted = 0
+
+left join invoiceitem e
+            on c.id = e.InvoiceLocationId
+            and e.deleted = 0
+            
+left join product f
+            on e.ProductId = f.id
+            and f.deleted = 0
+                     
+        
+
+where
+a.deleted = 0
+and a.isinactive = 0
+--and a.id = '6C89812F-C074-4040-B917-4B9F5BAE1A57'
+--and c.id ='0105B9D8-F574-4C5E-B7CC-282372CF5D54'

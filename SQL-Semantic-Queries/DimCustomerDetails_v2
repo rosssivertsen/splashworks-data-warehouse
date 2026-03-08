@@ -1,0 +1,38 @@
+SELECT 
+        a.CompanyId AS CustomerCompanyId,
+       a.id AS CustomerId,
+       a.FirstName AS CustomerFirstName,
+       a.LastName AS CustomerLastName,
+       (a.FirstName || ' ' || a.LastName) AS CustomerFullName,
+       a.companyname AS CustomerCompanyName,
+       a.displayasCompany AS CustomerDisplayAsCompany,
+       a.isinactive AS CustomerIsInActive,
+       a.billingcity AS CustomerBillingCity,
+       a.billingstate AS CustomerBillingState,
+       a.BillingZip AS CustomerBillingZipCode
+
+      -- b.id as ServiceLocationId,
+     --  b.city as ServiceLocationCity,
+      -- b.state as ServiceLocationState,
+     --  b.zip as ServiceLocationZip 
+       
+     --  c.id AS PoolId,
+   --    c.name AS PoolName,
+  --     c.Gallons AS PoolGallons,
+    --   c.BaselineFilterPressure AS PoolBaselineFilterPressure,
+   -- --   (a.companyid || a.id || c.id) AS uid_cmp_cust_pool_id,
+   --    (a.companyid || a.id) AS uid_cm_cust_id
+       
+  FROM customer a
+  
+    --  LEFT JOIN servicelocation b 
+     --                 ON a.id = b.customerid
+    --                   and b.deleted = 0
+                       
+       --LEFT JOIN pool c 
+                  -- ON b.id = c.ServiceLocationId
+                 --  and c.Deleted = 0
+                   
+ WHERE 
+ a.deleted = 0
+--and a.id = '1b4c3e0bd7eb4b3ea5f4f7b67ef2fd14'

@@ -1,0 +1,24 @@
+SELECT a.id AS InvoiceId,
+       a.CustomerId AS InvoiceCustomerId,
+       a.InvoiceNumber AS InvoiceNumber,
+       a.InvoiceDate AS InvoiceDate,
+       a.duedate AS InvoiceDueDate,
+       a.PaidAmount AS InvoicePaidAmount,
+       a.total as InvoiceTotalAmount,
+       a.AmountDue AS InvoiceAmountDue,
+       a.status AS InvoiceStatus,
+       a.PaymentStatus AS InvoicePaymentStatus,
+       
+       b.servicelocationid as ServicLocationId 
+
+
+FROM invoice a
+
+left join invoicelocation b
+            on a.id = b.invoiceid
+            and b.deleted = 0
+            
+
+
+ WHERE a.deleted = 0 AND
+       a.status = 'Sent';

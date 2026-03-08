@@ -1,0 +1,28 @@
+SELECT 
+       a.companyid as WorkOrderCompanyId,
+       a.id as WorkOrderId,
+       a.workordertypeid as WorkOrderWorkOrderTypeId,
+       a.servicelocationid as WorkOrderServiceLocationId,
+       a.accountid as WorkOrderAccountId,
+       a.servicedate as WorkOrderServiceDate,
+       strftime('%Y-%m', a.ServiceDate) AS ServiceMonth,
+       a.StartTime as WorkOrderStartTime,
+       a.completetime as WorkOrderCompleteTime,
+       case when a.startTime = '2010-01-01 12:00:00' and
+                 a.completeTime = '2010-01-01 12:00:00'  then 0 when a.startTime <> '2010-01-01 12:00:00' and
+                                                                    a.completeTime = '2010-01-01 12:00:00' then 0 else 1 end as ServiceStatus,                                              
+       a.laborcost as WorkOrderLaborCost,
+       a.Price as WorkOrderPrice,
+       
+b.customerid as CustomerId
+
+from workorder a
+
+left join servicelocation b
+          on a.servicelocationid = b.id
+         and b.Deleted = 0
+       
+
+ where
+ a.deleted = 0
+ --and accountid = '884822e7-cfa0-4111-93a4-cb7f6ea679e2'

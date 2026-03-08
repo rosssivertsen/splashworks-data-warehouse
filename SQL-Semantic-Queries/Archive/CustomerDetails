@@ -1,0 +1,28 @@
+SELECT 
+       a.id AS CustomerId,
+       (a.LastName || ', ' || a.FirstName) AS CustomerFullName,
+       a.LastName as CustomerLastName,
+       a.FirstName as CustomerFirstName,
+       a.CompanyId as CustomerCompanyId,
+       a.CompanyName as CustomerCompanyName,
+       a.BillingCity as CustomerBillingCity,
+       a.BillingState as CustomerBillingState,
+       a.BillingZip as CustomerBillingZip,
+       a.IsInActive as CustomerIsInActive,
+       a.DisplayAsCompany
+
+from customer a
+ WHERE 
+     a.deleted = 0
+ 
+Group by
+       a.id,
+       a.LastName,
+       a.FirstName,
+       a.CompanyId,
+       a.CompanyName,
+       a.BillingCity,
+       a.BillingState,
+       a.BillingZip,
+       a.IsInActive,
+       a.DisplayAsCompany

@@ -1,0 +1,26 @@
+select
+a.companyid as AccountCompanyId,
+a.id as AccountTechId,
+a.FirstName as AccountTechFirstName,
+a.lastname as AccountTechLastName,
+(a.FirstName || ' ' || a.LastName) as AccountTechFullName,
+a.RoleType as AccountTechRoleType,
+a.isactive as AccountIsActive,
+a.CanManageRoutes as AccountCanManageRoutes,
+a.CanManageAdminPanel as AccountCanManageAdminPanel,
+a.CanManageSettings as AccountCanManageSettings
+
+--c.PoolId as ServiceStopPoolid
+       
+from account a
+
+--left join routestop b
+   --         on a.id = b.AccountId
+    --        and b.deleted  = 0
+        
+--left join servicestop c
+           -- on b.id = c.routestopid
+         --   and c.deleted
+
+where 
+ a.deleted = 0;
