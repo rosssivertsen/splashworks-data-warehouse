@@ -1,7 +1,11 @@
+import logging
+
 import psycopg2
 from fastapi import APIRouter, HTTPException
 
 from api.config import DATABASE_URL
+
+logger = logging.getLogger(__name__)
 from api.models.requests import QueryRequest, RawQueryRequest
 from api.models.responses import ErrorResponse, QueryResponse
 from api.services.ai_service import generate_sql
@@ -48,7 +52,8 @@ def query(req: QueryRequest):
         columns, rows = execute_query(sql)
     except psycopg2.extensions.QueryCanceledError:
         raise HTTPException(status_code=408, detail="Query timed out")
-    except Exception:
+    except Exception as exc:
+        logger.error("Query execution failed: %s | SQL: %s", exc, sql)
         raise HTTPException(status_code=400, detail="Query execution error")
 
     # 5. Return results
@@ -72,7 +77,8 @@ def query_raw(req: RawQueryRequest):
         columns, rows = execute_query(req.sql)
     except psycopg2.extensions.QueryCanceledError:
         raise HTTPException(status_code=408, detail="Query timed out")
-    except Exception:
+    except Exception as exc:
+        logger.error("Raw query execution failed: %s | SQL: %s", exc, req.sql)
         raise HTTPException(status_code=400, detail="Query execution error")
 
     return QueryResponse(
