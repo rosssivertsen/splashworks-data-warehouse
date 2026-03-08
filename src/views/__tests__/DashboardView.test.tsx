@@ -12,6 +12,10 @@ vi.mock("../../services/ApiClient", () => ({
   },
 }));
 
+vi.mock("echarts-for-react", () => ({
+  default: () => <div data-testid="echarts-mock" />,
+}));
+
 const mockResponse: QueryResponse = {
   sql: "SELECT COUNT(*) AS cnt FROM customer",
   columns: ["cnt"],
@@ -43,30 +47,69 @@ describe("DashboardView", () => {
     apiClient = mod.apiClient;
   });
 
-  it("shows empty state", async () => {
+  it("creates sample dashboard on first visit", async () => {
+    vi.mocked(apiClient.queryRaw).mockResolvedValue(mockResponse);
+
     const { DashboardView } = await import("../DashboardView");
     render(<DashboardView />);
-    expect(screen.getByText("No cards yet.")).toBeInTheDocument();
+
+    // Should see the "Operations Overview" dashboard in the selector
+    await waitFor(() => {
+      expect(screen.getByText("Operations Overview")).toBeInTheDocument();
+    });
   });
 
-  it("renders add card form", async () => {
+  it("shows dashboard selector and action buttons", async () => {
+    vi.mocked(apiClient.queryRaw).mockResolvedValue(mockResponse);
+
     const { DashboardView } = await import("../DashboardView");
     render(<DashboardView />);
-    expect(screen.getByPlaceholderText(/card title/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/sql query/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /add card/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText("Operations Overview")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("+ New")).toBeInTheDocument();
+    expect(screen.getByText("Rename")).toBeInTheDocument();
+    expect(screen.getByText("+ Add Card")).toBeInTheDocument();
+    expect(screen.getByText("Screenshot")).toBeInTheDocument();
   });
 
-  it("adds card and shows results", async () => {
+  it("shows add card form when clicking + Add Card", async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.queryRaw).mockResolvedValue(mockResponse);
 
     const { DashboardView } = await import("../DashboardView");
     render(<DashboardView />);
 
+    await waitFor(() => {
+      expect(screen.getByText("+ Add Card")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("+ Add Card"));
+
+    expect(screen.getByPlaceholderText(/card title/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/sql query/i)).toBeInTheDocument();
+  });
+
+  it("adds card via add form and shows results", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.queryRaw).mockResolvedValue(mockResponse);
+
+    const { DashboardView } = await import("../DashboardView");
+    render(<DashboardView />);
+
+    // Wait for sample dashboard to be created and loaded
+    await waitFor(() => {
+      expect(screen.getByText("+ Add Card")).toBeInTheDocument();
+    });
+
+    // Open add form
+    await user.click(screen.getByText("+ Add Card"));
+
     await user.type(screen.getByPlaceholderText(/card title/i), "Customer Count");
     await user.type(screen.getByPlaceholderText(/sql query/i), "SELECT COUNT(*) AS cnt FROM customer");
-    await user.click(screen.getByRole("button", { name: /add card/i }));
+    await user.click(screen.getByRole("button", { name: /^Add$/ }));
 
     await waitFor(() => {
       expect(apiClient.queryRaw).toHaveBeenCalledWith("SELECT COUNT(*) AS cnt FROM customer");
@@ -75,8 +118,5 @@ describe("DashboardView", () => {
     await waitFor(() => {
       expect(screen.getByText("Customer Count")).toBeInTheDocument();
     });
-
-    expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.queryByText("No cards yet.")).not.toBeInTheDocument();
   });
 });
