@@ -79,6 +79,32 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
             for rel_name, info in sl["relationships"].items():
                 desc = info.get("description", "")
                 lines.append(f"- **{rel_name}**: {desc}")
+                join = info.get("join", "")
+                if join:
+                    lines.append(f"  JOIN: `{join}`")
+
+        if "tables" in sl:
+            lines.append("")
+            lines.append("## Table Descriptions")
+            lines.append("")
+            for tbl_name, info in sl["tables"].items():
+                tbl_schema = info.get("schema", "public_warehouse")
+                desc = info.get("description", "")
+                grain = info.get("grain", "")
+                lines.append(f"- **{tbl_schema}.{tbl_name}**: {desc}")
+                if grain:
+                    lines.append(f"  Grain: {grain}")
+
+        if "metrics" in sl:
+            lines.append("")
+            lines.append("## Calculated Metrics")
+            lines.append("")
+            for metric_name, info in sl["metrics"].items():
+                desc = info.get("description", "")
+                formula = info.get("formula", "")
+                lines.append(f"- **{metric_name}**: {desc}")
+                if formula:
+                    lines.append(f"  Formula: `{formula}`")
 
         if "verified_queries" in sl:
             lines.append("")
@@ -86,7 +112,19 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
             lines.append("")
             for vq in sl["verified_queries"]:
                 q = vq.get("question", "")
+                sql = vq.get("sql", "")
                 lines.append(f"- Q: {q}")
+                if sql:
+                    lines.append(f"  ```sql\n  {sql.strip()}\n  ```")
+
+        if "data_gaps" in sl:
+            lines.append("")
+            lines.append("## Data NOT Available in Warehouse")
+            lines.append("")
+            for gap in sl["data_gaps"]:
+                name = gap.get("name", "")
+                desc = gap.get("description", "")
+                lines.append(f"- **{name}**: {desc}")
 
     lines.append("")
     lines.append("## Important Rules")
@@ -96,5 +134,6 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
     example_table = "public_warehouse.dim_customer" if layer == "warehouse" else "public_staging.stg_customer"
     lines.append(f"- Always qualify table names with schema (e.g., {example_table})")
     lines.append("- Use double quotes for column names only if they contain special characters")
+    lines.append("- When joining facts to dimensions, match on BOTH the ID column AND _company_name")
 
     return "\n".join(lines)
