@@ -71,13 +71,14 @@ class TestAcidChemicalReadings:
         """
         sql = """
             SELECT
-                c.company_name,
+                d._company_name,
                 COUNT(*) AS dosage_count
             FROM public_warehouse.fact_dosage d
             JOIN public_warehouse.dim_customer c
-                ON d.customer_key = c.customer_key
-            GROUP BY c.company_name
-            ORDER BY c.company_name
+                ON d.customer_id = c.customer_id
+                AND d._company_name = c._company_name
+            GROUP BY d._company_name
+            ORDER BY d._company_name
         """
         resp = requests.post(
             f"{BASE_URL}/api/query/raw", json={"sql": sql}, timeout=15
@@ -87,28 +88,27 @@ class TestAcidChemicalReadings:
         body = resp.json()
         assert body["row_count"] >= 1, "No rows returned from dosage-customer join"
 
-        company_col = body["columns"].index("company_name")
+        company_col = body["columns"].index("_company_name")
         companies = {row[company_col] for row in body["results"]}
         assert "AQPS" in companies or "JOMO" in companies, (
             f"Expected AQPS or JOMO in joined results, got: {companies}"
         )
 
-    def test_semantic_chemical_entries(self):
-        """Query the semantic layer's fact_chemical_entries grouped by entry description.
+    def test_dosage_by_entry_description(self):
+        """Query fact_dosage grouped by entry description to validate chemical categorization.
 
-        WHY: The semantic layer (public_semantic) contains business-ready views
-        built on top of the warehouse. fact_chemical_entries aggregates chemical
-        readings with human-readable entry descriptions (e.g., "Free Chlorine",
-        "pH"). This test validates that:
-        1. The semantic schema exists and is queryable
+        WHY: fact_dosage contains chemical dosage events with human-readable
+        entry descriptions (e.g., "Free Chlorine", "pH"). This test validates
+        that:
+        1. The warehouse schema is queryable
         2. Chemical entries have been categorized by description
-        3. The full ETL pipeline (staging -> warehouse -> semantic) produced data
+        3. The full ETL pipeline (staging -> warehouse) produced categorized data
         """
         sql = """
             SELECT
                 entry_description,
                 COUNT(*) AS entry_count
-            FROM public_semantic.fact_chemical_entries
+            FROM public_warehouse.fact_dosage
             GROUP BY entry_description
             ORDER BY entry_count DESC
             LIMIT 10
@@ -120,7 +120,7 @@ class TestAcidChemicalReadings:
 
         body = resp.json()
         assert body["row_count"] > 0, (
-            "No rows in semantic fact_chemical_entries — semantic layer may be empty"
+            "No rows in fact_dosage by entry_description — warehouse may be empty"
         )
 
     def test_nl_chemical_reading_query(self):

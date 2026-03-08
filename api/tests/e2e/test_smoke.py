@@ -88,12 +88,12 @@ class TestSmokeActiveCustomerCount:
         """
         sql = """
             SELECT
-                company_name,
+                _company_name,
                 COUNT(*) AS active_customers
             FROM public_warehouse.dim_customer
-            WHERE is_active = true
-            GROUP BY company_name
-            ORDER BY company_name
+            WHERE is_inactive = 0
+            GROUP BY _company_name
+            ORDER BY _company_name
         """
         resp = requests.post(
             f"{BASE_URL}/api/query/raw", json={"sql": sql}, timeout=15
@@ -104,8 +104,8 @@ class TestSmokeActiveCustomerCount:
         assert body["row_count"] == 2
 
         # Build a lookup from results
-        # columns: company_name, active_customers
-        company_col = body["columns"].index("company_name")
+        # columns: _company_name, active_customers
+        company_col = body["columns"].index("_company_name")
         count_col = body["columns"].index("active_customers")
         counts = {row[company_col]: row[count_col] for row in body["results"]}
 
