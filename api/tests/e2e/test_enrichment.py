@@ -179,3 +179,18 @@ class TestEnrichmentModels:
         assert body["row_count"] > 0, (
             f"Expected results for pools > 10000 gallons. SQL: {body['sql']}"
         )
+
+    def test_prompts_endpoint(self):
+        """Verify /api/prompts returns starter questions from YAML."""
+        resp = requests.get(f"{BASE_URL}/api/prompts", timeout=10)
+        assert resp.status_code == 200
+
+        body = resp.json()
+        assert "prompts" in body
+        assert len(body["prompts"]) >= 1, "No prompts returned"
+        assert all(isinstance(p, str) for p in body["prompts"])
+        # Should include at least one known verified query
+        prompts_lower = [p.lower() for p in body["prompts"]]
+        assert any("active customers" in p for p in prompts_lower), (
+            f"Expected 'active customers' prompt. Got: {body['prompts']}"
+        )
