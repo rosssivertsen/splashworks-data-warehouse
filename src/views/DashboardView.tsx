@@ -112,9 +112,9 @@ export function DashboardView({ dashboardState }: DashboardViewProps) {
     if (!dashboardRef.current || !activeDashboard) return;
     const html2canvas = (await import("html2canvas")).default;
     const canvas = await html2canvas(dashboardRef.current, {
-      background: "#fafafa",
+      backgroundColor: "#fafafa",
       scale: 2,
-    });
+    } as Parameters<typeof html2canvas>[1]);
     const link = document.createElement("a");
     const safeName = activeDashboard.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
     const date = new Date().toISOString().split("T")[0];
