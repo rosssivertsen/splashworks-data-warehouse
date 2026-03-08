@@ -2,17 +2,17 @@
 
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
-**Last Updated:** 2026-03-10 (Batch C deployed to VPS)
+**Last Updated:** 2026-03-10 (Semantic enrichment design approved)
 
 ---
 
 ## Current Status
 
-**Phase:** 1 — Crawl (COMPLETE, DEPLOYED)
-**Status:** All Phase 1 steps COMPLETE (1.1-1.9), deployed to VPS, 8/8 E2E tests passing. Metabase (1.10) and Cloudflare Access (1.11) deferred to backlog.
-**Next:** Phase 2 planning
+**Phase:** Interstitial — Semantic Enrichment (DESIGN APPROVED)
+**Status:** Phase 1 complete and deployed. Semantic enrichment design approved, implementation plan next.
+**Next:** Write implementation plan, then execute semantic enrichment batch
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API)
-**Design Doc:** [2026-03-10-phase1-batch-c-frontend-design.md](./2026-03-10-phase1-batch-c-frontend-design.md)
+**Design Doc:** [2026-03-10-semantic-enrichment-design.md](./2026-03-10-semantic-enrichment-design.md)
 
 ---
 
@@ -96,3 +96,4 @@
 | 2026-03-09 | Phase 1 Batch B | FastAPI backend: 2 endpoints, 22 unit tests + 4 integration tests, Docker container on VPS, Cloudflare tunnel live, layer switching validated |
 | 2026-03-10 | Phase 1 Batch C | Clean-room React frontend: 3 new API endpoints (14 tests), 4 views + 6 components (47 tests), Nginx container, E2E tests (8 tests), frontend swap complete |
 | 2026-03-10 | VPS Deploy | Batch C deployed: 3 Docker containers (postgres, api, frontend), 8/8 E2E tests passing, app.splshwrks.com live. Fixed: cross-platform Docker build, exception detail leakage, connection leaks, E2E test column names |
+| 2026-03-10 | Semantic Research | Scraped Skimmer help docs (17 reports, 7 categories). Gap analysis: 46% warehouse coverage, critical gaps in pools, service stops, payments, profit. Design approved for interstitial semantic enrichment batch: YAML rewrite + 4 dbt models (dim_pool, fact_service_stop, fact_payment, semantic_profit) |
