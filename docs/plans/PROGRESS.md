@@ -2,15 +2,15 @@
 
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
-**Last Updated:** 2026-03-09
+**Last Updated:** 2026-03-10
 
 ---
 
 ## Current Status
 
-**Phase:** 1 — Crawl (Batch A: Data Pipeline)
-**Status:** Steps 1.1-1.5 COMPLETE
-**Next:** Phase 1 Batch B — Backend + Frontend
+**Phase:** 1 — Crawl (Batch B: FastAPI Backend)
+**Status:** Steps 1.1-1.8 COMPLETE
+**Next:** Phase 1 Batch C — React frontend, Metabase, Cloudflare Access
 
 ---
 
@@ -38,9 +38,9 @@
 | 1.3 | dbt warehouse models (6 dims + 6 facts) | DONE | Star schema, date spine 2024-2027, 96K dosage rows |
 | 1.4 | dbt semantic models (8 materialized) | DONE | All 8 from production SQL queries |
 | 1.5 | dbt snapshots (SCD2 on customer, tech) | DONE | snap_customer (6,673 rows), snap_tech |
-| 1.6 | FastAPI backend | PENDING |
-| 1.7 | Semantic layer on backend | PENDING |
-| 1.8 | Query guardrails | PENDING |
+| 1.6 | FastAPI backend | DONE | POST /api/query + GET /api/health, 22 unit tests, Docker container on VPS |
+| 1.7 | Semantic layer on backend | DONE | YAML-loaded business terms + relationships feed Claude's system prompt |
+| 1.8 | Query guardrails | DONE | SELECT-only validation, 10s timeout, 10K row limit, 12 validator tests |
 | 1.9 | React frontend updated | PENDING |
 | 1.10 | Metabase connected | PENDING |
 | 1.11 | Cloudflare Access | PENDING |
@@ -60,6 +60,8 @@
 - **WorkOrderType has `Description` not `Name`:** Schema differs from documentation assumptions
 - **Shared memory:** Docker default 64MB shm insufficient for large dbt queries; increased to 256MB
 - **dbt schema prefixing:** dbt creates schemas as `public_staging`, `public_warehouse`, `public_semantic` (profile schema + model schema)
+- **Docker Compose restart vs up:** `docker compose restart` does NOT re-read `.env` — must use `docker compose up -d` to refresh environment variables
+- **Layer switching validation:** Warehouse and staging return identical active customer counts (AQPS: 859, JOMO: 2,402) — confirms dbt models are correct
 
 ---
 
@@ -86,3 +88,4 @@
 | 2026-03-07 | Phase 0 implementation | Docker Compose, ETL package, real data load (712K rows), dbt scaffold, smoke tests — all passing |
 | 2026-03-08 | VPS deployment | Docker + Postgres on VPS, rclone OneDrive sync (76MB synced, cron set), Cloudflare tunnel live (3 subdomains) |
 | 2026-03-09 | Phase 1 Batch A | ETL on VPS (712K rows), 18 staging + 12 warehouse + 8 semantic models + 2 snapshots, dbt build 41/41 pass |
+| 2026-03-09 | Phase 1 Batch B | FastAPI backend: 2 endpoints, 22 unit tests + 4 integration tests, Docker container on VPS, Cloudflare tunnel live, layer switching validated |
