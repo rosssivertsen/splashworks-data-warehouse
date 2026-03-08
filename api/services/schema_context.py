@@ -160,15 +160,38 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
     next_year_start = today.replace(year=today.year + 1, month=1, day=1)
     last_year_start = today.replace(year=today.year - 1, month=1, day=1)
 
-    lines.append(f"- **today**: '{today.isoformat()}'")
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    today_name = day_names[today.weekday()]
+
+    # Week boundaries (Monday = start of week)
+    this_week_start = today - timedelta(days=today.weekday())
+    last_week_start = this_week_start - timedelta(days=7)
+    next_week_start = this_week_start + timedelta(days=7)
+
+    lines.append(f"- **today**: '{today.isoformat()}' ({today_name})")
+    lines.append(f"- **yesterday**: '{(today - timedelta(days=1)).isoformat()}' ({day_names[(today.weekday() - 1) % 7]})")
+    lines.append(f"- **this week** (Mon-Sun): >= '{this_week_start.isoformat()}' AND < '{next_week_start.isoformat()}'")
+    lines.append(f"- **last week**: >= '{last_week_start.isoformat()}' AND < '{this_week_start.isoformat()}'")
     lines.append(f"- **this month**: >= '{this_month_start.isoformat()}' AND < '{next_month_start.isoformat()}'")
     lines.append(f"- **last month**: >= '{last_month_start.isoformat()}' AND < '{this_month_start.isoformat()}'")
     lines.append(f"- **two months ago**: >= '{two_months_ago_start.isoformat()}' AND < '{last_month_start.isoformat()}'")
     lines.append(f"- **next month**: >= '{next_month_start.isoformat()}' AND < '{(next_month_start + timedelta(days=32)).replace(day=1).isoformat()}'")
+    q = (today.month - 1) // 3
+    q_start = today.replace(month=q * 3 + 1, day=1)
+    q_end = (q_start + timedelta(days=95)).replace(day=1)  # first of next quarter
+    q_end = q_end.replace(month=((q + 1) * 3 + 1) if q < 3 else 1,
+                          year=today.year if q < 3 else today.year + 1)
+    lines.append(f"- **this quarter** (Q{q + 1}): >= '{q_start.isoformat()}' AND < '{q_end.isoformat()}'")
     lines.append(f"- **this year**: >= '{this_year_start.isoformat()}' AND < '{next_year_start.isoformat()}'")
     lines.append(f"- **last year**: >= '{last_year_start.isoformat()}' AND < '{this_year_start.isoformat()}'")
+    lines.append(f"- **last 7 days**: >= '{(today - timedelta(days=7)).isoformat()}'")
     lines.append(f"- **last 30 days**: >= '{(today - timedelta(days=30)).isoformat()}'")
     lines.append(f"- **last 90 days**: >= '{(today - timedelta(days=90)).isoformat()}'")
-    lines.append("- For any other relative date, compute the ISO date string the same way")
+    lines.append("")
+    lines.append("### Day-of-Week Reference")
+    lines.append("- dim_date.day_of_week: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday")
+    lines.append("- When asked 'what day was [date]', use a CASE expression to return the name:")
+    lines.append("  `CASE day_of_week WHEN 0 THEN 'Sunday' WHEN 1 THEN 'Monday' WHEN 2 THEN 'Tuesday' WHEN 3 THEN 'Wednesday' WHEN 4 THEN 'Thursday' WHEN 5 THEN 'Friday' WHEN 6 THEN 'Saturday' END AS day_name`")
+    lines.append("- For any other relative date, compute the ISO date string using these patterns")
 
     return "\n".join(lines)
