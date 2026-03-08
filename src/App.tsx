@@ -25,16 +25,11 @@ export default function App() {
   const dashboardState = useDashboards();
 
   const handleAddToDashboard = (title: string, sql: string, results: { columns: string[]; rows: (string | number | boolean | null)[][] }) => {
-    const target = dashboardState.activeDashboard;
-    if (!target) {
-      // Create a dashboard if none exists
-      dashboardState.createDashboard("My Dashboard");
+    let dashId = dashboardState.activeId ?? dashboardState.dashboards[0]?.id;
+    if (!dashId) {
+      dashId = dashboardState.createDashboard("My Dashboard");
     }
-    // Use the active dashboard (or the newly created one)
-    const dashId = dashboardState.activeId ?? dashboardState.dashboards[0]?.id;
-    if (dashId) {
-      dashboardState.addCard(dashId, { title, sql, results });
-    }
+    dashboardState.addCard(dashId, { title, sql, results });
   };
 
   return (

@@ -40,17 +40,19 @@ export function useDashboards() {
 
   const activeDashboard = dashboards.find((d) => d.id === activeId) ?? null;
 
-  const createDashboard = useCallback((name: string) => {
+  const createDashboard = useCallback((name: string): string => {
     const now = new Date().toISOString();
+    const id = Date.now().toString();
     const dashboard: Dashboard = {
-      id: Date.now().toString(),
+      id,
       name,
       cards: [],
       createdAt: now,
       updatedAt: now,
     };
     setDashboards((prev) => [...prev, dashboard]);
-    setActiveId(dashboard.id);
+    setActiveId(id);
+    return id;
   }, []);
 
   const renameDashboard = useCallback((id: string, name: string) => {
