@@ -8,11 +8,11 @@
 
 ## Current Status
 
-**Phase:** Semantic enrichment COMPLETE. UI refinements batch next.
-**Status:** Phase 1 + semantic enrichment deployed. 15/15 E2E tests passing.
-**Next:** UI refinements batch (starter prompts, dashboard charts, save/restore, export)
+**Phase:** UI refinements COMPLETE. Ready for VPS deploy.
+**Status:** Phase 1 + semantic enrichment + UI refinements. 65 frontend tests + 43 API tests passing.
+**Next:** Deploy to VPS, run 16 E2E tests, then Phase 2 planning
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API)
-**Design Doc:** [2026-03-10-semantic-enrichment-design.md](./2026-03-10-semantic-enrichment-design.md)
+**Design Doc:** [2026-03-10-ui-refinements-design.md](./2026-03-10-ui-refinements-design.md)
 
 ---
 
@@ -63,9 +63,31 @@
 | SE.7 | E2E enrichment tests (7 tests) | DONE |
 | SE.8 | VPS deployment + validation (15/15 E2E passing) | DONE |
 
+## Interstitial: UI Refinements
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| UI.1 | GET /api/prompts endpoint (starter questions from YAML) | DONE |
+| UI.2 | ApiClient + TypeScript types (PromptsResponse, Dashboard, ChartType) | DONE |
+| UI.3 | StarterPrompts component (clickable pills, 3 tests) | DONE |
+| UI.4 | Wire StarterPrompts into QueryView (shown before first query) | DONE |
+| UI.5 | useDashboards hook (named CRUD + localStorage, 9 tests) | DONE |
+| UI.6 | ChartCard component (ECharts + type switching + column mapping, 5 tests) | DONE |
+| UI.7 | DashboardView rewrite (named dashboards, sample dashboard, screenshot) | DONE |
+| UI.8 | Add to Dashboard from QueryView and DataView (lifted hook to App) | DONE |
+| UI.9 | Frontend test updates (65/65 passing) | DONE |
+| UI.10 | E2E test for /api/prompts endpoint | DONE |
+| UI.11 | Build + deploy to VPS | PENDING |
+
 ## Backlog
 
 - [ ] Query history / chat history in AI Query view (conversation-style UX)
+- [ ] Self-improving prompt tracking (analytics on which prompts users click)
+- [ ] JSON dashboard export/import for sharing
+- [ ] Individual chart PNG export
+- [ ] Dashboard templates library
+- [ ] PDF export with formatted report layout
+- [ ] Dashboard duplication
 - [ ] Metabase connected (deferred from Phase 1)
 - [ ] Cloudflare Access (deferred from Phase 1)
 
@@ -117,3 +139,4 @@
 | 2026-03-10 | VPS Deploy | Batch C deployed: 3 Docker containers (postgres, api, frontend), 8/8 E2E tests passing, app.splshwrks.com live. Fixed: cross-platform Docker build, exception detail leakage, connection leaks, E2E test column names |
 | 2026-03-10 | Semantic Research | Scraped Skimmer help docs (17 reports, 7 categories). Gap analysis: 46% warehouse coverage, critical gaps in pools, service stops, payments, profit. Design approved for interstitial semantic enrichment batch: YAML rewrite + 4 dbt models (dim_pool, fact_service_stop, fact_payment, semantic_profit) |
 | 2026-03-10 | Semantic Enrichment | YAML rewrite (16 terms, 8 queries), system prompt update, 4 dbt models (dim_pool 7K, fact_service_stop 69K, fact_payment 12K, semantic_profit 17K), 7 E2E tests, deployed to VPS — 15/15 E2E passing. "Pools > 10000 gallons" query now works. |
+| 2026-03-10 | UI Refinements | Starter prompts from YAML, ChartCard with ECharts (bar/line/pie/area), named dashboards with localStorage, sample "Operations Overview" dashboard, PNG screenshot export, "Add to Dashboard" from QueryView/DataView. 65 frontend tests, 43 API tests. |
