@@ -7,7 +7,7 @@ renamed as (
         _company_name,
         cast("CompanyId" as text) as company_id,
         cast("id" as text) as work_order_type_id,
-        "Name" as name,
+        "Description" as name,
         cast("Deleted" as integer) as deleted
     from source
 )

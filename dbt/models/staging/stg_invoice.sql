@@ -14,7 +14,7 @@ renamed as (
         "Status" as status,
         "PaymentStatus" as payment_status,
         cast("Total" as double precision) as total,
-        cast("SubTotal" as double precision) as sub_total,
+        cast("Subtotal" as double precision) as sub_total,
         cast("TaxAmount" as double precision) as tax_amount,
         cast("PaidAmount" as double precision) as paid_amount,
         cast("AmountDue" as double precision) as amount_due,
