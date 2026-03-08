@@ -8,9 +8,9 @@
 
 ## Current Status
 
-**Phase:** UI refinements COMPLETE. Ready for VPS deploy.
-**Status:** Phase 1 + semantic enrichment + UI refinements. 65 frontend tests + 43 API tests passing.
-**Next:** Deploy to VPS, run 16 E2E tests, then Phase 2 planning
+**Phase:** Authentication COMPLETE. UI deploy pending.
+**Status:** Phase 1 + semantic enrichment + UI refinements + Cloudflare Access auth. 65 frontend tests + 43 API tests passing.
+**Next:** Deploy UI refinements to VPS, run 16 E2E tests, then Phase 2 planning
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API)
 **Design Doc:** [2026-03-10-ui-refinements-design.md](./2026-03-10-ui-refinements-design.md)
 
@@ -48,7 +48,7 @@
 | 1.9c | Nginx container | DONE | Multi-stage Docker build, API proxy, static serving |
 | 1.9d | E2E tests | DONE | Smoke (active customer count) + Acid (chemical drill-down) — 8 tests |
 | 1.10 | Metabase connected | DEFERRED | Backlog — React dashboard validates data layer first |
-| 1.11 | Cloudflare Access | DEFERRED | Backlog — no external users during MVP |
+| 1.11 | Cloudflare Access | DONE | GitHub + Google OAuth + OTP via Cloudflare Zero Trust |
 
 ## Interstitial: Semantic Enrichment
 
@@ -79,6 +79,14 @@
 | UI.10 | E2E test for /api/prompts endpoint | DONE |
 | UI.11 | Build + deploy to VPS | PENDING |
 
+## Interstitial: Authentication
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| AUTH.1 | Cloudflare Access application (app + api subdomains) | DONE |
+| AUTH.2 | Login methods: GitHub OAuth + Google OAuth + email OTP | DONE |
+| AUTH.3 | Policy: allow specific email addresses only | DONE |
+
 ## Backlog
 
 - [ ] Query history / chat history in AI Query view (conversation-style UX)
@@ -89,7 +97,7 @@
 - [ ] PDF export with formatted report layout
 - [ ] Dashboard duplication
 - [ ] Metabase connected (deferred from Phase 1)
-- [ ] Cloudflare Access (deferred from Phase 1)
+- [x] ~~Cloudflare Access~~ (completed — AUTH.1-3)
 
 ## Phase 2-4: See design doc
 
