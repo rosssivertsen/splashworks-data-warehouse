@@ -2,7 +2,7 @@ import psycopg2
 from fastapi import APIRouter, HTTPException
 
 from api.config import DATABASE_URL
-from api.models.requests import QueryRequest
+from api.models.requests import QueryRequest, RawQueryRequest
 from api.models.responses import ErrorResponse, QueryResponse
 from api.services.ai_service import generate_sql
 from api.services.query_executor import execute_query, validate_sql
@@ -55,4 +55,27 @@ def query(req: QueryRequest):
         results=rows,
         row_count=len(rows),
         explanation=explanation,
+    )
+
+
+@router.post("/api/query/raw", response_model=QueryResponse)
+def query_raw(req: RawQueryRequest):
+    """Execute user-written SQL with guardrails (SELECT-only, timeout, row limit)."""
+    error = validate_sql(req.sql)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
+    try:
+        columns, rows = execute_query(req.sql)
+    except psycopg2.extensions.QueryCanceledError:
+        raise HTTPException(status_code=408, detail="Query timed out")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Query execution error: {e}")
+
+    return QueryResponse(
+        sql=req.sql,
+        columns=columns,
+        results=rows,
+        row_count=len(rows),
+        explanation="User-provided SQL query",
     )
