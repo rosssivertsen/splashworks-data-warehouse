@@ -63,6 +63,12 @@
 | SE.7 | E2E enrichment tests (7 tests) | DONE |
 | SE.8 | VPS deployment + validation (15/15 E2E passing) | DONE |
 
+## Backlog
+
+- [ ] Query history / chat history in AI Query view (conversation-style UX)
+- [ ] Metabase connected (deferred from Phase 1)
+- [ ] Cloudflare Access (deferred from Phase 1)
+
 ## Phase 2-4: See design doc
 
 ---
