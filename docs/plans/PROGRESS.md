@@ -2,15 +2,15 @@
 
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
-**Last Updated:** 2026-03-08
+**Last Updated:** 2026-03-09
 
 ---
 
 ## Current Status
 
-**Phase:** 0 — Foundation
-**Status:** COMPLETE (local + VPS)
-**Next:** Phase 1 — Crawl
+**Phase:** 1 — Crawl (Batch A: Data Pipeline)
+**Status:** Steps 1.1-1.5 COMPLETE
+**Next:** Phase 1 Batch B — Backend + Frontend
 
 ---
 
@@ -33,11 +33,11 @@
 
 | Step | Deliverable | Status |
 |------|-------------|--------|
-| 1.1 | ETL automated on VPS (cron) | PENDING |
-| 1.2 | dbt staging models (all tables) | PENDING |
-| 1.3 | dbt warehouse models (dims + facts) | PENDING |
-| 1.4 | dbt semantic models (materialized KPIs) | PENDING |
-| 1.5 | dbt snapshots (SCD2 on customer, tech) | PENDING |
+| 1.1 | ETL on VPS + current views | DONE | 712K rows loaded, 88 views created, shm_size fixed |
+| 1.2 | dbt staging models (18 tables) | DONE | union_companies macro, all 18 views building |
+| 1.3 | dbt warehouse models (6 dims + 6 facts) | DONE | Star schema, date spine 2024-2027, 96K dosage rows |
+| 1.4 | dbt semantic models (8 materialized) | DONE | All 8 from production SQL queries |
+| 1.5 | dbt snapshots (SCD2 on customer, tech) | DONE | snap_customer (6,673 rows), snap_tech |
 | 1.6 | FastAPI backend | PENDING |
 | 1.7 | Semantic layer on backend | PENDING |
 | 1.8 | Query guardrails | PENDING |
@@ -56,6 +56,10 @@
 - **AQPS:** 189,873 rows across 44 tables
 - **JOMO:** 522,394 rows across 44 tables
 - **Smoke test script pipes:** Plan's original `check()` function needed `bash -c` wrapper for piped commands
+- **Column name case sensitivity:** SQLite `SubTotal` → Postgres `Subtotal` (case matters in quoted identifiers)
+- **WorkOrderType has `Description` not `Name`:** Schema differs from documentation assumptions
+- **Shared memory:** Docker default 64MB shm insufficient for large dbt queries; increased to 256MB
+- **dbt schema prefixing:** dbt creates schemas as `public_staging`, `public_warehouse`, `public_semantic` (profile schema + model schema)
 
 ---
 
@@ -81,3 +85,4 @@
 | 2026-03-07 | Design | Codebase review, brainstorming, design doc approved |
 | 2026-03-07 | Phase 0 implementation | Docker Compose, ETL package, real data load (712K rows), dbt scaffold, smoke tests — all passing |
 | 2026-03-08 | VPS deployment | Docker + Postgres on VPS, rclone OneDrive sync (76MB synced, cron set), Cloudflare tunnel live (3 subdomains) |
+| 2026-03-09 | Phase 1 Batch A | ETL on VPS (712K rows), 18 staging + 12 warehouse + 8 semantic models + 2 snapshots, dbt build 41/41 pass |
