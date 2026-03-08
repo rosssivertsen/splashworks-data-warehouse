@@ -126,6 +126,14 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
                 desc = gap.get("description", "")
                 lines.append(f"- **{name}**: {desc}")
 
+    if "data_freshness" in sl:
+        df = sl["data_freshness"]
+        lines.append("")
+        lines.append("## Data Freshness")
+        lines.append(f"- {df.get('description', '')}")
+        lines.append(f"- {df.get('note', '')}")
+        lines.append(f"- Window: {df.get('approximate_window', 'unknown')}")
+
     lines.append("")
     lines.append("## Important Rules")
     lines.append("- Service completion sentinel: '2010-01-01 12:00:00' means NOT completed")
@@ -135,5 +143,6 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
     lines.append(f"- Always qualify table names with schema (e.g., {example_table})")
     lines.append("- Use double quotes for column names only if they contain special characters")
     lines.append("- When joining facts to dimensions, match on BOTH the ID column AND _company_name")
+    lines.append("- Data covers a trailing ~6 month window. When a user says 'December' or 'last month' without a year, use the most recent occurrence in the data — NOT a historical year")
 
     return "\n".join(lines)

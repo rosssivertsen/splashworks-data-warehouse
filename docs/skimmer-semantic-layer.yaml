@@ -7,6 +7,11 @@ warehouse_schema:
   warehouse: public_warehouse
   semantic: public_semantic
 
+data_freshness:
+  description: "Nightly extract from Skimmer, trailing ~6 months. Data is overwritten each night."
+  note: "When users ask about a month like 'December' or 'January' without specifying a year, use the most recent occurrence within the data window. Check dim_date or query MAX(service_date) if unsure."
+  approximate_window: "trailing 6 months from current date"
+
 business_terms:
   active_customer:
     description: "Customer currently receiving pool service (is_inactive = 0 in dim_customer)"
