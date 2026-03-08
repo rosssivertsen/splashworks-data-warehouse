@@ -3,6 +3,7 @@ import { apiClient } from "../services/ApiClient";
 import { ResultsTable } from "../components/ResultsTable";
 import { SqlEditor } from "../components/SqlEditor";
 import { ExportButton } from "../components/ExportButton";
+import { StarterPrompts } from "../components/StarterPrompts";
 import type { QueryResponse } from "../types/api";
 
 export function QueryView() {
@@ -12,9 +13,11 @@ export function QueryView() {
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasQueried, setHasQueried] = useState(false);
 
   const handleAsk = async () => {
     if (!question.trim()) return;
+    setHasQueried(true);
     setLoading(true);
     setError(null);
     try {
@@ -45,8 +48,29 @@ export function QueryView() {
     }
   };
 
+  const handlePromptSelect = (prompt: string) => {
+    setQuestion(prompt);
+    // Auto-submit after a tick so the input updates visually
+    setTimeout(() => {
+      setHasQueried(true);
+      setLoading(true);
+      setError(null);
+      apiClient.query(prompt).then((resp) => {
+        setSql(resp.sql);
+        setExplanation(resp.explanation);
+        setResult(resp);
+        setLoading(false);
+      }).catch((err) => {
+        setError(err instanceof Error ? err.message : String(err));
+        setResult(null);
+        setLoading(false);
+      });
+    }, 0);
+  };
+
   return (
     <div className="space-y-4">
+      {!hasQueried && <StarterPrompts onSelect={handlePromptSelect} />}
       <div className="flex gap-2">
         <input
           type="text"

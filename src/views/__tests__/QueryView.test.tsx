@@ -9,6 +9,7 @@ vi.mock("../../services/ApiClient", () => ({
     queryRaw: vi.fn(),
     getSchema: vi.fn(),
     getDictionary: vi.fn(),
+    getPrompts: vi.fn().mockResolvedValue({ prompts: [] }),
   },
 }));
 
