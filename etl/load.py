@@ -106,6 +106,22 @@ def load_rows_copy(conn, fq_table: str, columns: list[str], rows: list[tuple]) -
     return len(rows)
 
 
+def create_current_view(conn, table_name: str, extract_date: date, company_name: str = "") -> str:
+    """Create/replace a view without date suffix pointing to the latest load.
+
+    This gives dbt a stable source name (e.g., AQPS_Customer) that always
+    points to the latest date-stamped table (e.g., AQPS_Customer_20260308).
+    """
+    prefix = f"{company_name}_" if company_name else ""
+    dated_table = f"{prefix}{table_name}_{extract_date.strftime('%Y%m%d')}"
+    view_name = f"{prefix}{table_name}"
+    view_sql = f'CREATE OR REPLACE VIEW {RAW_SCHEMA}."{view_name}" AS SELECT * FROM {RAW_SCHEMA}."{dated_table}"'
+    with conn.cursor() as cur:
+        cur.execute(view_sql)
+    conn.commit()
+    return f'{RAW_SCHEMA}."{view_name}"'
+
+
 def drop_raw_table(conn, table_name: str, extract_date: date, company_name: str = "") -> None:
     """Drop a company- and date-stamped raw table (for re-runs)."""
     prefix = f"{company_name}_" if company_name else ""

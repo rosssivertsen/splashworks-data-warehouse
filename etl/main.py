@@ -14,7 +14,7 @@ from etl.extract import (
     list_tables,
     read_table,
 )
-from etl.load import create_raw_table, drop_raw_table, get_connection, load_rows_copy
+from etl.load import create_current_view, create_raw_table, drop_raw_table, get_connection, load_rows_copy
 from etl.checksums import get_previous_checksum
 from etl.metadata import complete_load, fail_load, generate_run_id, start_load
 
@@ -103,7 +103,10 @@ def run_etl(extract_dir: Path = None, extract_date: date = None) -> dict:
                     complete_load(conn, log_id, loaded, table_checksum)
                     company_summary["tables"] += 1
                     company_summary["rows"] += loaded
-                    print(f"    {table_name}: {loaded} rows loaded")
+
+                    # Create/update current view (stable name for dbt)
+                    view_name = create_current_view(conn, table_name, extract_date, company_name)
+                    print(f"    {table_name}: {loaded} rows loaded → {view_name}")
 
                 except Exception as e:
                     fail_load(conn, log_id, str(e))
