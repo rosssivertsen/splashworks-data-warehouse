@@ -79,6 +79,7 @@ SQL-Semantic-Queries/*.xlsb
 __pycache__/
 *.py[cod]
 etl/.venv/
+api/.venv/
 
 # dbt artifacts
 dbt/dbt_packages/
