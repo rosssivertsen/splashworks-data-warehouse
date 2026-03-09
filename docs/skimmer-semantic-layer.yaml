@@ -292,10 +292,10 @@ verified_queries:
     sql: |
       SELECT _company_name, COUNT(*) AS active_customers
       FROM public_warehouse.dim_customer
-      WHERE is_inactive = 0
+      WHERE is_inactive = 0 AND deleted = 0
       GROUP BY _company_name
       ORDER BY _company_name
-    expected: "AQPS: 859, JOMO: 2402"
+    expected: "AQPS: ~859, JOMO: ~2403"
 
   - question: "What is the average pool size in gallons by company?"
     sql: |
@@ -391,7 +391,48 @@ verified_queries:
       GROUP BY entry_description
       ORDER BY reading_count DESC
       LIMIT 10
-    expected: "Chemical types ranked by frequency"
+    expected: "Chemical types ranked by frequency — do NOT filter by entry_type"
+
+  - question: "How many cancelled customers did we have last month and last year?"
+    sql: |
+      SELECT
+        _company_name,
+        SUM(CASE WHEN updated_at >= '2026-02-01' AND updated_at < '2026-03-01' THEN 1 ELSE 0 END) AS cancelled_last_month,
+        SUM(CASE WHEN updated_at >= '2025-01-01' AND updated_at < '2026-01-01' THEN 1 ELSE 0 END) AS cancelled_last_year
+      FROM public_warehouse.dim_customer
+      WHERE (is_inactive = 1 OR deleted = 1)
+      GROUP BY _company_name
+      ORDER BY _company_name
+    expected: "Use (is_inactive = 1 OR deleted = 1) for cancelled. updated_at is cancellation date."
+
+  - question: "How many new customers signed up this month?"
+    sql: |
+      SELECT _company_name, COUNT(*) AS new_customers
+      FROM public_warehouse.dim_customer
+      WHERE created_at >= '2026-03-01' AND created_at < '2026-04-01'
+        AND is_inactive = 0 AND deleted = 0
+      GROUP BY _company_name
+      ORDER BY _company_name
+    expected: "New signups for current month"
+
+  - question: "Show all skipped stops for February"
+    sql: |
+      SELECT
+        fss._company_name,
+        dt.full_name AS technician,
+        c.clean_customer_name AS customer,
+        sl.address || ', ' || sl.city AS service_address,
+        fss.service_date,
+        fss.skip_reason
+      FROM public_warehouse.fact_service_stop fss
+      JOIN public_warehouse.dim_tech dt ON fss.tech_id = dt.tech_id AND fss._company_name = dt._company_name
+      JOIN public_warehouse.dim_pool p ON fss.pool_id = p.pool_id AND fss._company_name = p._company_name
+      JOIN public_staging.stg_service_location sl ON p.service_location_id = sl.service_location_id AND p._company_name = sl._company_name
+      JOIN public_warehouse.dim_customer c ON sl.customer_id = c.customer_id AND sl._company_name = c._company_name
+      WHERE fss.service_status = 0
+        AND fss.service_date >= '2026-02-01' AND fss.service_date < '2026-03-01'
+      ORDER BY fss._company_name, fss.service_date
+    expected: "Skipped stops with tech, customer, address. service_status=0 means skipped."
 
 data_gaps:
   - name: "Equipment/Parts"
