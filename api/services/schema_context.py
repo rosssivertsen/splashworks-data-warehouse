@@ -149,7 +149,8 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
     lines.append("- Use double quotes for column names only if they contain special characters")
     lines.append("- When joining facts to dimensions, match on BOTH the ID column AND _company_name")
     lines.append("- Data covers a trailing ~6 month window. When a user says 'December' or 'last month' without a year, use the most recent occurrence in the data — NOT a historical year")
-    lines.append("- Date columns (service_date, payment_date, etc.) are stored as TEXT, not timestamp. Use string comparisons with ISO date literals (e.g., payment_date >= '2026-03-01'). Do NOT use DATE_TRUNC(), CURRENT_DATE, INTERVAL, or any date/time functions — they will fail on text columns")
+    lines.append("- Date columns (service_date, payment_date, invoice_date, payment_date, etc.) are stored as TEXT, not timestamp. Use string comparisons with ISO date literals (e.g., payment_date >= '2026-03-01'). Do NOT use DATE_TRUNC(), CURRENT_DATE, INTERVAL, or any date/time functions — they will fail on text columns")
+    lines.append("- IMPORTANT: dim_date.date_key is DATE type, but fact table date columns are TEXT. When joining to dim_date, always cast: e.g., fss.service_date::date = d.date_key. Alternatively, avoid dim_date entirely and use a CASE expression on the text date directly")
 
     # Dynamic date references — computed at query time
     lines.append("")
