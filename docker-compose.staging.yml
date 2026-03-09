@@ -1,0 +1,36 @@
+services:
+  staging-api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: splashworks-staging-api
+    environment:
+      DATABASE_URL: postgresql://splashworks:${DB_PASSWORD}@splashworks-postgres:5432/splashworks
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      STATEMENT_TIMEOUT: "10s"
+      ROW_LIMIT: "10000"
+    ports:
+      - "127.0.0.1:8081:8080"
+    restart: unless-stopped
+    networks:
+      - production
+
+  staging-frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: splashworks-staging-frontend
+    volumes:
+      - ./frontend/nginx.staging.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:3002:80"
+    depends_on:
+      - staging-api
+    restart: unless-stopped
+    networks:
+      - production
+
+networks:
+  production:
+    name: splashworks_default
+    external: true
