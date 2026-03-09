@@ -1,296 +1,241 @@
-# Contributing to Splashworks Pool Service BI Visualizer
+# Contributing to Splashworks Data Warehouse
 
-## 🎯 Overview
+> **For AI Agents (Sherpa):** This document is the process contract. Enforce it. If a contributor (including Ross) tries to skip a step, flag it and explain why. Do not proceed until the process is followed or an explicit exception is granted.
 
-Thank you for contributing to the Pool Service BI Dashboard! This document provides guidelines for contributing to the project while maintaining code quality and consistency.
+---
 
-## 🚀 Getting Started
+## Roles
 
-### Prerequisites
-- Node.js 18+ 
-- npm 9+
-- Git
-- VS Code (recommended)
+| Role | Who | Responsibility |
+|------|-----|---------------|
+| **Owner** | Ross | Prioritizes backlog, approves designs, approves PRs to main |
+| **Sherpa** | Claude | Implements, reviews, deploys, enforces process, manages project artifacts |
+| **Contributor** | TBD | Develops on feature branches, follows this workflow |
 
-### Development Setup
+---
+
+## Branch Strategy
+
+```
+main          → production (app.splshwrks.com, api.splshwrks.com, bi.splshwrks.com)
+staging       → UAT (staging-app.splshwrks.com, staging-api.splshwrks.com)
+└── feature/* → all development work
+```
+
+- All work happens on `feature/*` branches
+- `feature/*` → PR to `staging` → UAT validation → PR to `main` → production deploy
+- Add `development` integration branch only when team exceeds 3 contributors
+
+### Branch Naming
+
+```
+feature/SHORT-description     # New functionality
+fix/SHORT-description         # Bug fixes
+hotfix/SHORT-description      # Production emergency (branches from main)
+```
+
+---
+
+## Development Lifecycle
+
+Every change follows this flow. No exceptions unless explicitly noted.
+
+```
+Backlog item (BACKLOG.md)
+  → Brainstorm (clarify requirements, explore 2-3 approaches)
+  → Design doc (docs/plans/YYYY-MM-DD-<topic>-design.md)
+  → Implementation plan (docs/plans/YYYY-MM-DD-<topic>.md)
+  → Execute (TDD: write test → fail → implement → pass → commit)
+  → PR to staging (Sherpa reviews, tests run)
+  → UAT on staging-app.splshwrks.com (Ross + team validates)
+  → PR to main (Ross approves)
+  → Deploy to production
+  → Validate (E2E tests against production)
+```
+
+### Permitted Shortcuts
+
+| Situation | What You Skip | What You Still Do |
+|-----------|---------------|-------------------|
+| **Hotfix** (production broken) | Design doc, implementation plan | Tests, review, PR through staging |
+| **Config-only** (no code changes) | Implementation plan | Design approval, PR |
+| **System prompt tweak** | Design doc, implementation plan | Test the query, deploy, validate |
+| **Everything else** | Nothing | Full cycle |
+
+---
+
+## Commit Rules
+
+1. **Never commit without pushing.** No accumulating local commits.
+2. **Never push without a plan to deploy.** If it's not deployable, don't push it.
+3. **Never deploy without validating.** E2E tests or smoke test after every deploy.
+4. **Never merge to main without UAT.** Staging is the gate to production.
+
+### Commit Message Format
+
+```
+type: concise description
+
+Optional body explaining WHY, not WHAT.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+```
+
+Types: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`
+
+---
+
+## Testing Gates
+
+| Gate | When | Required |
+|------|------|----------|
+| Unit tests | Before every commit | Always |
+| Build check | Before every push | Always |
+| E2E tests | After staging deploy | Always |
+| Smoke test | After production deploy | Always |
+| Full E2E | After production deploy | For batches |
+
+### Commands
+
 ```bash
-# 1. Clone the repository
-git clone <repository-url>
-cd Skimmer-AI-Query-Visualization
+# Frontend tests
+npm run test
 
-# 2. Install dependencies
-npm install
+# Frontend build
+npm run build
 
-# 3. Start development server
-npm run dev
+# Backend tests
+pytest api/tests/ -v
 
-# 4. Open http://localhost:5173
+# Backend build
+docker compose build api
+
+# E2E tests (against live environment)
+API_BASE_URL=https://staging-api.splshwrks.com pytest api/tests/e2e/ -v
+
+# Smoke test
+curl -s https://api.splshwrks.com/api/health | jq .
 ```
 
-## 🌿 Branching Strategy
+---
 
-### Branch Types
-- `main` - Production ready code
-- `staging` - Pre-production testing
-- `development` - Integration branch
-- `feature/POOL-XXX-description` - New features
-- `bugfix/POOL-XXX-description` - Bug fixes
-- `hotfix/POOL-XXX-description` - Critical production fixes
+## Sherpa (AI Agent) Contract
 
-### Creating Feature Branches
+### Sherpa WILL:
+- Follow TDD: test → fail → implement → pass → commit
+- Maintain BACKLOG.md, PROGRESS.md, and MEMORY.md
+- Deploy and validate after each batch
+- Create PRs with clear descriptions
+- Track what's deployed where
+- Push immediately after committing (no local-only commits)
+
+### Sherpa WILL refuse to proceed if:
+- No design doc exists for a non-trivial change
+- Tests aren't passing before deploy
+- A deploy happens without validation
+- Changes go to main without staging UAT
+- The backlog item doesn't have Ross's approval
+
+### Sherpa WILL flag and warn when:
+- Process is being skipped ("let's just push this quick fix")
+- A change is growing beyond the original design scope
+- Test coverage is decreasing
+- A deploy hasn't been validated
+- Documentation is stale
+
+### Override protocol:
+Ross can override any gate with an explicit statement: "I acknowledge we're skipping [step] because [reason]." Sherpa logs the override in the commit message and proceeds.
+
+---
+
+## Pull Request Process
+
+### PR to Staging (feature/* → staging)
+
+**Sherpa provides:**
+- Summary of changes (what and why)
+- Test results (unit + build)
+- Deploy instructions if non-standard
+
+**Sherpa checks before merging:**
+- All tests pass
+- No scope creep beyond the design doc
+- No security issues (credentials, injection, open endpoints)
+- Documentation updated if needed
+
+### PR to Main (staging → main)
+
+**Sherpa provides:**
+- Summary of all changes since last production deploy
+- E2E test results from staging
+- UAT sign-off from Ross
+
+**Ross checks before approving:**
+- UAT validation complete on staging-app.splshwrks.com
+- No known issues
+- Ready for production users
+
+---
+
+## Environments
+
+| Environment | Branch | URLs | Database | Deploy |
+|-------------|--------|------|----------|--------|
+| Local | feature/* | localhost:3001, localhost:8080 | Local Postgres | `docker compose up -d` |
+| Staging | staging | staging-app.splshwrks.com | Shared prod Postgres (read-only) | PR merge + SSH deploy |
+| Production | main | app.splshwrks.com, api.splshwrks.com, bi.splshwrks.com | Production Postgres | PR merge + SSH deploy |
+
+### Deploy Commands
+
 ```bash
-# Always start from development branch
-git checkout development
-git pull origin development
-git checkout -b feature/POOL-123-customer-analytics
+# Staging deploy (on VPS)
+cd /opt/splashworks-staging && git pull && docker compose up -d --build api frontend
+
+# Production deploy (on VPS)
+cd /opt/splashworks && git pull && docker compose up -d --build api frontend
+
+# Validate
+API_BASE_URL=https://api.splshwrks.com pytest api/tests/e2e/ -v
 ```
 
-## 📝 Coding Standards
+---
 
-### TypeScript Guidelines
-- Use strict TypeScript configuration
-- Define proper interfaces for all data structures
-- Use meaningful type names that reflect pool service domain
-- Avoid `any` type - use proper typing
+## Documentation Artifacts
 
-```typescript
-// ✅ Good - Pool service specific types
-interface CustomerRetentionData {
-  customerId: string;
-  serviceStartDate: Date;
-  lastServiceDate: Date;
-  retentionScore: number;
-}
+| Artifact | Location | Purpose |
+|----------|----------|---------|
+| Design docs | `docs/plans/YYYY-MM-DD-*-design.md` | Requirements and approach before implementation |
+| Implementation plans | `docs/plans/YYYY-MM-DD-*.md` | Step-by-step execution guide |
+| Backlog | `docs/plans/BACKLOG.md` | Prioritized work items with IDs and sizes |
+| Progress tracker | `docs/plans/PROGRESS.md` | Completed work and key findings |
+| Semantic layer | `docs/skimmer-semantic-layer.yaml` | Business terms, verified queries, data gaps |
+| Session memory | `.claude/.../MEMORY.md` | Cross-session context for AI agents |
 
-// ❌ Bad - Generic or untyped
-const data: any = {};
+---
+
+## Emergency Procedures
+
+### Production is broken:
+
+1. **Assess:** Data loss or just downtime?
+2. **Hotfix branch:** `hotfix/SHORT-description` from `main`
+3. **Minimal fix:** Smallest change that resolves the issue
+4. **Test locally:** Unit tests for the fix
+5. **PR to staging:** Sherpa fast-track reviews
+6. **Validate on staging:** Confirm fix works
+7. **PR to main:** Ross approves
+8. **Deploy + validate:** E2E tests against production
+9. **Post-mortem:** Document in PROGRESS.md
+
+### Rollback:
+
+```bash
+# On VPS
+cd /opt/splashworks
+docker compose down
+git log --oneline -5          # Find last good commit
+git checkout <good-commit>
+docker compose up -d --build
+# Validate
+API_BASE_URL=https://api.splshwrks.com pytest api/tests/e2e/ -v
 ```
-
-### React Component Guidelines
-- Use functional components with hooks
-- Follow pool service naming conventions
-- Implement proper error boundaries
-- Use consistent prop patterns
-
-```tsx
-// ✅ Good - Pool service component
-interface PoolServiceDashboardProps {
-  customerId: string;
-  onRetentionCalculate: (data: CustomerRetentionData) => void;
-}
-
-const PoolServiceDashboard: React.FC<PoolServiceDashboardProps> = ({
-  customerId,
-  onRetentionCalculate
-}) => {
-  // Component implementation
-};
-```
-
-### Styling Guidelines
-- Use Tailwind CSS classes
-- Follow pool service theme colors
-- Maintain responsive design
-- Use consistent spacing patterns
-
-```tsx
-// ✅ Good - Pool service styling
-<div className="bg-pool-blue-50 border border-pool-blue-200 rounded-lg p-6">
-  <h2 className="text-xl font-semibold text-pool-blue-900 mb-4">
-    Customer Analytics
-  </h2>
-</div>
-```
-
-## 🧪 Testing Requirements
-
-### Unit Tests
-- Write tests for all business logic
-- Test pool service calculations thoroughly
-- Mock external dependencies
-- Achieve >80% code coverage
-
-```typescript
-// Example unit test
-describe('CustomerRetentionCalculator', () => {
-  it('should calculate retention score correctly', () => {
-    const calculator = new CustomerRetentionCalculator();
-    const result = calculator.calculate({
-      serviceStartDate: new Date('2024-01-01'),
-      lastServiceDate: new Date('2024-10-01'),
-      serviceFrequency: 'weekly'
-    });
-    
-    expect(result.retentionScore).toBeGreaterThan(0.8);
-  });
-});
-```
-
-### Integration Tests
-- Test database operations with sample data
-- Verify API integrations
-- Test user workflows end-to-end
-
-## 📊 Database Guidelines
-
-### SQLite Best Practices
-- Use parameterized queries to prevent SQL injection
-- Optimize queries for large pool service datasets
-- Create appropriate indexes for performance
-- Handle database connection failures gracefully
-
-```typescript
-// ✅ Good - Safe database query
-const getCustomerRetention = async (db: Database, timeframe: string) => {
-  const query = `
-    SELECT customer_id, 
-           COUNT(service_visits) as visit_count,
-           AVG(service_satisfaction) as avg_satisfaction
-    FROM service_records 
-    WHERE service_date >= date('now', ?)
-    GROUP BY customer_id
-  `;
-  
-  return db.exec(query, [`-${timeframe} months`]);
-};
-```
-
-## 🎨 UI/UX Guidelines
-
-### Pool Service Design Principles
-- Prioritize data clarity and actionability
-- Use pool service industry terminology
-- Design for pool service technician workflows
-- Maintain professional pool service branding
-
-### Responsive Design
-- Test on mobile devices (technicians in field)
-- Ensure touch-friendly interfaces
-- Optimize for tablet use in service vehicles
-- Consider offline functionality needs
-
-## 🔒 Security Guidelines
-
-### Data Protection
-- Never log sensitive customer data
-- Implement proper input validation
-- Sanitize user inputs for SQL queries
-- Use secure API key management
-
-### Pool Service Data Privacy
-- Follow pool service industry privacy standards
-- Implement data retention policies
-- Ensure customer data encryption
-- Audit data access patterns
-
-## 📋 Pull Request Process
-
-### Before Creating a PR
-1. **Test Locally**
-   ```bash
-   npm test
-   npm run build
-   npm run lint
-   ```
-
-2. **Update Documentation**
-   - Update README if needed
-   - Add code comments for complex logic
-   - Update API documentation
-
-3. **Commit Message Format**
-   ```
-   POOL-123: Add customer retention analytics dashboard
-   
-   - Implement retention calculation algorithm
-   - Add interactive charts for retention trends
-   - Include export functionality for reports
-   - Update pool service theme styling
-   ```
-
-### PR Checklist
-- [ ] Branch created from `development`
-- [ ] All tests passing
-- [ ] ESLint and TypeScript checks clean
-- [ ] Pool service theme consistency maintained
-- [ ] Documentation updated
-- [ ] Screenshots included for UI changes
-- [ ] Database changes documented
-- [ ] Performance impact assessed
-
-### Review Process
-1. **Automated Checks**: CI/CD pipeline runs automatically
-2. **Code Review**: At least one team member review required
-3. **Business Logic Review**: Pool service domain expert approval
-4. **Security Review**: For data handling or API changes
-5. **Merge**: After all approvals and checks pass
-
-## 🐛 Bug Reporting
-
-### Bug Report Template
-```markdown
-**Bug Description**: Brief description of the issue
-
-**Pool Service Context**: Which pool service workflow is affected?
-
-**Steps to Reproduce**:
-1. Step one
-2. Step two
-3. Step three
-
-**Expected Behavior**: What should happen
-
-**Actual Behavior**: What actually happened
-
-**Environment**:
-- Browser/Device:
-- Database Size:
-- User Role:
-
-**Screenshots**: If applicable
-```
-
-## 🎯 Feature Requests
-
-### Feature Request Template
-```markdown
-**Feature Title**: Brief title for the feature
-
-**Pool Service Business Need**: Why is this needed for pool service companies?
-
-**User Story**: As a [role], I want [goal] so that [benefit]
-
-**Acceptance Criteria**:
-- [ ] Criteria one
-- [ ] Criteria two
-- [ ] Criteria three
-
-**Technical Considerations**:
-- Database changes needed?
-- API integrations required?
-- Performance implications?
-```
-
-## 📞 Getting Help
-
-### Resources
-- **Documentation**: Check `/docs` folder
-- **API Reference**: See inline code documentation
-- **Pool Service Domain**: Consult with business stakeholders
-- **Technical Issues**: Create GitHub issue with detailed description
-
-### Communication
-- Use GitHub Issues for bugs and feature requests
-- Tag appropriate team members for reviews
-- Include pool service context in all discussions
-- Be specific about database and performance requirements
-
-## 🏆 Recognition
-
-Contributors who help improve the Pool Service BI Dashboard will be:
-- Listed in project contributors
-- Recognized in release notes
-- Invited to provide input on future features
-- Acknowledged for pool service industry insights
-
-Thank you for helping make pool service management more efficient and data-driven!
