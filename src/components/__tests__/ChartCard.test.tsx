@@ -37,7 +37,7 @@ describe("ChartCard", () => {
       <ChartCard card={mockCard} onUpdate={vi.fn()} onRemove={vi.fn()} />
     );
     expect(screen.getByText("AQPS")).toBeInTheDocument();
-    expect(screen.getByText("2402")).toBeInTheDocument();
+    expect(screen.getByText("2,402.00")).toBeInTheDocument();
   });
 
   it("renders chart type buttons", () => {
