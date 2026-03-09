@@ -199,4 +199,15 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
     lines.append("  `CASE day_of_week WHEN 0 THEN 'Sunday' WHEN 1 THEN 'Monday' WHEN 2 THEN 'Tuesday' WHEN 3 THEN 'Wednesday' WHEN 4 THEN 'Thursday' WHEN 5 THEN 'Friday' WHEN 6 THEN 'Saturday' END AS day_name`")
     lines.append("- For any other relative date, compute the ISO date string using these patterns")
 
+    # Route assignment guidance
+    lines.append("")
+    lines.append("### Route Assignments")
+    lines.append("- For 'active routes', 'route list', 'tech schedule', or 'service schedule' questions, use public_staging.stg_route_assignment")
+    lines.append("- Join: stg_route_assignment.account_id = stg_account.account_id (technician), stg_route_assignment.service_location_id = stg_service_location.service_location_id (address)")
+    lines.append("- Active filter: end_date >= CURRENT_DATE::text (Skimmer uses '2080-01-01' as 'no end' sentinel)")
+    lines.append("- day_of_week is already a text string ('Monday', 'Tuesday', etc.) — do NOT use dim_date for route day")
+    lines.append("- frequency values: 'Weekly', 'Every 2 Weeks'")
+    lines.append("- GROUP BY route_assignment_id to avoid duplicates when joining to dim_pool (multiple bodies of water per service location)")
+    lines.append("- Filter out placeholder techs: WHERE full_name NOT LIKE '%Unscheduled%'")
+
     return "\n".join(lines)

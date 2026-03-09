@@ -9,6 +9,11 @@ renamed as (
         cast("id" as text) as route_assignment_id,
         cast("ServiceLocationId" as text) as service_location_id,
         cast("AccountId" as text) as account_id,
+        cast("DayOfWeek" as text) as day_of_week,
+        cast("Frequency" as text) as frequency,
+        cast("StartDate" as text) as start_date,
+        cast("EndDate" as text) as end_date,
+        cast("Sequence" as integer) as sequence,
         cast("Deleted" as integer) as deleted
     from source
 )
