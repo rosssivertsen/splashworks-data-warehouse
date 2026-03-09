@@ -11,6 +11,7 @@ from api.models.responses import ErrorResponse, QueryResponse
 from api.services.ai_service import generate_sql
 from api.services.query_executor import execute_query, validate_sql
 from api.services.schema_context import build_system_prompt, get_schema_metadata
+from api.services.sql_repair import attempt_repair
 
 router = APIRouter()
 
@@ -47,14 +48,30 @@ def query(req: QueryRequest):
     if error:
         raise HTTPException(status_code=400, detail=error)
 
-    # 4. Execute with guardrails
+    # 4. Execute with guardrails + auto-repair on failure
     try:
         columns, rows = execute_query(sql)
     except psycopg2.extensions.QueryCanceledError:
         raise HTTPException(status_code=408, detail="Query timed out")
     except Exception as exc:
-        logger.error("Query execution failed: %s | SQL: %s", exc, sql)
-        raise HTTPException(status_code=400, detail="Query execution error")
+        logger.warning("Query execution failed: %s | SQL: %s", exc, sql)
+
+        # Attempt auto-repair and retry once
+        repaired_sql = attempt_repair(sql, str(exc))
+        if repaired_sql:
+            repair_error = validate_sql(repaired_sql)
+            if repair_error:
+                raise HTTPException(status_code=400, detail="Query execution error")
+
+            try:
+                columns, rows = execute_query(repaired_sql)
+                sql = repaired_sql  # Use repaired SQL in response
+                logger.info("SQL repair succeeded")
+            except Exception as retry_exc:
+                logger.error("SQL repair retry failed: %s | SQL: %s", retry_exc, repaired_sql)
+                raise HTTPException(status_code=400, detail="Query execution error")
+        else:
+            raise HTTPException(status_code=400, detail="Query execution error")
 
     # 5. Return results
     return QueryResponse(
