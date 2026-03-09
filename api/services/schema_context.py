@@ -210,4 +210,13 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
     lines.append("- GROUP BY route_assignment_id to avoid duplicates when joining to dim_pool (multiple bodies of water per service location)")
     lines.append("- Filter out placeholder techs: WHERE full_name NOT LIKE '%Unscheduled%'")
 
+    # Customer lifecycle guidance
+    lines.append("")
+    lines.append("### Customer Lifecycle (Cancellation, Churn, New Customers)")
+    lines.append("- 'Cancelled', 'lost', 'churned', or 'deactivated' customers: use public_staging.stg_customer WHERE (is_inactive = 1 OR deleted = 1)")
+    lines.append("- Use updated_at as the cancellation/deactivation date (TEXT column — use string comparisons)")
+    lines.append("- 'New customers' or 'signed up': use stg_customer WHERE created_at >= '<date>' AND is_inactive = 0 AND deleted = 0")
+    lines.append("- stg_customer includes ALL customers (active, inactive, deleted) — filter accordingly")
+    lines.append("- Note: nightly extract covers ~6 months trailing. Older cancellations may be missing from the data.")
+
     return "\n".join(lines)

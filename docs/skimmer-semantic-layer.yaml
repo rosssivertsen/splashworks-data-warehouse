@@ -19,6 +19,27 @@ business_terms:
     tables: [dim_customer]
     skimmer_doc: "https://help.getskimmer.com/article/56-add-edit-or-delete-a-body-of-water-web"
 
+  cancelled_customer:
+    description: "Customer who stopped service. Skimmer has no 'cancelled' field — use IsInactive=1 (deactivated) or Deleted=1 (removed). Use UpdatedAt as the cancellation date. When asked 'cancelled last month', filter on updated_at within that month AND (is_inactive=1 OR deleted=1)."
+    sql_pattern: |
+      SELECT customer_id, _company_name, clean_customer_name, updated_at AS cancelled_date
+      FROM public_staging.stg_customer
+      WHERE (is_inactive = 1 OR deleted = 1)
+        AND updated_at >= '<start_date>' AND updated_at < '<end_date>'
+    tables: [stg_customer, dim_customer]
+    synonyms: ["cancelled", "lost customer", "churned", "deactivated", "inactive customer", "customer attrition"]
+    note: "Nightly extract only covers ~6 months trailing. Cancellations older than that may be missing. Count of 'cancelled last year' may undercount if data window doesn't go back far enough."
+
+  new_customer:
+    description: "Customer added in a given period. Use CreatedAt as the signup date."
+    sql_pattern: |
+      SELECT customer_id, _company_name, clean_customer_name, created_at
+      FROM public_staging.stg_customer
+      WHERE created_at >= '<start_date>' AND created_at < '<end_date>'
+        AND is_inactive = 0
+    tables: [stg_customer]
+    synonyms: ["new customer", "customer added", "signed up", "onboarded"]
+
   rate_type:
     description: "How a customer is billed. Values: FlatMonthlyRateIncludingChemicals, FlatMonthlyRatePlusChemicals, PerStopIncludingChemicals, PerStopPlusChemicals, None"
     sql_pattern: "dim_service_location.rate_type"

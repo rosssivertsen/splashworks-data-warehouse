@@ -21,9 +21,10 @@ renamed as (
         "BillingZip" as billing_zip,
         cast("QboCustomerId" as text) as qbo_customer_id,
         cast("IsInactive" as integer) as is_inactive,
-        cast("Deleted" as integer) as deleted
+        cast("Deleted" as integer) as deleted,
+        cast("CreatedAt" as text) as created_at,
+        cast("UpdatedAt" as text) as updated_at
     from source
 )
 
 select * from renamed
-where deleted = 0

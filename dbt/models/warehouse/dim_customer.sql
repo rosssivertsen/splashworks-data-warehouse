@@ -11,5 +11,8 @@ select
     billing_state,
     billing_zip,
     qbo_customer_id,
-    is_inactive
+    is_inactive,
+    deleted,
+    created_at,
+    updated_at
 from {{ ref('stg_customer') }}
