@@ -47,7 +47,7 @@
 | 1.9b | Clean-room React frontend | DONE | 4 views (AI Query, Explorer, Data, Dashboard), 6 shared components, all TypeScript — 47 unit tests |
 | 1.9c | Nginx container | DONE | Multi-stage Docker build, API proxy, static serving |
 | 1.9d | E2E tests | DONE | Smoke (active customer count) + Acid (chemical drill-down) — 8 tests |
-| 1.10 | Metabase connected | DEFERRED | Backlog — React dashboard validates data layer first |
+| 1.10 | Metabase connected | DONE | Metabase CE on bi.splshwrks.com, Cloudflare Access protected |
 | 1.11 | Cloudflare Access | DONE | GitHub + Google OAuth + OTP via Cloudflare Zero Trust |
 
 ## Interstitial: Semantic Enrichment
@@ -96,7 +96,7 @@
 - [ ] Dashboard templates library
 - [ ] PDF export with formatted report layout
 - [ ] Dashboard duplication
-- [ ] Metabase connected (deferred from Phase 1)
+- [x] ~~Metabase connected~~ (completed — bi.splshwrks.com)
 - [x] ~~Cloudflare Access~~ (completed — AUTH.1-3)
 
 ## Phase 2-4: See design doc
