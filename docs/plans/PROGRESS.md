@@ -2,26 +2,26 @@
 
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
-**Last Updated:** 2026-03-10 (Semantic enrichment batch complete)
+**Backlog:** [BACKLOG.md](./BACKLOG.md)
+**Last Updated:** 2026-03-11
 
 ---
 
 ## Current Status
 
-**Phase:** Authentication COMPLETE. UI deploy pending.
-**Status:** Phase 1 + semantic enrichment + UI refinements + Cloudflare Access auth. 65 frontend tests + 43 API tests passing.
-**Next:** Deploy UI refinements to VPS, run 16 E2E tests, then Phase 2 planning
-**Live:** app.splshwrks.com (frontend), api.splshwrks.com (API)
-**Design Doc:** [2026-03-10-ui-refinements-design.md](./2026-03-10-ui-refinements-design.md)
+**Phase:** Phase 1 COMPLETE. Metabase + Auth live. Staging fallback deployed.
+**Status:** 4 Docker services (postgres, api, frontend, metabase), Cloudflare Access, 65 frontend + 43 API tests.
+**Next:** Reporting layer batch (dim_service_location, rpt_ views), then app UI improvements
+**Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase)
 
 ---
 
-## Phase 0: Foundation (Week 1-2)
+## Phase 0: Foundation
 
 | Step | Deliverable | Status | Notes |
 |------|-------------|--------|-------|
 | 0.1 | Create branch, commit design doc | DONE | Branch `feature/warehouse-etl` created |
-| 0.2 | Fix critical bugs (Dropbox token, SQL injection) | PENDING | Deferred — apply to both branches |
+| 0.2 | Fix critical bugs (Dropbox token, SQL injection) | PENDING | Deferred — see BACKLOG.md LF-1 |
 | 0.3 | Docker Compose + Postgres (local) | DONE | pgvector/pgvector:pg16, all schemas created |
 | 0.4 | Python ETL package | DONE | 6 extract tests passing, real data validated |
 | 0.5 | ETL real data test | DONE | 712,267 rows loaded (44 tables x 2 companies), checksum skip verified |
@@ -29,26 +29,26 @@
 | 0.7 | Smoke test script | DONE | 7/7 checks passing |
 | 0.8 | VPS setup: Docker on VPS | DONE | Docker 29.3.0, Postgres 16+pgvector healthy, all schemas created |
 | 0.9 | rclone configured for OneDrive | DONE | Both extracts synced (76MB), nightly cron 1AM UTC |
-| 0.10 | Cloudflare tunnel live | DONE | 3 subdomains routed, systemd service, 502s confirm tunnel works |
+| 0.10 | Cloudflare tunnel live | DONE | 3 subdomains routed, systemd service |
 
-## Phase 1: Crawl (Week 3-6)
+## Phase 1: Crawl
 
 | Step | Deliverable | Status |
 |------|-------------|--------|
-| 1.1 | ETL on VPS + current views | DONE | 712K rows loaded, 88 views created, shm_size fixed |
-| 1.2 | dbt staging models (18 tables) | DONE | union_companies macro, all 18 views building |
-| 1.3 | dbt warehouse models (6 dims + 6 facts) | DONE | Star schema, date spine 2024-2027, 96K dosage rows |
-| 1.4 | dbt semantic models (8 materialized) | DONE | All 8 from production SQL queries |
-| 1.5 | dbt snapshots (SCD2 on customer, tech) | DONE | snap_customer (6,673 rows), snap_tech |
-| 1.6 | FastAPI backend | DONE | POST /api/query + GET /api/health, 22 unit tests, Docker container on VPS |
-| 1.7 | Semantic layer on backend | DONE | YAML-loaded business terms + relationships feed Claude's system prompt |
-| 1.8 | Query guardrails | DONE | SELECT-only validation, 10s timeout, 10K row limit, 12 validator tests |
-| 1.9a | New API endpoints | DONE | POST /api/query/raw, GET /api/schema, GET /api/schema/dictionary — 14 unit tests |
-| 1.9b | Clean-room React frontend | DONE | 4 views (AI Query, Explorer, Data, Dashboard), 6 shared components, all TypeScript — 47 unit tests |
-| 1.9c | Nginx container | DONE | Multi-stage Docker build, API proxy, static serving |
-| 1.9d | E2E tests | DONE | Smoke (active customer count) + Acid (chemical drill-down) — 8 tests |
-| 1.10 | Metabase connected | DONE | Metabase CE on bi.splshwrks.com, Cloudflare Access protected |
-| 1.11 | Cloudflare Access | DONE | GitHub + Google OAuth + OTP via Cloudflare Zero Trust |
+| 1.1 | ETL on VPS + current views | DONE |
+| 1.2 | dbt staging models (18 tables) | DONE |
+| 1.3 | dbt warehouse models (6 dims + 6 facts) | DONE |
+| 1.4 | dbt semantic models (8 materialized) | DONE |
+| 1.5 | dbt snapshots (SCD2 on customer, tech) | DONE |
+| 1.6 | FastAPI backend | DONE |
+| 1.7 | Semantic layer on backend | DONE |
+| 1.8 | Query guardrails | DONE |
+| 1.9a | New API endpoints | DONE |
+| 1.9b | Clean-room React frontend | DONE |
+| 1.9c | Nginx container | DONE |
+| 1.9d | E2E tests | DONE |
+| 1.10 | Metabase connected | DONE |
+| 1.11 | Cloudflare Access | DONE |
 
 ## Interstitial: Semantic Enrichment
 
@@ -79,72 +79,28 @@
 | UI.10 | E2E test for /api/prompts endpoint | DONE |
 | UI.11 | Build + deploy to VPS | PENDING |
 
-## Interstitial: Authentication
+## Interstitial: Authentication + BI Tools
 
 | Step | Deliverable | Status |
 |------|-------------|--------|
-| AUTH.1 | Cloudflare Access application (app + api subdomains) | DONE |
+| AUTH.1 | Cloudflare Access application (app + api + bi subdomains) | DONE |
 | AUTH.2 | Login methods: GitHub OAuth + Google OAuth + email OTP | DONE |
 | AUTH.3 | Policy: allow specific email addresses only | DONE |
-
-## Backlog
-
-- [ ] Query history / chat history in AI Query view (conversation-style UX)
-- [ ] Self-improving prompt tracking (analytics on which prompts users click)
-- [ ] JSON dashboard export/import for sharing
-- [ ] Individual chart PNG export
-- [ ] Dashboard templates library
-- [ ] PDF export with formatted report layout
-- [ ] Dashboard duplication
-- [x] ~~Metabase connected~~ (completed — bi.splshwrks.com)
-- [x] ~~Cloudflare Access~~ (completed — AUTH.1-3)
-
-## Phase 2-4: See design doc
+| BI.1 | Metabase CE Docker container | DONE |
+| BI.2 | Metabase connected to Postgres warehouse | DONE |
+| BI.3 | Staging schema fallback for AI queries | DONE |
+| BI.4 | Anti-hallucination system prompt rules | DONE |
 
 ---
 
 ## Key Findings
 
-- **44 tables per database** (not 30 as documented in Skimmer-schema.sql — 14 additional tables in nightly extracts)
-- **Bug found and fixed:** Raw table names needed company prefix to prevent cross-company overwrites
-- **AQPS:** 189,873 rows across 44 tables
-- **JOMO:** 522,394 rows across 44 tables
-- **Smoke test script pipes:** Plan's original `check()` function needed `bash -c` wrapper for piped commands
-- **Column name case sensitivity:** SQLite `SubTotal` → Postgres `Subtotal` (case matters in quoted identifiers)
-- **WorkOrderType has `Description` not `Name`:** Schema differs from documentation assumptions
-- **Shared memory:** Docker default 64MB shm insufficient for large dbt queries; increased to 256MB
-- **dbt schema prefixing:** dbt creates schemas as `public_staging`, `public_warehouse`, `public_semantic` (profile schema + model schema)
-- **Docker Compose restart vs up:** `docker compose restart` does NOT re-read `.env` — must use `docker compose up -d` to refresh environment variables
-- **Layer switching validation:** Warehouse and staging return identical active customer counts (AQPS: 859, JOMO: 2,402) — confirms dbt models are correct
-
----
-
-## Blockers
-
-- Step 0.2 (critical bug fixes) deferred — Dropbox token revocation + SQL injection fixes should be applied before any production deployment
-
-## Pre-Production Hardening (after all functionality verified)
-
-- [ ] Create `splashworks` system user on VPS, move file ownership
-- [ ] Add to `docker` group, run Docker Compose as non-root
-- [ ] Run cloudflared as non-root (systemd `User=` directive)
-- [ ] Move cron to non-root user's crontab
-- [ ] Ensure FastAPI/frontend containers run as non-root internally
-- [ ] Review `.env` permissions and secrets management
-
----
-
-## Session Log
-
-| Date | Session | Work Done |
-|------|---------|-----------|
-| 2026-03-07 | Design | Codebase review, brainstorming, design doc approved |
-| 2026-03-07 | Phase 0 implementation | Docker Compose, ETL package, real data load (712K rows), dbt scaffold, smoke tests — all passing |
-| 2026-03-08 | VPS deployment | Docker + Postgres on VPS, rclone OneDrive sync (76MB synced, cron set), Cloudflare tunnel live (3 subdomains) |
-| 2026-03-09 | Phase 1 Batch A | ETL on VPS (712K rows), 18 staging + 12 warehouse + 8 semantic models + 2 snapshots, dbt build 41/41 pass |
-| 2026-03-09 | Phase 1 Batch B | FastAPI backend: 2 endpoints, 22 unit tests + 4 integration tests, Docker container on VPS, Cloudflare tunnel live, layer switching validated |
-| 2026-03-10 | Phase 1 Batch C | Clean-room React frontend: 3 new API endpoints (14 tests), 4 views + 6 components (47 tests), Nginx container, E2E tests (8 tests), frontend swap complete |
-| 2026-03-10 | VPS Deploy | Batch C deployed: 3 Docker containers (postgres, api, frontend), 8/8 E2E tests passing, app.splshwrks.com live. Fixed: cross-platform Docker build, exception detail leakage, connection leaks, E2E test column names |
-| 2026-03-10 | Semantic Research | Scraped Skimmer help docs (17 reports, 7 categories). Gap analysis: 46% warehouse coverage, critical gaps in pools, service stops, payments, profit. Design approved for interstitial semantic enrichment batch: YAML rewrite + 4 dbt models (dim_pool, fact_service_stop, fact_payment, semantic_profit) |
-| 2026-03-10 | Semantic Enrichment | YAML rewrite (16 terms, 8 queries), system prompt update, 4 dbt models (dim_pool 7K, fact_service_stop 69K, fact_payment 12K, semantic_profit 17K), 7 E2E tests, deployed to VPS — 15/15 E2E passing. "Pools > 10000 gallons" query now works. |
-| 2026-03-10 | UI Refinements | Starter prompts from YAML, ChartCard with ECharts (bar/line/pie/area), named dashboards with localStorage, sample "Operations Overview" dashboard, PNG screenshot export, "Add to Dashboard" from QueryView/DataView. 65 frontend tests, 43 API tests. |
+- **44 tables per database** (not 30 as documented — 14 additional tables in nightly extracts)
+- **712K total rows:** AQPS 189,873 + JOMO 522,394 across 44 tables each
+- **Column name case sensitivity:** SQLite `SubTotal` → Postgres `Subtotal`
+- **Shared memory:** Docker default 64MB shm insufficient for dbt; increased to 256MB
+- **dbt schema prefixing:** `public_staging`, `public_warehouse`, `public_semantic`
+- **Docker Compose restart vs up:** `restart` does NOT re-read `.env` — use `up -d`
+- **Date columns are TEXT:** No DATE_TRUNC/CURRENT_DATE — use ISO string comparisons
+- **AI hallucination:** Must tell AI "only reference tables in the Available Tables list"
+- **Cloudflare tunnel:** Locally configured (not dashboard-managed); edit `/etc/cloudflared/config.yml`
