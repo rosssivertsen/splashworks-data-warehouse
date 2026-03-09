@@ -6,7 +6,7 @@ import yaml
 SEMANTIC_LAYER_PATH = Path(__file__).resolve().parent.parent.parent / "docs" / "skimmer-semantic-layer.yaml"
 
 LAYER_SCHEMAS = {
-    "warehouse": ["public_warehouse", "public_semantic"],
+    "warehouse": ["public_warehouse", "public_semantic", "public_staging"],
     "staging": ["public_staging"],
 }
 
@@ -137,6 +137,7 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
 
     lines.append("")
     lines.append("## Important Rules")
+    lines.append("- PREFER public_warehouse and public_semantic tables. Only use public_staging tables when the warehouse does not have the needed data")
     lines.append("- Service completion sentinel: '2010-01-01 12:00:00' means NOT completed")
     lines.append("- Active customer filter: is_inactive = 0")
     lines.append("- _company_name column distinguishes companies: 'AQPS' or 'JOMO'")
