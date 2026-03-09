@@ -3,15 +3,15 @@
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
 **Backlog:** [BACKLOG.md](./BACKLOG.md)
-**Last Updated:** 2026-03-11
+**Last Updated:** 2026-03-12
 
 ---
 
 ## Current Status
 
-**Phase:** Phase 1 COMPLETE. Metabase + Auth live. Staging fallback deployed.
-**Status:** 4 Docker services (postgres, api, frontend, metabase), Cloudflare Access, 65 frontend + 43 API tests.
-**Next:** Reporting layer batch (dim_service_location, rpt_ views), then app UI improvements
+**Phase:** Phase 1 + Semantic Enrichment + UI Refinements COMPLETE. All deployed.
+**Status:** 6 Docker services (postgres, api, frontend, metabase, staging-api, staging-frontend), Cloudflare Access, 65 frontend + 56 API unit + 16 E2E tests.
+**Next:** AQ-5 (few-shot examples), AQ-6 (ETL cron), DL-1 (dim_service_location), AQ-4 (semantic rewriter)
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase)
 
 ---
@@ -77,7 +77,7 @@
 | UI.8 | Add to Dashboard from QueryView and DataView (lifted hook to App) | DONE |
 | UI.9 | Frontend test updates (65/65 passing) | DONE |
 | UI.10 | E2E test for /api/prompts endpoint | DONE |
-| UI.11 | Build + deploy to VPS | PENDING |
+| UI.11 | Build + deploy to VPS | DONE |
 
 ## Interstitial: Authentication + BI Tools
 
