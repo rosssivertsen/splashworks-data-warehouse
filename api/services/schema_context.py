@@ -137,7 +137,10 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
 
     lines.append("")
     lines.append("## Important Rules")
-    lines.append("- PREFER public_warehouse and public_semantic tables. Only use public_staging tables when the warehouse does not have the needed data")
+    lines.append("- PREFER public_warehouse and public_semantic tables. Use public_staging tables when the warehouse does not have the needed data")
+    lines.append("- NEVER reference tables that are not listed in 'Available Tables and Columns' above. If a table does not appear in that list, it does not exist")
+    lines.append("- For service location/address data, use public_staging.stg_service_location (columns: address, city, state, zip, rate, rate_type, labor_cost)")
+    lines.append("- Join staging tables to warehouse dims via customer_id + _company_name")
     lines.append("- Service completion sentinel: '2010-01-01 12:00:00' means NOT completed")
     lines.append("- Active customer filter: is_inactive = 0")
     lines.append("- _company_name column distinguishes companies: 'AQPS' or 'JOMO'")
