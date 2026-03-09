@@ -1,7 +1,7 @@
 # Splashworks Data Warehouse — Backlog
 
 **Project:** Splashworks Pool Service BI Visualizer
-**Last Updated:** 2026-03-11
+**Last Updated:** 2026-03-12
 
 ---
 
@@ -19,7 +19,16 @@
 | DL-6 | `dim_equipment` — equipment/parts per service location | dbt model | M | Zero coverage currently; needed for installed items questions |
 | DL-7 | Metabase schema cleanup — hide raw/staging/IDs, rename columns | Config | S | Admin > Table Metadata; no code changes |
 
-### App — AI Query Improvements
+### App — AI Query Intelligence (The Moat)
+
+| ID | Item | Category | Effort | Notes |
+|----|------|----------|--------|-------|
+| AQ-4 | **Semantic rewriter (Stage 1)** — maps business terms to technical instructions before SQL generation | Backend | L | Two-stage pipeline: rewrite "active routes" → table/join/filter spec, then generate SQL. Core moat — encodes domain knowledge competitors can't replicate. |
+| AQ-5 | **Few-shot examples in system prompt** — include 3-4 verified queries as SQL examples directly in prompt | Backend | S | Fastest ROI; Sonnet pattern-matches well from examples. Pull from semantic layer verified_queries. |
+| AQ-6 | **ETL cron automation** — detect new nightly extract, import to Postgres, run dbt refresh | Backend/Infra | M | rclone sync → import → dbt run → health check. Stale data undermines AI trust. |
+| AQ-7 | **SQL repair layer expansion** — add more repair strategies (missing table aliases, ambiguous columns, etc.) | Backend | S | Current: GROUP BY + type cast. Extend as new error patterns emerge. |
+
+### App — AI Query UX
 
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
@@ -94,6 +103,8 @@
 |----|------|-----------|
 | ~~META-1~~ | Metabase connected (bi.splshwrks.com) | 2026-03-11 |
 | ~~AUTH-1~~ | Cloudflare Access (GitHub + Google + OTP) | 2026-03-11 |
+| ~~AQ-7a~~ | SQL repair layer v1 (GROUP BY + type cast auto-fix) | 2026-03-12 |
+| ~~DL-8~~ | Route assignment semantics (stg_route_assignment + system prompt + verified query) | 2026-03-12 |
 
 ---
 
