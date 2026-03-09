@@ -84,14 +84,16 @@ class TestSmokeActiveCustomerCount:
         staging queries and Power BI during Phase 1 Batch A.
 
         If these numbers drift, it means the ETL or source data changed —
-        both of which need investigation.
+        both of which need investigation. Note: dim_customer now includes
+        deleted records (for lifecycle queries), so the active filter must
+        include both is_inactive = 0 AND deleted = 0.
         """
         sql = """
             SELECT
                 _company_name,
                 COUNT(*) AS active_customers
             FROM public_warehouse.dim_customer
-            WHERE is_inactive = 0
+            WHERE is_inactive = 0 AND deleted = 0
             GROUP BY _company_name
             ORDER BY _company_name
         """
@@ -110,7 +112,7 @@ class TestSmokeActiveCustomerCount:
         counts = {row[company_col]: row[count_col] for row in body["results"]}
 
         assert counts.get("AQPS") == 859, f"AQPS count was {counts.get('AQPS')}, expected 859"
-        assert counts.get("JOMO") == 2402, f"JOMO count was {counts.get('JOMO')}, expected 2402"
+        assert counts.get("JOMO") == 2403, f"JOMO count was {counts.get('JOMO')}, expected 2403"
 
     def test_nl_query_active_customers(self):
         """Ask the AI how many active customers AQPS has and validate plausibility.
