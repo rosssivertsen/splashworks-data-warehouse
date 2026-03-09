@@ -47,5 +47,18 @@ services:
       - api
     restart: unless-stopped
 
+  metabase:
+    image: metabase/metabase:latest
+    container_name: splashworks-metabase
+    environment:
+      MB_DB_TYPE: h2
+      JAVA_TIMEZONE: America/New_York
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pg_data:
