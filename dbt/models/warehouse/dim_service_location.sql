@@ -3,6 +3,7 @@ select
     sl._company_name,
     sl.service_location_id,
     sl.customer_id,
+    sl.address,
     sl.city,
     sl.state,
     sl.zip,
