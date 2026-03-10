@@ -352,7 +352,7 @@ verified_queries:
       LIMIT 20
     expected: "Top 20 most profitable customers"
 
-  - question: "List active routes for JOMO with technician, service day, address, pool size, and last invoice amount"
+  - question: "List active routes for JOMO with technician, service day, address, and pool size"
     sql: |
       SELECT
         a.full_name AS technician,
@@ -360,24 +360,18 @@ verified_queries:
         c.clean_customer_name AS customer,
         sl.address || ', ' || sl.city || ', ' || sl.state || ' ' || sl.zip AS service_address,
         ra.frequency,
-        MAX(p.gallons) AS pool_size,
-        COALESCE(li.last_invoice_total, 0) AS last_invoice_amount
+        MAX(p.gallons) AS pool_size
       FROM public_staging.stg_route_assignment ra
       JOIN public_staging.stg_account a ON ra.account_id = a.account_id AND ra._company_name = a._company_name
       JOIN public_staging.stg_service_location sl ON ra.service_location_id = sl.service_location_id AND ra._company_name = sl._company_name
       JOIN public_warehouse.dim_customer c ON sl.customer_id = c.customer_id AND sl._company_name = c._company_name
       LEFT JOIN public_warehouse.dim_pool p ON sl.service_location_id = p.service_location_id AND sl._company_name = p._company_name
-      LEFT JOIN (
-        SELECT customer_id, _company_name, subtotal AS last_invoice_total,
-          ROW_NUMBER() OVER (PARTITION BY customer_id, _company_name ORDER BY invoice_date DESC) AS rn
-        FROM public_warehouse.fact_invoice
-      ) li ON c.customer_id = li.customer_id AND c._company_name = li._company_name AND li.rn = 1
       WHERE ra.end_date >= CURRENT_DATE::text
         AND c.is_inactive = 0
         AND ra._company_name = 'JOMO'
         AND a.full_name NOT LIKE '%Unscheduled%'
       GROUP BY ra.route_assignment_id, a.full_name, ra.day_of_week, c.clean_customer_name,
-        sl.address, sl.city, sl.state, sl.zip, ra.frequency, ra.sequence, li.last_invoice_total
+        sl.address, sl.city, sl.state, sl.zip, ra.frequency, ra.sequence
       ORDER BY a.full_name,
         CASE ra.day_of_week WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
           WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 WHEN 'Sunday' THEN 7 END,
