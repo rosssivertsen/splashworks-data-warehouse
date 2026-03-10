@@ -15,6 +15,9 @@ class QueryResponse(BaseModel):
     results: list[list]
     row_count: int
     explanation: str
+    confidence: str | None = None
+    unanswerable_reason: str | None = None
+    partial_answer_hint: str | None = None
 
 
 class ErrorResponse(BaseModel):
