@@ -23,10 +23,12 @@
 
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
-| AQ-4 | **Semantic rewriter (Stage 1)** — maps business terms to technical instructions before SQL generation | Backend | L | Deferred — riding AQ-5 momentum first. Design when failure patterns emerge from real CEO usage. |
+| AQ-4 | **Semantic rewriter** — two-stage Haiku rewriter + Sonnet generator with confidence signals, industry metric catalog, unanswerable detection | Backend + Frontend | L | Design approved 2026-03-10. Spec: `docs/plans/2026-03-10-aq4-semantic-rewriter-design.md` |
 | ~~AQ-5~~ | ~~**Few-shot examples in system prompt** — 13 verified queries as SQL examples~~ | ~~Backend~~ | ~~S~~ | ~~DONE 2026-03-12~~ |
 | ~~AQ-6~~ | ~~**ETL cron automation** — nightly pipeline: rclone sync → Python ETL → dbt → health check~~ | ~~Backend/Infra~~ | ~~M~~ | ~~DONE 2026-03-12. Cron at 1:15 AM UTC.~~ |
 | AQ-7 | **SQL repair layer expansion** — add more repair strategies (missing table aliases, ambiguous columns, etc.) | Backend | S | Current: GROUP BY + type cast. Extend as new error patterns emerge. |
+| AQ-8 | **Pool Deck knowledge base RAG** — embed Skimmer help articles for industry vocabulary enrichment | Backend | M | Source: https://thepooldeck.getskimmer.com/knowledge-base |
+| AQ-9 | **Pool Deck community content** — ingest crowdsourced pool service operator knowledge | Backend | M | Source: https://thepooldeck.getskimmer.com/community |
 
 ### App — AI Query UX
 
@@ -73,6 +75,20 @@
 | DX-2 | LSI calculation model | dbt model | M | Langelier Saturation Index from chemical readings |
 | DX-3 | Product categories / chemical product dimension | dbt model | S | Categorize dosage entries |
 | DX-4 | Tax configuration model | dbt model | S | Tax rates per jurisdiction |
+
+### Data Layer — Future Data Sources (KPIs blocked on new integrations)
+
+| ID | KPI | Blocked On | Data Source | Notes |
+|----|-----|------------|-------------|-------|
+| DS-1 | Technician utilization rate (billable vs paid hours) | No clock-in/clock-out | Time & attendance (e.g., Homebase, Deputy) | Target: 65-75% utilization |
+| DS-2 | First-time fix / callback rate | No callback tracking | CRM or dispatch system | Inverse = repeat visit rate |
+| DS-3 | Drive time per job / on-time arrival rate | No GPS or appointment windows | Telematics (e.g., GPS Trackit, Azuga) | High drive time = routing/territory issues |
+| DS-4 | Route density (stops per mile) | No geocoding | Telematics + geocoded addresses | Tighter density = better margins |
+| DS-5 | CSAT / NPS scores | No survey data | CRM or survey tool (e.g., Zoho, Jobber) | Tech-level and route-level |
+| DS-6 | Booking rate / calls handled / abandoned | No call center data | Phone system (e.g., Xima, RingCentral) | CSR performance |
+| DS-7 | Lead-to-booking conversion | No CRM pipeline | CRM (e.g., Zoho CRM) | Marketing ROI, cost per booked job |
+| DS-8 | Customer acquisition cost | No marketing spend data | QBO + CRM | Marketing spend / new customers |
+| DS-9 | Membership / contract retention rate | Partial — have churn | CRM contract tracking | Renewal rate over time |
 
 ---
 
