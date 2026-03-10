@@ -27,7 +27,7 @@ services:
     environment:
       DATABASE_URL: postgresql://splashworks:${DB_PASSWORD}@postgres:5432/splashworks
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      STATEMENT_TIMEOUT: "10s"
+      STATEMENT_TIMEOUT: "30s"
       ROW_LIMIT: "10000"
     ports:
       - "127.0.0.1:8080:8080"
