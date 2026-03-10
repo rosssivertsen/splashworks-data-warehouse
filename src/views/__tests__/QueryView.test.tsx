@@ -3,15 +3,19 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { QueryResponse } from "../../types/api";
 
-vi.mock("../../services/ApiClient", () => ({
-  apiClient: {
-    query: vi.fn(),
-    queryRaw: vi.fn(),
-    getSchema: vi.fn(),
-    getDictionary: vi.fn(),
-    getPrompts: vi.fn().mockResolvedValue({ prompts: [] }),
-  },
-}));
+vi.mock("../../services/ApiClient", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../services/ApiClient")>();
+  return {
+    ...actual,
+    apiClient: {
+      query: vi.fn(),
+      queryRaw: vi.fn(),
+      getSchema: vi.fn(),
+      getDictionary: vi.fn(),
+      getPrompts: vi.fn().mockResolvedValue({ prompts: [] }),
+    },
+  };
+});
 
 const mockQueryResponse: QueryResponse = {
   sql: "SELECT id, name FROM customer LIMIT 5",

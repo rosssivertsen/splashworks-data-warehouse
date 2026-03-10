@@ -6,6 +6,17 @@ import type {
   PromptsResponse,
 } from "../types/api";
 
+export class UnansweredQueryError extends Error {
+  confidence: string;
+  partialAnswerHint: string | null;
+
+  constructor(message: string, confidence: string, partialAnswerHint: string | null) {
+    super(message);
+    this.confidence = confidence;
+    this.partialAnswerHint = partialAnswerHint;
+  }
+}
+
 export class ApiClient {
   private baseUrl: string;
 
@@ -29,18 +40,17 @@ export class ApiClient {
         if (error.detail) {
           // Handle structured error (422 unanswerable)
           if (typeof error.detail === "object" && error.detail.message) {
-            const err = new Error(error.detail.message) as Error & {
-              confidence?: string;
-              partialAnswerHint?: string | null;
-            };
-            err.confidence = error.detail.confidence;
-            err.partialAnswerHint = error.detail.partial_answer_hint;
+            const err = new UnansweredQueryError(
+              error.detail.message,
+              error.detail.confidence,
+              error.detail.partial_answer_hint ?? null,
+            );
             throw err;
           }
           message = error.detail;
         }
       } catch (e) {
-        if (e instanceof Error && e.message !== `HTTP ${response.status}`) throw e;
+        if (e instanceof UnansweredQueryError) throw e;
       }
       throw new Error(message);
     }

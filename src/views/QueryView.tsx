@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { apiClient } from "../services/ApiClient";
+import { apiClient, UnansweredQueryError } from "../services/ApiClient";
 import { ResultsTable } from "../components/ResultsTable";
 import { SqlEditor } from "../components/SqlEditor";
 import { ExportButton } from "../components/ExportButton";
@@ -35,12 +35,13 @@ export function QueryView({ onAddToDashboard }: QueryViewProps) {
   };
 
   const handleQueryError = (err: unknown) => {
-    const e = err as Error & { confidence?: string; partialAnswerHint?: string | null };
-    if (e.confidence === "unanswerable") {
-      setUnanswered({ reason: e.message, hint: e.partialAnswerHint ?? null });
+    if (err instanceof UnansweredQueryError) {
+      setUnanswered({ reason: err.message, hint: err.partialAnswerHint });
       setError(null);
+      setSql("");
+      setExplanation("");
     } else {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(err instanceof Error ? err.message : String(err));
       setUnanswered(null);
     }
     setResult(null);

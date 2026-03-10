@@ -11,6 +11,7 @@ from api.models.responses import ErrorResponse, QueryResponse
 from api.services.ai_service import generate_sql
 from api.services.query_executor import execute_query, validate_sql
 from api.services.schema_context import build_system_prompt, get_schema_metadata
+from api.services.query_rewriter import rewrite_question
 from api.services.sql_repair import attempt_repair
 
 router = APIRouter()
@@ -30,8 +31,6 @@ def query(req: QueryRequest):
         conn.close()
 
     # 2. Rewrite question via Haiku
-    from api.services.query_rewriter import rewrite_question
-
     rewriter_result = rewrite_question(req.question, schema)
 
     # Short-circuit unanswerable questions
