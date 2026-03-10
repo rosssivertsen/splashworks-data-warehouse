@@ -1,7 +1,7 @@
 # Splashworks Data Warehouse — Backlog
 
 **Project:** Splashworks Pool Service BI Visualizer
-**Last Updated:** 2026-03-12
+**Last Updated:** 2026-03-13
 
 ---
 
@@ -11,7 +11,7 @@
 
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
-| DL-1 | `dim_service_location` — address, city, state, zip, rate, rate_type, labor_cost | dbt model | S | Most common staging fallback; unlocks address/geographic queries |
+| ~~DL-1~~ | ~~`dim_service_location` — address, city, state, zip, rate, rate_type, labor_cost~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-12~~ |
 | DL-2 | `rpt_customer_360` — denormalized customer + locations + service stats + payments | dbt model | M | Single view for "tell me everything about customer X" |
 | DL-3 | `rpt_service_history` — service visits with customer/tech/pool names (no IDs) | dbt model | M | Metabase-friendly; replaces fact_service_stop + joins |
 | DL-4 | `rpt_payment_summary` — payments with customer names, monthly aggregation | dbt model | S | Metabase-friendly; replaces fact_payment + joins |
@@ -23,9 +23,9 @@
 
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
-| AQ-4 | **Semantic rewriter (Stage 1)** — maps business terms to technical instructions before SQL generation | Backend | L | Two-stage pipeline: rewrite "active routes" → table/join/filter spec, then generate SQL. Core moat — encodes domain knowledge competitors can't replicate. |
-| AQ-5 | **Few-shot examples in system prompt** — include 3-4 verified queries as SQL examples directly in prompt | Backend | S | Fastest ROI; Sonnet pattern-matches well from examples. Pull from semantic layer verified_queries. |
-| AQ-6 | **ETL cron automation** — detect new nightly extract, import to Postgres, run dbt refresh | Backend/Infra | M | rclone sync → import → dbt run → health check. Stale data undermines AI trust. |
+| AQ-4 | **Semantic rewriter (Stage 1)** — maps business terms to technical instructions before SQL generation | Backend | L | Deferred — riding AQ-5 momentum first. Design when failure patterns emerge from real CEO usage. |
+| ~~AQ-5~~ | ~~**Few-shot examples in system prompt** — 13 verified queries as SQL examples~~ | ~~Backend~~ | ~~S~~ | ~~DONE 2026-03-12~~ |
+| ~~AQ-6~~ | ~~**ETL cron automation** — nightly pipeline: rclone sync → Python ETL → dbt → health check~~ | ~~Backend/Infra~~ | ~~M~~ | ~~DONE 2026-03-12. Cron at 1:15 AM UTC.~~ |
 | AQ-7 | **SQL repair layer expansion** — add more repair strategies (missing table aliases, ambiguous columns, etc.) | Backend | S | Current: GROUP BY + type cast. Extend as new error patterns emerge. |
 
 ### App — AI Query UX
@@ -105,6 +105,11 @@
 | ~~AUTH-1~~ | Cloudflare Access (GitHub + Google + OTP) | 2026-03-11 |
 | ~~AQ-7a~~ | SQL repair layer v1 (GROUP BY + type cast auto-fix) | 2026-03-12 |
 | ~~DL-8~~ | Route assignment semantics (stg_route_assignment + system prompt + verified query) | 2026-03-12 |
+| ~~AQ-5~~ | Few-shot examples — 13 verified queries in system prompt | 2026-03-12 |
+| ~~AQ-6~~ | ETL cron automation — nightly-pipeline.sh (sync → ETL → dbt → health) | 2026-03-12 |
+| ~~DL-1~~ | dim_service_location — added address column, updated system prompt | 2026-03-12 |
+| ~~DL-9~~ | Customer lifecycle semantics (cancelled/new customer terms + dim_customer dates) | 2026-03-12 |
+| ~~UI.11~~ | UI refinements deployed to VPS (starter prompts, dashboards, charts) | 2026-03-12 |
 
 ---
 
