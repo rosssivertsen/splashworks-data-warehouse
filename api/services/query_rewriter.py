@@ -15,6 +15,7 @@ import anthropic
 import yaml
 
 from api.config import ANTHROPIC_API_KEY
+from api.services.schema_context import build_tables_summary
 
 logger = logging.getLogger(__name__)
 
@@ -123,19 +124,6 @@ Given a user's natural language question:
   "unanswerable_reason": "Why this can't be answered, or null",
   "partial_answer_hint": "What CAN be answered instead, or null"
 }}"""
-
-
-def build_tables_summary(schema: dict[str, dict[str, list[str]]]) -> str:
-    """Build abbreviated table summary (table: key columns) for the rewriter."""
-    lines = []
-    for schema_name, tables in schema.items():
-        for table_name, columns in tables.items():
-            # Show first 8 columns to keep it concise
-            cols = ", ".join(columns[:8])
-            if len(columns) > 8:
-                cols += f", ... ({len(columns)} total)"
-            lines.append(f"- {schema_name}.{table_name}: {cols}")
-    return "\n".join(lines)
 
 
 def rewrite_question(question: str, schema: dict[str, dict[str, list[str]]]) -> RewriterResult:
