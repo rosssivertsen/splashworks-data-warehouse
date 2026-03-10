@@ -4,7 +4,6 @@ import type {
   SchemaResponse,
   DictionaryResponse,
   PromptsResponse,
-  ApiError,
 } from "../types/api";
 
 export class ApiClient {
@@ -26,12 +25,22 @@ export class ApiClient {
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
       try {
-        const error: ApiError = await response.json();
+        const error = await response.json();
         if (error.detail) {
+          // Handle structured error (422 unanswerable)
+          if (typeof error.detail === "object" && error.detail.message) {
+            const err = new Error(error.detail.message) as Error & {
+              confidence?: string;
+              partialAnswerHint?: string | null;
+            };
+            err.confidence = error.detail.confidence;
+            err.partialAnswerHint = error.detail.partial_answer_hint;
+            throw err;
+          }
           message = error.detail;
         }
-      } catch {
-        // Use default message if body isn't JSON
+      } catch (e) {
+        if (e instanceof Error && e.message !== `HTTP ${response.status}`) throw e;
       }
       throw new Error(message);
     }
