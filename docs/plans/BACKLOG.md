@@ -1,7 +1,7 @@
 # Splashworks Data Warehouse — Backlog
 
 **Project:** Splashworks Pool Service BI Visualizer
-**Last Updated:** 2026-03-13
+**Last Updated:** 2026-03-14
 
 ---
 
@@ -23,7 +23,7 @@
 
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
-| AQ-4 | **Semantic rewriter** — two-stage Haiku rewriter + Sonnet generator with confidence signals, industry metric catalog, unanswerable detection | Backend + Frontend | L | Design approved 2026-03-10. Spec: `docs/plans/2026-03-10-aq4-semantic-rewriter-design.md` |
+| ~~AQ-4~~ | ~~**Semantic rewriter** — two-stage Haiku rewriter + Sonnet generator with confidence signals, industry metric catalog, unanswerable detection~~ | ~~Backend + Frontend~~ | ~~L~~ | ~~DONE 2026-03-13. 20 metrics, confidence badges, unanswerable detection.~~ |
 | ~~AQ-5~~ | ~~**Few-shot examples in system prompt** — 13 verified queries as SQL examples~~ | ~~Backend~~ | ~~S~~ | ~~DONE 2026-03-12~~ |
 | ~~AQ-6~~ | ~~**ETL cron automation** — nightly pipeline: rclone sync → Python ETL → dbt → health check~~ | ~~Backend/Infra~~ | ~~M~~ | ~~DONE 2026-03-12. Cron at 1:15 AM UTC.~~ |
 | AQ-7 | **SQL repair layer expansion** — add more repair strategies (missing table aliases, ambiguous columns, etc.) | Backend | S | Current: GROUP BY + type cast. Extend as new error patterns emerge. |
@@ -126,6 +126,7 @@
 | ~~DL-1~~ | dim_service_location — added address column, updated system prompt | 2026-03-12 |
 | ~~DL-9~~ | Customer lifecycle semantics (cancelled/new customer terms + dim_customer dates) | 2026-03-12 |
 | ~~UI.11~~ | UI refinements deployed to VPS (starter prompts, dashboards, charts) | 2026-03-12 |
+| ~~AQ-4~~ | Semantic rewriter — Haiku preprocessing, confidence badges, unanswerable detection, improved errors | 2026-03-13 |
 
 ---
 

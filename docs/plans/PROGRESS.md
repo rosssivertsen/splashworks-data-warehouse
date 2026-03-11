@@ -3,15 +3,15 @@
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
 **Backlog:** [BACKLOG.md](./BACKLOG.md)
-**Last Updated:** 2026-03-12
+**Last Updated:** 2026-03-14
 
 ---
 
 ## Current Status
 
-**Phase:** Phase 1 + Semantic Enrichment + UI Refinements COMPLETE. All deployed.
-**Status:** 6 Docker services (postgres, api, frontend, metabase, staging-api, staging-frontend), Cloudflare Access, 65 frontend + 56 API unit + 16 E2E tests.
-**Next:** AQ-5 (few-shot examples), AQ-6 (ETL cron), DL-1 (dim_service_location), AQ-4 (semantic rewriter)
+**Phase:** Phase 1 + Semantic Enrichment + UI Refinements + AI Query Intelligence COMPLETE. All deployed.
+**Status:** 6 Docker services, Cloudflare Access, 73 frontend + 62 API unit + 16 E2E tests.
+**Next:** DL-2 (rpt_customer_360), DL-3 (rpt_service_history)
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase)
 
 ---
@@ -78,6 +78,25 @@
 | UI.9 | Frontend test updates (65/65 passing) | DONE |
 | UI.10 | E2E test for /api/prompts endpoint | DONE |
 | UI.11 | Build + deploy to VPS | DONE |
+
+## Interstitial: AI Query Intelligence (AQ-4/5/6/DL-1)
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| AQ-5 | Few-shot examples — 13 verified queries in system prompt | DONE |
+| AQ-6 | ETL cron automation — nightly-pipeline.sh (sync → ETL → dbt → health) | DONE |
+| DL-1 | dim_service_location — address column, updated system prompt | DONE |
+| AQ-7a | SQL repair layer v1 (GROUP BY + type cast auto-fix) | DONE |
+| DL-8 | Route assignment semantics (stg_route_assignment + system prompt) | DONE |
+| DL-9 | Customer lifecycle semantics (cancelled/new customer terms) | DONE |
+| AQ-4.1 | Industry metrics YAML (20 metrics: 12 answerable, 8 unanswerable) | DONE |
+| AQ-4.2 | Query rewriter service (Haiku preprocessing + confidence classification) | DONE |
+| AQ-4.3 | Response model + ai_service + schema_context updates | DONE |
+| AQ-4.4 | Rewriter wired into query pipeline + improved error messages | DONE |
+| AQ-4.5 | ConfidenceBadge component (green Verified / yellow Best effort) | DONE |
+| AQ-4.6 | UnansweredPanel component (blue info panel with partial-answer hints) | DONE |
+| AQ-4.7 | QueryView wiring + ApiClient structured error handling | DONE |
+| AQ-4.8 | Deploy + verify on VPS (all 3 confidence paths confirmed working) | DONE |
 
 ## Interstitial: Authentication + BI Tools
 
