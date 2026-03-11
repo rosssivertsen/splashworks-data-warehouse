@@ -73,6 +73,11 @@ Nightly extract from Skimmer (pool service management SaaS), trailing 6-month pe
 | `docs/plans/BACKLOG.md` | Prioritized backlog |
 | `docs/plans/PROGRESS.md` | Implementation progress tracker |
 
+## Enterprise Glossary
+
+Enterprise data glossary lives in `docs/enterprise/`.
+See `docs/enterprise/README.md` for structure and usage.
+
 ## Database Schema — Key Tables
 
 **dbt layers:** `public_staging` → `public_warehouse` → `public_semantic`
