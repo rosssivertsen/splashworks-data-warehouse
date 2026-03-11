@@ -19,6 +19,18 @@ def load_semantic_layer() -> dict:
         return yaml.safe_load(f) or {}
 
 
+def build_tables_summary(schema: dict[str, dict[str, list[str]]]) -> str:
+    """Build abbreviated table list for the rewriter (table: key columns)."""
+    lines = []
+    for schema_name, tables in schema.items():
+        for table_name, columns in tables.items():
+            cols = ", ".join(columns[:8])
+            if len(columns) > 8:
+                cols += f", ... ({len(columns)} total)"
+            lines.append(f"- {schema_name}.{table_name}: {cols}")
+    return "\n".join(lines)
+
+
 def get_schema_metadata(conn, layer: str = "warehouse") -> dict[str, dict[str, list[str]]]:
     """Query Postgres information_schema for table/column metadata.
 

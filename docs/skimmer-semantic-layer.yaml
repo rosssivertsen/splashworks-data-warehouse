@@ -450,6 +450,173 @@ data_gaps:
     description: "Langelier Saturation Index formula documented but not operationalized as a model"
     impact: "Cannot calculate water balance index from readings"
 
+industry_metrics:
+  route_production_per_tech:
+    description: "Recurring service revenue per technician per period (excludes work orders)"
+    calculation: "SUM(dim_service_location.rate) grouped by technician via stg_route_assignment"
+    tables: [dim_service_location, stg_route_assignment, stg_account]
+    synonyms: ["route production", "tech revenue", "revenue per tech", "production per route", "route revenue"]
+    confidence: high
+
+  jobs_completed_per_day:
+    description: "Average number of completed stops per technician per workday"
+    calculation: "COUNT(*) FROM fact_service_stop WHERE service_status=1, GROUP BY tech_id, service_date"
+    tables: [fact_service_stop, dim_tech]
+    synonyms: ["stops per day", "jobs per day", "daily completions", "completions per tech"]
+    confidence: high
+
+  revenue_per_technician:
+    description: "Total service revenue divided by number of technicians over a period"
+    calculation: "SUM(dim_service_location.rate) / COUNT(DISTINCT tech_id) via route assignments"
+    tables: [dim_service_location, stg_route_assignment, stg_account]
+    synonyms: ["revenue per tech", "avg tech revenue", "technician revenue"]
+    confidence: high
+
+  mean_time_per_stop:
+    description: "Average duration of a completed service visit in minutes"
+    calculation: "AVG(fact_service_stop.minutes_at_stop) WHERE service_status = 1"
+    tables: [fact_service_stop]
+    synonyms: ["average stop time", "time per visit", "minutes per stop", "service duration"]
+    confidence: high
+
+  jobs_per_route_per_period:
+    description: "Total completed stops on a route in a time period, grouped by tech"
+    calculation: "COUNT(*) FROM fact_service_stop WHERE service_status=1, GROUP BY tech_id and period"
+    tables: [fact_service_stop, dim_tech]
+    synonyms: ["stops per route", "route volume", "jobs per route"]
+    confidence: high
+
+  service_completion_rate:
+    description: "Percentage of scheduled stops that were completed"
+    calculation: "SUM(service_status) / COUNT(*) * 100 FROM fact_service_stop"
+    tables: [fact_service_stop]
+    synonyms: ["completion rate", "stop completion", "visit completion rate"]
+    confidence: high
+
+  skipped_stop_rate:
+    description: "Percentage and count of stops not completed, with skip reasons"
+    calculation: "COUNT(*) WHERE service_status=0, with skip_reason from fact_service_stop"
+    tables: [fact_service_stop]
+    synonyms: ["skip rate", "skipped stops", "missed stops", "incomplete stops"]
+    confidence: high
+
+  average_ticket_value:
+    description: "Average revenue per invoice"
+    calculation: "AVG(fact_invoice.subtotal)"
+    tables: [fact_invoice]
+    synonyms: ["average ticket", "avg invoice", "revenue per visit", "average treatment value", "avg ticket"]
+    confidence: high
+
+  collection_rate:
+    description: "Percentage of invoiced revenue actually collected"
+    calculation: "SUM(fact_payment.amount) / SUM(fact_invoice.subtotal) * 100"
+    tables: [fact_payment, fact_invoice]
+    synonyms: ["collection rate", "payment rate", "collections percentage", "percent collected"]
+    confidence: high
+
+  days_sales_outstanding:
+    description: "Average days from invoice to payment received"
+    calculation: "AVG(fact_payment.payment_date::date - fact_invoice.invoice_date::date) — requires matching payments to invoices by customer"
+    tables: [fact_payment, fact_invoice]
+    synonyms: ["DSO", "days to collect", "days outstanding", "days to pay"]
+    confidence: medium
+
+  work_order_completion_rate:
+    description: "Percentage of assigned work orders completed"
+    calculation: "SUM(CASE WHEN service_status=1 THEN 1 ELSE 0 END) / COUNT(*) * 100 FROM fact_work_order"
+    tables: [fact_work_order]
+    synonyms: ["work order completion", "WO completion rate"]
+    confidence: high
+
+  customer_churn:
+    description: "Customers who stopped service in a period"
+    calculation: "COUNT(*) FROM dim_customer WHERE (is_inactive=1 OR deleted=1) AND updated_at within period"
+    tables: [dim_customer]
+    synonyms: ["churn", "cancellations", "lost customers", "attrition", "cancelled customers", "customer losses"]
+    confidence: high
+
+  # --- Unanswerable metrics (blocked on future data sources) ---
+
+  technician_utilization:
+    description: "Percent of paid hours spent on billable work (on-site service) vs drive/admin time"
+    calculation: null
+    tables: []
+    synonyms: ["utilization rate", "tech utilization", "billable hours", "utilization"]
+    confidence: unanswerable
+    data_gap: "No clock-in/clock-out data in Skimmer. Only minutes_at_stop (time on-site) is available."
+    blocked_on: "Time & attendance integration (Homebase, Deputy, etc.)"
+    partial_answer: "I can show average minutes per stop by technician, which gives a partial picture of on-site time."
+
+  first_time_fix_rate:
+    description: "Percent of jobs resolved without a callback or return visit"
+    calculation: null
+    tables: []
+    synonyms: ["first visit fix", "callback rate", "repeat visit rate", "first-time resolution"]
+    confidence: unanswerable
+    data_gap: "Skimmer does not track callbacks or return visits."
+    blocked_on: "CRM or dispatch system with callback tracking"
+    partial_answer: "I can show skipped stops and work orders, which may indicate follow-up needs."
+
+  drive_time_per_job:
+    description: "Average travel time between service stops"
+    calculation: null
+    tables: []
+    synonyms: ["drive time", "travel time", "time between stops", "windshield time"]
+    confidence: unanswerable
+    data_gap: "No GPS or travel data in Skimmer."
+    blocked_on: "Telematics integration (GPS Trackit, Azuga, etc.)"
+    partial_answer: "I can show service addresses per route to help estimate geographic density."
+
+  on_time_arrival_rate:
+    description: "Percent of appointments started within defined time windows"
+    calculation: null
+    tables: []
+    synonyms: ["on-time rate", "punctuality", "arrival rate", "on time"]
+    confidence: unanswerable
+    data_gap: "No appointment time windows or actual arrival times in Skimmer."
+    blocked_on: "Telematics or scheduling system with time windows"
+    partial_answer: null
+
+  route_density:
+    description: "Stops per mile or per neighborhood — tighter density means better margins"
+    calculation: null
+    tables: []
+    synonyms: ["stop density", "geographic density", "route tightness"]
+    confidence: unanswerable
+    data_gap: "Addresses exist but are not geocoded."
+    blocked_on: "Geocoding service + telematics integration"
+    partial_answer: "I can list service addresses grouped by city/zip to show geographic concentration."
+
+  customer_satisfaction:
+    description: "CSAT or NPS scores from post-visit surveys"
+    calculation: null
+    tables: []
+    synonyms: ["CSAT", "NPS", "customer satisfaction", "satisfaction score", "customer rating"]
+    confidence: unanswerable
+    data_gap: "No survey or rating data in Skimmer."
+    blocked_on: "Survey tool or CRM integration"
+    partial_answer: null
+
+  booking_rate:
+    description: "Booked jobs divided by inbound calls or leads (CSR performance)"
+    calculation: null
+    tables: []
+    synonyms: ["booking rate", "conversion rate", "call to booking", "lead conversion"]
+    confidence: unanswerable
+    data_gap: "No call center or lead tracking data."
+    blocked_on: "Phone system (Xima, RingCentral) + CRM integration"
+    partial_answer: "I can show new customer signups by month as a proxy for booking activity."
+
+  customer_acquisition_cost:
+    description: "Marketing spend divided by new customers acquired"
+    calculation: null
+    tables: []
+    synonyms: ["CAC", "acquisition cost", "cost per customer", "cost to acquire"]
+    confidence: unanswerable
+    data_gap: "No marketing spend data."
+    blocked_on: "QBO + CRM integration"
+    partial_answer: "I can show new customer count by month. You'd need to divide by marketing spend manually."
+
 lsi_calculation:
   formula: "pH + TempFactor + CalciumFactor + AlkalinityFactor - TDSFactor"
   status: "documented_only"

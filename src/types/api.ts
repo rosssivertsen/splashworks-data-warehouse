@@ -14,6 +14,15 @@ export interface QueryResponse {
   results: (string | number | boolean | null)[][];
   row_count: number;
   explanation: string;
+  confidence?: "high" | "medium" | "low" | "unanswerable" | null;
+  unanswerable_reason?: string | null;
+  partial_answer_hint?: string | null;
+}
+
+export interface UnansweredError {
+  message: string;
+  partial_answer_hint: string | null;
+  confidence: "unanswerable";
 }
 
 export interface ColumnInfo {

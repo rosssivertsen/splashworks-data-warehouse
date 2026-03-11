@@ -37,19 +37,24 @@ def extract_sql_from_response(text: str) -> str | None:
     return None
 
 
-def generate_sql(question: str, system_prompt: str) -> tuple[str | None, str]:
+def generate_sql(question: str, system_prompt: str, technical_instructions: str | None = None) -> tuple[str | None, str]:
     """Call Claude to generate SQL from a natural language question.
 
     Returns (sql, full_response_text).
     """
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
+    # If the rewriter provided instructions, prepend them to the question
+    user_content = question
+    if technical_instructions:
+        user_content = f"{question}\n\n## Technical Instructions (from query preprocessor)\n{technical_instructions}"
+
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=2048,
         system=system_prompt,
         messages=[
-            {"role": "user", "content": question},
+            {"role": "user", "content": user_content},
         ],
     )
 

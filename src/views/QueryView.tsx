@@ -1,13 +1,20 @@
 import { useState } from "react";
-import { apiClient } from "../services/ApiClient";
+import { apiClient, UnansweredQueryError } from "../services/ApiClient";
 import { ResultsTable } from "../components/ResultsTable";
 import { SqlEditor } from "../components/SqlEditor";
 import { ExportButton } from "../components/ExportButton";
 import { StarterPrompts } from "../components/StarterPrompts";
+import { ConfidenceBadge } from "../components/ConfidenceBadge";
+import { UnansweredPanel } from "../components/UnansweredPanel";
 import type { QueryResponse } from "../types/api";
 
 interface QueryViewProps {
   onAddToDashboard?: (title: string, sql: string, results: { columns: string[]; rows: (string | number | boolean | null)[][] }) => void;
+}
+
+interface UnansweredInfo {
+  reason: string;
+  hint: string | null;
 }
 
 export function QueryView({ onAddToDashboard }: QueryViewProps) {
@@ -18,20 +25,39 @@ export function QueryView({ onAddToDashboard }: QueryViewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasQueried, setHasQueried] = useState(false);
+  const [unanswered, setUnanswered] = useState<UnansweredInfo | null>(null);
+
+  const handleQueryResult = (resp: QueryResponse) => {
+    setSql(resp.sql);
+    setExplanation(resp.explanation);
+    setResult(resp);
+    setUnanswered(null);
+  };
+
+  const handleQueryError = (err: unknown) => {
+    if (err instanceof UnansweredQueryError) {
+      setUnanswered({ reason: err.message, hint: err.partialAnswerHint });
+      setError(null);
+      setSql("");
+      setExplanation("");
+    } else {
+      setError(err instanceof Error ? err.message : String(err));
+      setUnanswered(null);
+    }
+    setResult(null);
+  };
 
   const handleAsk = async () => {
     if (!question.trim()) return;
     setHasQueried(true);
     setLoading(true);
     setError(null);
+    setUnanswered(null);
     try {
       const resp = await apiClient.query(question);
-      setSql(resp.sql);
-      setExplanation(resp.explanation);
-      setResult(resp);
+      handleQueryResult(resp);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setResult(null);
+      handleQueryError(err);
     } finally {
       setLoading(false);
     }
@@ -59,14 +85,12 @@ export function QueryView({ onAddToDashboard }: QueryViewProps) {
       setHasQueried(true);
       setLoading(true);
       setError(null);
+      setUnanswered(null);
       apiClient.query(prompt).then((resp) => {
-        setSql(resp.sql);
-        setExplanation(resp.explanation);
-        setResult(resp);
+        handleQueryResult(resp);
         setLoading(false);
       }).catch((err) => {
-        setError(err instanceof Error ? err.message : String(err));
-        setResult(null);
+        handleQueryError(err);
         setLoading(false);
       });
     }, 0);
@@ -101,6 +125,10 @@ export function QueryView({ onAddToDashboard }: QueryViewProps) {
         </div>
       )}
 
+      {unanswered && (
+        <UnansweredPanel reason={unanswered.reason} hint={unanswered.hint} />
+      )}
+
       {explanation && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm">
           {explanation}
@@ -110,7 +138,10 @@ export function QueryView({ onAddToDashboard }: QueryViewProps) {
       {sql && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-neutral-700">Generated SQL</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium text-neutral-700">Generated SQL</h3>
+              <ConfidenceBadge confidence={result?.confidence ?? null} />
+            </div>
             <button
               onClick={handleRunSql}
               disabled={loading || !sql.trim()}
