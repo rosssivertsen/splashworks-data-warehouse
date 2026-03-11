@@ -228,6 +228,13 @@ tables:
     key_columns: [customer_id, _company_name, customer_name, service_month, rate_type, service_rate, labor_cost, dosage_cost, total_cost, profit, stop_count]
     grain: "one row per customer per month"
 
+  rpt_customer_360:
+    schema: public_semantic
+    description: "Denormalized customer profile — one row per customer with service stats, financials, profitability, and lifetime value. Use for 'tell me about customer X' questions."
+    key_columns: [customer_id, _company_name, clean_customer_name, is_inactive, deleted, location_count, pool_count, total_stops, completed_stops, total_invoiced, total_payments, total_profit, lifetime_value, avg_monthly_value, tenure_months]
+    grain: "one row per customer per company"
+    note: "Includes ALL customers (active + inactive). Filter is_inactive = 0 AND deleted = 0 for active only."
+
 relationships:
   customer_to_location:
     description: "Customer to service locations (1:many)"
@@ -427,6 +434,20 @@ verified_queries:
         AND fss.service_date >= '2026-02-01' AND fss.service_date < '2026-03-01'
       ORDER BY fss._company_name, fss.service_date
     expected: "Skipped stops with tech, customer, address. service_status=0 means skipped."
+
+  - question: "Tell me everything about customer [name]"
+    sql: |
+      SELECT clean_customer_name, _company_name, billing_city, billing_state,
+             is_inactive, deleted, created_at, updated_at,
+             location_count, pool_count, total_stops, completed_stops,
+             first_service_date, last_service_date, avg_minutes_per_stop,
+             total_invoiced, invoice_count, total_payments, payment_count, last_payment_date,
+             total_revenue, total_cost, total_profit, avg_monthly_profit,
+             tenure_months, lifetime_value, avg_monthly_value
+      FROM public_semantic.rpt_customer_360
+      WHERE clean_customer_name ILIKE '%[name]%'
+        AND is_inactive = 0 AND deleted = 0
+    notes: "Replace [name] with the customer name. ILIKE for case-insensitive partial match."
 
 data_gaps:
   - name: "Equipment/Parts"

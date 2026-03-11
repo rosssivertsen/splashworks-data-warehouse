@@ -12,7 +12,7 @@
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
 | ~~DL-1~~ | ~~`dim_service_location` — address, city, state, zip, rate, rate_type, labor_cost~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-12~~ |
-| DL-2 | `rpt_customer_360` — denormalized customer + locations + service stats + payments | dbt model | M | Single view for "tell me everything about customer X" |
+| ~~DL-2~~ | ~~`rpt_customer_360` — denormalized customer + locations + service stats + payments~~ | ~~dbt model~~ | ~~M~~ | ~~DONE 2026-03-14~~ |
 | DL-3 | `rpt_service_history` — service visits with customer/tech/pool names (no IDs) | dbt model | M | Metabase-friendly; replaces fact_service_stop + joins |
 | DL-4 | `rpt_payment_summary` — payments with customer names, monthly aggregation | dbt model | S | Metabase-friendly; replaces fact_payment + joins |
 | DL-5 | `rpt_profitability` — profitability with customer names (no IDs) | dbt model | S | Metabase-friendly wrapper around semantic_profit |
@@ -127,6 +127,7 @@
 | ~~DL-9~~ | Customer lifecycle semantics (cancelled/new customer terms + dim_customer dates) | 2026-03-12 |
 | ~~UI.11~~ | UI refinements deployed to VPS (starter prompts, dashboards, charts) | 2026-03-12 |
 | ~~AQ-4~~ | Semantic rewriter — Haiku preprocessing, confidence badges, unanswerable detection, improved errors | 2026-03-13 |
+| ~~DL-2~~ | rpt_customer_360 — denormalized customer profile with LTV | 2026-03-14 |
 
 ---
 

@@ -11,7 +11,7 @@
 
 **Phase:** Phase 1 + Semantic Enrichment + UI Refinements + AI Query Intelligence COMPLETE. All deployed.
 **Status:** 6 Docker services, Cloudflare Access, 73 frontend + 62 API unit + 16 E2E tests.
-**Next:** DL-2 (rpt_customer_360), DL-3 (rpt_service_history)
+**Next:** DL-3 (rpt_service_history), DL-4 (rpt_payment_summary)
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase)
 
 ---
@@ -109,6 +109,12 @@
 | BI.2 | Metabase connected to Postgres warehouse | DONE |
 | BI.3 | Staging schema fallback for AI queries | DONE |
 | BI.4 | Anti-hallucination system prompt rules | DONE |
+
+## Data Layer Reports
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| DL-2 | rpt_customer_360 — denormalized customer + service stats + payments + LTV | DONE |
 
 ---
 
