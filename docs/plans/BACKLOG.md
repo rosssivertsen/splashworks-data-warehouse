@@ -37,7 +37,7 @@
 | ~~DL-1~~ | ~~`dim_service_location` — address, city, state, zip, rate, rate_type, labor_cost~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-12~~ |
 | ~~DL-2~~ | ~~`rpt_customer_360` — denormalized customer + locations + service stats + payments~~ | ~~dbt model~~ | ~~M~~ | ~~DONE 2026-03-14~~ |
 | ~~DL-3~~ | ~~`rpt_service_history` — service visits with customer/tech/pool names (no IDs)~~ | ~~dbt model~~ | ~~M~~ | ~~DONE 2026-03-15~~ |
-| DL-4 | `rpt_payment_summary` — payments with customer names, monthly aggregation | dbt model | S | Metabase-friendly; replaces fact_payment + joins |
+| ~~DL-4~~ | ~~`rpt_payment_summary` — payments with customer names, monthly aggregation~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-15~~ |
 | DL-5 | `rpt_profitability` — profitability with customer names (no IDs) | dbt model | S | Metabase-friendly wrapper around semantic_profit |
 | DL-6 | `dim_equipment` — equipment/parts per service location | dbt model | M | Zero coverage currently; needed for installed items questions |
 | DL-7 | Metabase schema cleanup — hide raw/staging/IDs, rename columns | Config | S | Admin > Table Metadata; no code changes |
@@ -152,6 +152,7 @@
 | ~~AQ-4~~ | Semantic rewriter — Haiku preprocessing, confidence badges, unanswerable detection, improved errors | 2026-03-13 |
 | ~~DL-2~~ | rpt_customer_360 — denormalized customer profile with LTV | 2026-03-14 |
 | ~~DL-3~~ | rpt_service_history — denormalized service visits (69,186 rows) | 2026-03-15 |
+| ~~DL-4~~ | rpt_payment_summary — denormalized payments (12,247 rows) | 2026-03-15 |
 
 ---
 
