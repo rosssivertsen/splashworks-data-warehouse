@@ -235,6 +235,13 @@ tables:
     grain: "one row per customer per company"
     note: "Includes ALL customers (active + inactive). Filter is_inactive = 0 AND deleted = 0 for active only."
 
+  rpt_service_history:
+    schema: public_semantic
+    description: "Denormalized service visit history — one row per stop with customer name, technician name, pool name, and service address. Use for service history, skipped stops, technician activity, and visit duration questions."
+    key_columns: [_company_name, service_date, service_month, customer_name, technician_name, pool_name, pool_gallons, service_address, service_city, service_state, service_zip, service_status, start_time, complete_time, minutes_at_stop, notes, notes_to_customer]
+    grain: "one row per service stop (visit)"
+    note: "service_status: 1 = completed, 0 = skipped. service_date is TEXT (YYYY-MM-DD). No IDs — all names are denormalized."
+
 relationships:
   customer_to_location:
     description: "Customer to service locations (1:many)"
@@ -418,22 +425,14 @@ verified_queries:
 
   - question: "Show all skipped stops for February"
     sql: |
-      SELECT
-        fss._company_name,
-        dt.full_name AS technician,
-        c.clean_customer_name AS customer,
-        sl.address || ', ' || sl.city AS service_address,
-        fss.service_date,
-        fss.skip_reason
-      FROM public_warehouse.fact_service_stop fss
-      JOIN public_warehouse.dim_tech dt ON fss.tech_id = dt.tech_id AND fss._company_name = dt._company_name
-      JOIN public_warehouse.dim_pool p ON fss.pool_id = p.pool_id AND fss._company_name = p._company_name
-      JOIN public_staging.stg_service_location sl ON p.service_location_id = sl.service_location_id AND p._company_name = sl._company_name
-      JOIN public_warehouse.dim_customer c ON sl.customer_id = c.customer_id AND sl._company_name = c._company_name
-      WHERE fss.service_status = 0
-        AND fss.service_date >= '2026-02-01' AND fss.service_date < '2026-03-01'
-      ORDER BY fss._company_name, fss.service_date
-    expected: "Skipped stops with tech, customer, address. service_status=0 means skipped."
+      SELECT _company_name, technician_name, customer_name,
+             service_address || ', ' || service_city AS address,
+             service_date
+      FROM public_semantic.rpt_service_history
+      WHERE service_status = 0
+        AND service_date >= '2026-02-01' AND service_date < '2026-03-01'
+      ORDER BY _company_name, service_date
+    expected: "Skipped stops with tech, customer, address. service_status=0 means skipped. Uses rpt_service_history — no joins needed."
 
   - question: "Tell me everything about customer [name]"
     sql: |
@@ -448,6 +447,28 @@ verified_queries:
       WHERE clean_customer_name ILIKE '%[name]%'
         AND is_inactive = 0 AND deleted = 0
     notes: "Replace [name] with the customer name. ILIKE for case-insensitive partial match."
+
+  - question: "Show service history for customer [name]"
+    sql: |
+      SELECT service_date, customer_name, technician_name, pool_name,
+             service_address, service_city, service_status,
+             minutes_at_stop, notes_to_customer
+      FROM public_semantic.rpt_service_history
+      WHERE customer_name ILIKE '%[name]%'
+      ORDER BY service_date DESC
+    notes: "Use rpt_service_history for all service visit queries — no joins needed. Replace [name] with customer name."
+
+  - question: "Which technician serviced the most stops last month?"
+    sql: |
+      SELECT technician_name, _company_name,
+             COUNT(*) AS total_stops,
+             COUNT(CASE WHEN service_status = 1 THEN 1 END) AS completed,
+             ROUND(AVG(CASE WHEN service_status = 1 THEN minutes_at_stop END)::numeric, 1) AS avg_minutes
+      FROM public_semantic.rpt_service_history
+      WHERE service_date >= '2026-02-01' AND service_date < '2026-03-01'
+      GROUP BY technician_name, _company_name
+      ORDER BY total_stops DESC
+    notes: "Adjust date range to match 'last month'. Uses rpt_service_history — no joins needed."
 
 data_gaps:
   - name: "Equipment/Parts"

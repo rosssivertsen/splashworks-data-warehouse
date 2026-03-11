@@ -1,11 +1,34 @@
 # Splashworks Data Warehouse — Backlog
 
-**Project:** Splashworks Pool Service BI Visualizer
-**Last Updated:** 2026-03-14
+**Project:** Splashworks Enterprise Data Platform
+**Last Updated:** 2026-03-15
+
+---
+
+## Streams
+
+| Prefix | Stream | Description |
+|--------|--------|-------------|
+| DL- | Data Layer | dbt warehouse models, reports, dimensions |
+| AQ- | AI Query | Query intelligence, repair, RAG |
+| EIA- | Enterprise Info Architecture | Glossary, standards, agent-readiness, Ripple |
+| DA- | Dashboard | Frontend dashboard features |
+| IN- | Infrastructure | VPS, networking, security |
 
 ---
 
 ## Priority: High
+
+### Enterprise Information Architecture
+
+| ID | Item | Category | Effort | Notes |
+|----|------|----------|--------|-------|
+| EIA-1 | Agent-ready frontmatter on all glossary/standards docs | Docs | S | YAML frontmatter: entity, type, systems, system_of_record, related |
+| EIA-2 | Enterprise index manifest (`enterprise-index.yaml`) | Docs | S | Auto-discoverable catalog of all EIA docs for agents |
+| EIA-3 | Invoice + Payment glossary entities | Docs | M | Cross-system mapping (Skimmer → QBO → Warehouse) |
+| EIA-4 | Technician + Route glossary entities | Docs | S | Skimmer-only entities, warehouse mapping |
+| EIA-5 | Ripple POC scope + vector store design | Design | M | MS Copilot agent, Pinecone embeddings, first use cases |
+| EIA-6 | Vector index pipeline (chunk → embed → Pinecone) | Backend | M | Ingest docs/enterprise/ into searchable index |
 
 ### Data Layer — Warehouse Models
 

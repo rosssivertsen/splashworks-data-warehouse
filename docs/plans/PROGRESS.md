@@ -11,7 +11,8 @@
 
 **Phase:** Phase 1 + Semantic Enrichment + UI Refinements + AI Query Intelligence COMPLETE. All deployed.
 **Status:** 6 Docker services, Cloudflare Access, 73 frontend + 62 API unit + 16 E2E tests.
-**Next:** DL-3 (rpt_service_history), DL-4 (rpt_payment_summary)
+**Streams:** Data Layer (DL), AI Query (AQ), Enterprise Info Architecture (EIA), Dashboard (DA), Infrastructure (IN)
+**Next:** EIA-1/EIA-2 (agent-ready docs), DL-3 (rpt_service_history), DL-4 (rpt_payment_summary)
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase)
 
 ---
@@ -115,6 +116,18 @@
 | Step | Deliverable | Status |
 |------|-------------|--------|
 | DL-2 | rpt_customer_360 — denormalized customer + service stats + payments + LTV | DONE |
+
+## Enterprise Information Architecture (v1.0 — 2026-03-14)
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| EIA-0.1 | Design spec + implementation plan | DONE |
+| EIA-0.2 | System landscape diagram (Mermaid, versioned) | DONE |
+| EIA-0.3 | Glossary entities: Customer, Contact, Service Location, Pool | DONE |
+| EIA-0.4 | Naming conventions standard | DONE |
+| EIA-0.5 | QBO Accounting + Payments API references | DONE |
+| EIA-0.6 | Enterprise CLAUDE.md (context isolation) | DONE |
+| EIA-0.7 | Root CLAUDE.md pointer | DONE |
 
 ---
 
