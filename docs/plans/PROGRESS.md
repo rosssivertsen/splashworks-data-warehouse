@@ -116,6 +116,7 @@
 | Step | Deliverable | Status |
 |------|-------------|--------|
 | DL-2 | rpt_customer_360 — denormalized customer + service stats + payments + LTV | DONE |
+| DL-3 | rpt_service_history — denormalized service visits with names + addresses (69,186 rows) | DONE |
 
 ## Enterprise Information Architecture (v1.0 — 2026-03-14)
 

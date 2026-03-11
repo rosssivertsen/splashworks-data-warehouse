@@ -242,6 +242,13 @@ tables:
     grain: "one row per service stop (visit)"
     note: "service_status: 1 = completed, 0 = skipped. service_date is TEXT (YYYY-MM-DD). No IDs — all names are denormalized."
 
+  rpt_payment_summary:
+    schema: public_semantic
+    description: "Denormalized payment history — one row per payment with customer name, payment method, and linked invoice details. Use for payment history, collections, and revenue questions."
+    key_columns: [_company_name, payment_date, payment_month, customer_name, billing_city, billing_state, amount, payment_method, invoice_number, invoice_date, invoice_status, payment_status, invoice_total]
+    grain: "one row per payment"
+    note: "payment_date is TEXT (YYYY-MM-DD). No IDs — all names are denormalized. payment_method values vary (Check, Credit Card, Cash, etc.)."
+
 relationships:
   customer_to_location:
     description: "Customer to service locations (1:many)"
@@ -469,6 +476,25 @@ verified_queries:
       GROUP BY technician_name, _company_name
       ORDER BY total_stops DESC
     notes: "Adjust date range to match 'last month'. Uses rpt_service_history — no joins needed."
+
+  - question: "Show total payments received by month"
+    sql: |
+      SELECT payment_month, _company_name,
+             COUNT(*) AS payment_count,
+             ROUND(SUM(amount)::numeric, 2) AS total_collected
+      FROM public_semantic.rpt_payment_summary
+      GROUP BY payment_month, _company_name
+      ORDER BY payment_month DESC
+    notes: "Uses rpt_payment_summary — no joins needed. Adjust GROUP BY for different aggregations."
+
+  - question: "Which customers have outstanding payments?"
+    sql: |
+      SELECT customer_name, _company_name, invoice_number,
+             invoice_date, invoice_total, payment_status
+      FROM public_semantic.rpt_payment_summary
+      WHERE payment_status != 'Paid'
+      ORDER BY invoice_date
+    notes: "Uses rpt_payment_summary. payment_status values: Paid, Unpaid, Partial, etc."
 
 data_gaps:
   - name: "Equipment/Parts"
