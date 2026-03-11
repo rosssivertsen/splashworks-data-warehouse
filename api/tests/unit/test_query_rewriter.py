@@ -57,6 +57,17 @@ class TestParseRewriterResponse:
         assert result.confidence == "low"
         assert result.matched_metrics == []
 
+    def test_parse_json_in_markdown_code_block(self):
+        raw = '```json\n{"confidence": "high", "matched_metrics": ["customer_churn"], "rewritten_question": "Count churned customers", "technical_instructions": null, "unanswerable_reason": null, "partial_answer_hint": null}\n```'
+        result = parse_rewriter_response(raw)
+        assert result.confidence == "high"
+        assert result.matched_metrics == ["customer_churn"]
+
+    def test_parse_json_in_bare_code_block(self):
+        raw = '```\n{"confidence": "medium", "matched_metrics": [], "rewritten_question": null, "technical_instructions": null, "unanswerable_reason": null, "partial_answer_hint": null}\n```'
+        result = parse_rewriter_response(raw)
+        assert result.confidence == "medium"
+
     def test_parse_invalid_json_returns_passthrough(self):
         result = parse_rewriter_response("not valid json at all")
         assert result.confidence == "low"

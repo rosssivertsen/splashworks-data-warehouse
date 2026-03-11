@@ -8,6 +8,7 @@ Uses Claude Haiku to preprocess user questions:
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -34,15 +35,25 @@ class RewriterResult:
     partial_answer_hint: str | None = None
 
 
+def _extract_json(raw: str) -> str:
+    """Extract JSON from a response that may include markdown code blocks."""
+    # Try to find JSON in ```json ... ``` or ``` ... ``` blocks
+    match = re.search(r'```(?:json)?\s*\n?(.*?)```', raw, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return raw.strip()
+
+
 def parse_rewriter_response(raw: str) -> RewriterResult:
     """Parse Haiku's JSON response into a RewriterResult.
 
+    Handles responses wrapped in markdown code blocks.
     Falls back to a low-confidence passthrough if JSON is invalid.
     """
     try:
-        data = json.loads(raw)
+        data = json.loads(_extract_json(raw))
     except (json.JSONDecodeError, TypeError):
-        logger.warning("Rewriter returned invalid JSON, falling back to passthrough")
+        logger.warning("Rewriter returned invalid JSON, falling back to passthrough: %s", raw[:200])
         return RewriterResult(confidence="low")
 
     return RewriterResult(
