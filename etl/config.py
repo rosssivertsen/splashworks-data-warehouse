@@ -16,10 +16,7 @@ COMPANY_IDS = {v: k for k, v in COMPANY_MAP.items()}
 EXTRACT_DIR = Path(os.environ.get("EXTRACT_DIR", "/data/extracts"))
 
 # Database connection
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://splashworks:changeme@localhost:5432/splashworks",
-)
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 # Raw schema prefix
 RAW_SCHEMA = "raw_skimmer"

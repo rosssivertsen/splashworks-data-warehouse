@@ -6,7 +6,7 @@ splashworks:
       host: "{{ env_var('DBT_HOST', 'localhost') }}"
       port: 5432
       user: splashworks
-      password: "{{ env_var('DBT_PASSWORD', 'changeme') }}"
+      password: "{{ env_var('DBT_PASSWORD') }}"
       dbname: splashworks
       schema: public
       threads: 2

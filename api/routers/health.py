@@ -1,8 +1,12 @@
+import logging
+
 import psycopg2
 from fastapi import APIRouter
 
 from api.config import DATABASE_URL
 from api.models.responses import HealthResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -50,10 +54,11 @@ def health():
             last_etl_rows=last_rows,
             schemas=schemas,
         )
-    except Exception as e:
+    except Exception:
+        logger.exception("Health check failed")
         return HealthResponse(
             status="unhealthy",
-            postgres=str(e),
+            postgres="unavailable",
             last_etl_date=None,
             last_etl_rows=None,
             schemas={},
