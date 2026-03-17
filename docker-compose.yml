@@ -2,6 +2,18 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: splashworks-postgres
+    command:
+      - postgres
+      - -c
+      - log_connections=on
+      - -c
+      - log_disconnections=on
+      - -c
+      - log_statement=ddl
+      - -c
+      - log_min_duration_statement=5000
+      - -c
+      - work_mem=16MB
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d
