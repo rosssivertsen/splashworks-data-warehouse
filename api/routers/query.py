@@ -1,28 +1,62 @@
 import logging
+import time
 
 import psycopg2
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from api.config import DATABASE_URL
-
-logger = logging.getLogger(__name__)
 from api.models.requests import QueryRequest, RawQueryRequest
-from api.models.responses import ErrorResponse, QueryResponse
+from api.models.responses import QueryResponse
 from api.services.ai_service import generate_sql
+from api.services.audit_logger import log_query_audit
 from api.services.query_executor import execute_query, validate_sql
-from api.services.schema_context import build_system_prompt, get_schema_metadata
 from api.services.query_rewriter import rewrite_question
+from api.services.schema_context import build_system_prompt, get_schema_metadata
 from api.services.sql_repair import attempt_repair
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _client_ip(request: Request) -> str | None:
+    """Extract client IP from X-Forwarded-For header or connection info."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return None
+
+
+def _cf_email(request: Request) -> str | None:
+    """Extract Cloudflare Access authenticated user email."""
+    return request.headers.get("cf-access-authenticated-user-email")
+
+
+def _elapsed_ms(start: float) -> int:
+    return int((time.time() - start) * 1000)
+
+
 @router.post("/api/query", response_model=QueryResponse)
-def query(req: QueryRequest):
+def query(req: QueryRequest, request: Request, background_tasks: BackgroundTasks):
+    start = time.time()
+    audit = dict(
+        client_ip=_client_ip(request),
+        cf_access_email=_cf_email(request),
+        endpoint="/api/query",
+        question=req.question,
+        layer=req.layer,
+    )
+
     # 1. Build schema context
     try:
         conn = psycopg2.connect(DATABASE_URL)
     except Exception:
+        background_tasks.add_task(
+            log_query_audit, **audit, status="connection_error",
+            duration_ms=_elapsed_ms(start),
+            error_message="Database connection failed",
+        )
         raise HTTPException(status_code=500, detail="Database connection failed")
 
     try:
@@ -32,11 +66,17 @@ def query(req: QueryRequest):
 
     # 2. Rewrite question via Haiku
     rewriter_result = rewrite_question(req.question, schema)
+    audit["rewriter_confidence"] = rewriter_result.confidence
 
     # Short-circuit unanswerable questions
     if rewriter_result.confidence == "unanswerable":
         reason = rewriter_result.unanswerable_reason or "This question requires data that isn't available in the warehouse yet."
         hint = rewriter_result.partial_answer_hint
+        background_tasks.add_task(
+            log_query_audit, **audit, status="unanswerable",
+            duration_ms=_elapsed_ms(start),
+            error_message=reason,
+        )
         raise HTTPException(
             status_code=422,
             detail={
@@ -48,8 +88,6 @@ def query(req: QueryRequest):
 
     # 3. Build system prompt and generate SQL
     system_prompt = build_system_prompt(schema, layer=req.layer)
-
-    # Use enriched question if rewriter provided one, otherwise original
     question_for_sonnet = rewriter_result.rewritten_question or req.question
 
     try:
@@ -59,12 +97,22 @@ def query(req: QueryRequest):
             technical_instructions=rewriter_result.technical_instructions,
         )
     except Exception:
+        background_tasks.add_task(
+            log_query_audit, **audit, status="ai_error",
+            duration_ms=_elapsed_ms(start),
+            error_message="AI service unavailable",
+        )
         raise HTTPException(
             status_code=502,
             detail="The AI service is temporarily unavailable. Please try again in a moment.",
         )
 
     if sql is None:
+        background_tasks.add_task(
+            log_query_audit, **audit, status="ai_error",
+            duration_ms=_elapsed_ms(start),
+            error_message="AI returned no SQL",
+        )
         raise HTTPException(
             status_code=400,
             detail="I wasn't sure how to translate that into a query. Try being more specific about what data you want.",
@@ -73,12 +121,26 @@ def query(req: QueryRequest):
     # 4. Validate SQL
     error = validate_sql(sql)
     if error:
+        background_tasks.add_task(
+            log_query_audit, **audit, status="validation_error",
+            generated_sql=sql, duration_ms=_elapsed_ms(start),
+            error_message=error,
+        )
         raise HTTPException(status_code=400, detail=error)
 
     # 5. Execute with guardrails + auto-repair on failure
+    original_sql = sql
+    was_repaired = False
+
     try:
         columns, rows = execute_query(sql)
     except psycopg2.extensions.QueryCanceledError:
+        background_tasks.add_task(
+            log_query_audit, **audit, status="timeout",
+            generated_sql=original_sql, executed_sql=original_sql,
+            duration_ms=_elapsed_ms(start),
+            error_message="Query timed out",
+        )
         raise HTTPException(
             status_code=408,
             detail="This question requires a complex query that took too long. Try narrowing it — e.g., add a company name or date range.",
@@ -91,6 +153,12 @@ def query(req: QueryRequest):
         if repaired_sql:
             repair_error = validate_sql(repaired_sql)
             if repair_error:
+                background_tasks.add_task(
+                    log_query_audit, **audit, status="error",
+                    generated_sql=original_sql, executed_sql=repaired_sql,
+                    was_repaired=True, duration_ms=_elapsed_ms(start),
+                    error_message="Repair produced invalid SQL",
+                )
                 raise HTTPException(
                     status_code=400,
                     detail="The generated SQL had an error. Try rephrasing, or use a simpler question.",
@@ -98,20 +166,39 @@ def query(req: QueryRequest):
             try:
                 columns, rows = execute_query(repaired_sql)
                 sql = repaired_sql
+                was_repaired = True
                 logger.info("SQL repair succeeded")
             except Exception as retry_exc:
                 logger.error("SQL repair retry failed: %s | SQL: %s", retry_exc, repaired_sql)
+                background_tasks.add_task(
+                    log_query_audit, **audit, status="error",
+                    generated_sql=original_sql, executed_sql=repaired_sql,
+                    was_repaired=True, duration_ms=_elapsed_ms(start),
+                    error_message="Repair retry failed",
+                )
                 raise HTTPException(
                     status_code=400,
                     detail="The generated SQL had an error. Try rephrasing, or use a simpler question.",
                 )
         else:
+            background_tasks.add_task(
+                log_query_audit, **audit, status="error",
+                generated_sql=original_sql, executed_sql=original_sql,
+                duration_ms=_elapsed_ms(start),
+                error_message="Query execution failed",
+            )
             raise HTTPException(
                 status_code=400,
                 detail="The generated SQL had an error. Try rephrasing, or use a simpler question.",
             )
 
     # 6. Return results with confidence
+    background_tasks.add_task(
+        log_query_audit, **audit, status="success",
+        generated_sql=original_sql, executed_sql=sql,
+        was_repaired=was_repaired,
+        row_count=len(rows), duration_ms=_elapsed_ms(start),
+    )
     return QueryResponse(
         sql=sql,
         columns=columns,
@@ -125,20 +212,48 @@ def query(req: QueryRequest):
 
 
 @router.post("/api/query/raw", response_model=QueryResponse)
-def query_raw(req: RawQueryRequest):
+def query_raw(req: RawQueryRequest, request: Request, background_tasks: BackgroundTasks):
     """Execute user-written SQL with guardrails (SELECT-only, timeout, row limit)."""
+    start = time.time()
+    audit = dict(
+        client_ip=_client_ip(request),
+        cf_access_email=_cf_email(request),
+        endpoint="/api/query/raw",
+        layer=req.layer,
+        generated_sql=req.sql,
+    )
+
     error = validate_sql(req.sql)
     if error:
+        background_tasks.add_task(
+            log_query_audit, **audit, status="validation_error",
+            duration_ms=_elapsed_ms(start), error_message=error,
+        )
         raise HTTPException(status_code=400, detail=error)
 
     try:
         columns, rows = execute_query(req.sql)
     except psycopg2.extensions.QueryCanceledError:
+        background_tasks.add_task(
+            log_query_audit, **audit, status="timeout",
+            executed_sql=req.sql, duration_ms=_elapsed_ms(start),
+            error_message="Query timed out",
+        )
         raise HTTPException(status_code=408, detail="Query timed out")
     except Exception as exc:
         logger.error("Raw query execution failed: %s | SQL: %s", exc, req.sql)
+        background_tasks.add_task(
+            log_query_audit, **audit, status="error",
+            executed_sql=req.sql, duration_ms=_elapsed_ms(start),
+            error_message="Query execution error",
+        )
         raise HTTPException(status_code=400, detail="Query execution error")
 
+    background_tasks.add_task(
+        log_query_audit, **audit, status="success",
+        executed_sql=req.sql, row_count=len(rows),
+        duration_ms=_elapsed_ms(start),
+    )
     return QueryResponse(
         sql=req.sql,
         columns=columns,

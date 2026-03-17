@@ -7,6 +7,11 @@ from api.main import app
 
 client = TestClient(app)
 
+
+@pytest.fixture(autouse=True)
+def _mock_audit(monkeypatch):
+    monkeypatch.setattr("api.routers.query.log_query_audit", lambda **kwargs: None)
+
 MOCK_COLUMNS = ["id", "name"]
 MOCK_ROWS = [[1, "Alice"], [2, "Bob"]]
 
