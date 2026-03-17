@@ -25,7 +25,7 @@ services:
       dockerfile: api/Dockerfile
     container_name: splashworks-api
     environment:
-      DATABASE_URL: postgresql://splashworks:${DB_PASSWORD}@postgres:5432/splashworks
+      DATABASE_URL: postgresql://splashworks_ro:${DB_RO_PASSWORD}@postgres:5432/splashworks
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       STATEMENT_TIMEOUT: "30s"
       ROW_LIMIT: "10000"

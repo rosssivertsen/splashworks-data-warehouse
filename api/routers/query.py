@@ -5,6 +5,7 @@ import psycopg2
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from api.config import DATABASE_URL
+from api.rate_limit import limiter
 from api.models.requests import QueryRequest, RawQueryRequest
 from api.models.responses import QueryResponse
 from api.services.ai_service import generate_sql
@@ -38,6 +39,7 @@ def _elapsed_ms(start: float) -> int:
 
 
 @router.post("/api/query", response_model=QueryResponse)
+@limiter.limit("20/minute")
 def query(req: QueryRequest, request: Request, background_tasks: BackgroundTasks):
     start = time.time()
     audit = dict(
@@ -212,6 +214,7 @@ def query(req: QueryRequest, request: Request, background_tasks: BackgroundTasks
 
 
 @router.post("/api/query/raw", response_model=QueryResponse)
+@limiter.limit("30/minute")
 def query_raw(req: RawQueryRequest, request: Request, background_tasks: BackgroundTasks):
     """Execute user-written SQL with guardrails (SELECT-only, timeout, row limit)."""
     start = time.time()

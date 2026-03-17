@@ -57,10 +57,15 @@ def create_raw_table(
         pg_type = "TEXT"
         if sqlite_types and i < len(sqlite_types):
             pg_type = _pg_type_for_sqlite(sqlite_types[i])
-        col_defs.append(f'"{col}" {pg_type}')
+        col_defs.append(
+            pgsql.SQL("{} {}").format(pgsql.Identifier(col), pgsql.SQL(pg_type))
+        )
 
-    col_sql = ", ".join(col_defs)
-    create_sql = f'CREATE TABLE IF NOT EXISTS {RAW_SCHEMA}."{raw_table}" ({col_sql})'
+    create_sql = pgsql.SQL("CREATE TABLE IF NOT EXISTS {}.{} ({})").format(
+        pgsql.Identifier(RAW_SCHEMA),
+        pgsql.Identifier(raw_table),
+        pgsql.SQL(", ").join(col_defs),
+    )
 
     with conn.cursor() as cur:
         cur.execute(create_sql)
@@ -96,11 +101,20 @@ def load_rows_copy(conn, fq_table: str, columns: list[str], rows: list[tuple]) -
 
     buf.seek(0)
 
-    col_list = ", ".join(f'"{c}"' for c in columns)
-    copy_sql = f"COPY {fq_table} ({col_list}) FROM STDIN WITH (FORMAT csv, DELIMITER E'\\t', NULL '\\N')"
+    col_ids = pgsql.SQL(", ").join(pgsql.Identifier(c) for c in columns)
+    # Parse schema.table from fq_table (format: schema."table")
+    schema_part, table_part = fq_table.split(".", 1)
+    table_part = table_part.strip('"')
+    copy_sql = pgsql.SQL(
+        "COPY {}.{} ({}) FROM STDIN WITH (FORMAT csv, DELIMITER E'\\t', NULL '\\N')"
+    ).format(
+        pgsql.Identifier(schema_part),
+        pgsql.Identifier(table_part),
+        col_ids,
+    )
 
     with conn.cursor() as cur:
-        cur.copy_expert(copy_sql, buf)
+        cur.copy_expert(copy_sql.as_string(conn), buf)
     conn.commit()
 
     return len(rows)
@@ -115,7 +129,12 @@ def create_current_view(conn, table_name: str, extract_date: date, company_name:
     prefix = f"{company_name}_" if company_name else ""
     dated_table = f"{prefix}{table_name}_{extract_date.strftime('%Y%m%d')}"
     view_name = f"{prefix}{table_name}"
-    view_sql = f'CREATE OR REPLACE VIEW {RAW_SCHEMA}."{view_name}" AS SELECT * FROM {RAW_SCHEMA}."{dated_table}"'
+    view_sql = pgsql.SQL("CREATE OR REPLACE VIEW {}.{} AS SELECT * FROM {}.{}").format(
+        pgsql.Identifier(RAW_SCHEMA),
+        pgsql.Identifier(view_name),
+        pgsql.Identifier(RAW_SCHEMA),
+        pgsql.Identifier(dated_table),
+    )
     with conn.cursor() as cur:
         cur.execute(view_sql)
     conn.commit()
@@ -126,6 +145,10 @@ def drop_raw_table(conn, table_name: str, extract_date: date, company_name: str 
     """Drop a company- and date-stamped raw table (for re-runs)."""
     prefix = f"{company_name}_" if company_name else ""
     raw_table = f"{prefix}{table_name}_{extract_date.strftime('%Y%m%d')}"
+    drop_sql = pgsql.SQL("DROP TABLE IF EXISTS {}.{} CASCADE").format(
+        pgsql.Identifier(RAW_SCHEMA),
+        pgsql.Identifier(raw_table),
+    )
     with conn.cursor() as cur:
-        cur.execute(f'DROP TABLE IF EXISTS {RAW_SCHEMA}."{raw_table}" CASCADE')
+        cur.execute(drop_sql)
     conn.commit()

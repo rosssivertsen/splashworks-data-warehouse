@@ -58,3 +58,28 @@ def test_empty_rejected():
 def test_none_rejected():
     result = validate_sql(None)
     assert result is not None
+
+
+def test_dollar_quoting_rejected():
+    result = validate_sql("SELECT * FROM t WHERE x = $$DROP TABLE t$$")
+    assert result is not None
+    assert "Dollar-quoted" in result
+
+
+def test_escaped_quotes_handled():
+    sql = "SELECT * FROM t WHERE name = 'it''s a test'"
+    assert validate_sql(sql) is None
+
+
+def test_escaped_quotes_in_string_are_safe():
+    # In Postgres, 'test'' DROP TABLE t; --' is a single string literal
+    # containing: test' DROP TABLE t; --
+    # The DROP is inside the string, not executable SQL
+    sql = "SELECT * FROM t WHERE name = 'test''; DROP TABLE t; --'"
+    assert validate_sql(sql) is None
+
+
+def test_real_escaped_quote_injection_rejected():
+    # Actual injection: string ends, then DROP outside quotes
+    result = validate_sql("SELECT * FROM t WHERE name = 'test'; DROP TABLE t; --")
+    assert result is not None

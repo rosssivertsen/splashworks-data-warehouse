@@ -30,6 +30,18 @@ class TestRepairGroupBy:
         result = repair_group_by(sql, error)
         assert result is None
 
+    def test_rejects_unsafe_column_name(self):
+        sql = "SELECT a FROM t GROUP BY a ORDER BY b"
+        error = 'column "a); DROP TABLE t; --" must appear in the GROUP BY clause'
+        result = repair_group_by(sql, error)
+        assert result is None
+
+    def test_rejects_column_with_spaces(self):
+        sql = "SELECT a FROM t GROUP BY a ORDER BY b"
+        error = 'column "some column" must appear in the GROUP BY clause'
+        result = repair_group_by(sql, error)
+        assert result is None
+
 
 class TestRepairTypeMismatch:
     def test_casts_service_date_to_date_key(self):

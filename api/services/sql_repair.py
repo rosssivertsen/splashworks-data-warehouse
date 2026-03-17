@@ -10,6 +10,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Only allow safe column identifiers: lowercase letters, digits, dots, underscores
+SAFE_IDENTIFIER = re.compile(r'^[a-z][a-z0-9_.]*$')
+
 
 def repair_group_by(sql: str, error_msg: str) -> str | None:
     """Fix 'column X must appear in the GROUP BY clause' errors.
@@ -26,6 +29,11 @@ def repair_group_by(sql: str, error_msg: str) -> str | None:
         return None
 
     missing_col = match.group(1)
+
+    # Reject anything that doesn't look like a safe column identifier
+    if not SAFE_IDENTIFIER.match(missing_col):
+        logger.warning("SQL repair (GROUP BY): rejected unsafe column name '%s'", missing_col)
+        return None
 
     group_by_match = re.search(r'(GROUP\s+BY\s+)(.*?)(?=\s+(?:ORDER|HAVING|LIMIT|OFFSET|$|\)))',
                                 sql, re.IGNORECASE | re.DOTALL)
