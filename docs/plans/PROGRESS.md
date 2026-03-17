@@ -9,10 +9,10 @@
 
 ## Current Status
 
-**Phase:** Phase 1 + Semantic Enrichment + UI Refinements + AI Query Intelligence COMPLETE. All deployed.
-**Status:** 6 Docker services, Cloudflare Access, 73 frontend + 62 API unit + 16 E2E tests.
+**Phase:** Phase 1 + Semantic Enrichment + UI Refinements + AI Query Intelligence + IN-4 COMPLETE. All deployed.
+**Status:** 6 Docker services, Cloudflare Access, 73 frontend + 66 API unit + 16 E2E tests.
 **Streams:** Data Layer (DL), AI Query (AQ), Enterprise Info Architecture (EIA), Dashboard (DA), Infrastructure (IN)
-**Next:** EIA-1/EIA-2 (agent-ready docs), DL-3 (rpt_service_history), DL-4 (rpt_payment_summary)
+**Next:** EIA-1/EIA-2 (agent-ready docs), DL-5 (rpt_profitability)
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase)
 
 ---
@@ -118,6 +118,12 @@
 | DL-2 | rpt_customer_360 — denormalized customer + service stats + payments + LTV | DONE |
 | DL-3 | rpt_service_history — denormalized service visits with names + addresses (69,186 rows) | DONE |
 | DL-4 | rpt_payment_summary — denormalized payments with customer names + invoice details (12,247 rows) | DONE |
+
+## Infrastructure
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| IN-4 | query_audit_log — Postgres audit trail for all /api/query and /api/query/raw requests | DONE |
 
 ## Enterprise Information Architecture (v1.0 — 2026-03-14)
 
