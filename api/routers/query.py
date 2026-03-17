@@ -30,8 +30,8 @@ def _client_ip(request: Request) -> str | None:
 
 
 def _cf_email(request: Request) -> str | None:
-    """Extract Cloudflare Access authenticated user email."""
-    return request.headers.get("cf-access-authenticated-user-email")
+    """Extract Cloudflare Access authenticated user email from validated JWT."""
+    return getattr(request.state, "cf_user_email", None)
 
 
 def _elapsed_ms(start: float) -> int:
