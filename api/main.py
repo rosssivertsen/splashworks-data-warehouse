@@ -40,10 +40,14 @@ app.add_middleware(
 # Cloudflare Access JWT validation (registered after CORS in source order,
 # which means it executes BEFORE CORS on the request path — Starlette reverses order).
 # OPTIONS bypass in the middleware handles CORS preflight.
+# fail_closed=True in Docker (production/staging) — rejects all requests if auth is misconfigured.
+# fail_closed=False locally — allows development without Cloudflare credentials.
+_in_docker = os.path.exists("/.dockerenv")
 app.add_middleware(
     CloudflareAccessMiddleware,
     aud=CF_ACCESS_AUD,
     team_domain=CF_ACCESS_TEAM_DOMAIN,
+    fail_closed=_in_docker,
 )
 
 app.include_router(health.router)

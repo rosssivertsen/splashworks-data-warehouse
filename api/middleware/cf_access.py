@@ -45,10 +45,13 @@ def _get_jwks(team_domain: str) -> list[dict] | None:
     if _jwks_cache["keys"] and (now - _jwks_cache["fetched_at"]) < _JWKS_TTL:
         return _jwks_cache["keys"]
 
-    # Slow path: try to refresh (only one thread at a time)
-    acquired = _jwks_lock.acquire(blocking=False)
+    # Slow path: refresh keys
+    # On cold start (no cache), block and wait so we don't 503 concurrent requests.
+    # On warm refresh (stale cache exists), non-blocking — others use stale cache.
+    is_cold_start = _jwks_cache["keys"] is None
+    acquired = _jwks_lock.acquire(blocking=is_cold_start)
     if not acquired:
-        # Another thread is refreshing; use stale cache if available
+        # Another thread is refreshing; use stale cache
         return _jwks_cache["keys"]
 
     try:
@@ -72,15 +75,22 @@ def _get_jwks(team_domain: str) -> list[dict] | None:
 class CloudflareAccessMiddleware:
     """Starlette middleware for Cloudflare Access JWT validation."""
 
-    def __init__(self, app, aud: str = "", team_domain: str = ""):
+    def __init__(self, app, aud: str = "", team_domain: str = "", fail_closed: bool = False):
         self.app = app
         self.aud = aud
         self.team_domain = team_domain
         self.enabled = bool(aud and team_domain)
+        self.fail_closed = fail_closed
         if not self.enabled:
-            logger.warning(
-                "CF Access middleware DISABLED — CF_ACCESS_AUD or CF_ACCESS_TEAM_DOMAIN not set"
-            )
+            if self.fail_closed:
+                logger.error(
+                    "CF Access middleware FAIL-CLOSED — CF_ACCESS_AUD or CF_ACCESS_TEAM_DOMAIN not set. "
+                    "All non-exempt requests will be rejected."
+                )
+            else:
+                logger.warning(
+                    "CF Access middleware DISABLED — CF_ACCESS_AUD or CF_ACCESS_TEAM_DOMAIN not set"
+                )
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -95,8 +105,19 @@ class CloudflareAccessMiddleware:
         # Always set default
         request.state.cf_user_email = None
 
-        # Disabled mode: passthrough
+        # Disabled mode: passthrough (local dev) or fail-closed (production misconfig)
         if not self.enabled:
+            if self.fail_closed:
+                # Exempt health even when fail-closed
+                if request.url.path == "/api/health" or request.method == "OPTIONS":
+                    await self.app(scope, receive, send)
+                    return
+                resp = JSONResponse(
+                    status_code=503,
+                    content={"detail": "Authentication not configured"},
+                )
+                await resp(scope, receive, send)
+                return
             await self.app(scope, receive, send)
             return
 
