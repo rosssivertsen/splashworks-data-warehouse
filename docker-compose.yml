@@ -29,6 +29,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       STATEMENT_TIMEOUT: "30s"
       ROW_LIMIT: "10000"
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:-}
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
