@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
+from api.config import CF_ACCESS_AUD, CF_ACCESS_TEAM_DOMAIN
+from api.middleware.cf_access import CloudflareAccessMiddleware
 from api.rate_limit import limiter
 from api.routers import health, query, schema
 
@@ -33,6 +35,15 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
+)
+
+# Cloudflare Access JWT validation (registered after CORS in source order,
+# which means it executes BEFORE CORS on the request path — Starlette reverses order).
+# OPTIONS bypass in the middleware handles CORS preflight.
+app.add_middleware(
+    CloudflareAccessMiddleware,
+    aud=CF_ACCESS_AUD,
+    team_domain=CF_ACCESS_TEAM_DOMAIN,
 )
 
 app.include_router(health.router)
