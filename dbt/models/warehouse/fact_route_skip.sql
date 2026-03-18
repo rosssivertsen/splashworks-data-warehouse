@@ -1,3 +1,8 @@
+{{ config(
+    materialized='incremental',
+    unique_key=['skip_id', 'skip_type', '_company_name']
+) }}
+
 -- Combines two skip sources:
 -- 1. RouteStop.IsSkipped = 1 (day-of skips with reasons: gate locked, weather, etc.)
 -- 2. RouteSkip (pre-planned schedule skips: vacations, seasonal closures)

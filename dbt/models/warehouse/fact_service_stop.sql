@@ -1,3 +1,8 @@
+{{ config(
+    materialized='incremental',
+    unique_key=['route_stop_id', 'service_stop_id', '_company_name']
+) }}
+
 select
     rs._company_name,
     rs.company_id,
@@ -18,6 +23,8 @@ select
 from {{ ref('stg_route_stop') }} rs
 left join {{ ref('stg_service_stop') }} ss
     on rs.route_stop_id = ss.route_stop_id
+    and rs._company_name = ss._company_name
     and rs.service_date = ss.service_date
 left join {{ ref('stg_service_location') }} sl
     on rs.service_location_id = sl.service_location_id
+    and rs._company_name = sl._company_name

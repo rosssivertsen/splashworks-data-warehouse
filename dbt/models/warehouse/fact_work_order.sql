@@ -1,3 +1,8 @@
+{{ config(
+    materialized='incremental',
+    unique_key=['work_order_id', '_company_name']
+) }}
+
 select
     wo.company_id,
     wo._company_name,
@@ -16,3 +21,4 @@ select
 from {{ ref('stg_work_order') }} wo
 left join {{ ref('stg_service_location') }} sl
     on wo.service_location_id = sl.service_location_id
+    and wo._company_name = sl._company_name

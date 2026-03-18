@@ -1,3 +1,8 @@
+{{ config(
+    materialized='incremental',
+    unique_key=['invoice_item_id', '_company_name']
+) }}
+
 select
     ii._company_name,
     ii.invoice_item_id,

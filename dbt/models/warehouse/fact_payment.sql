@@ -1,3 +1,8 @@
+{{ config(
+    materialized='incremental',
+    unique_key=['payment_id', '_company_name']
+) }}
+
 select
     p._company_name,
     p.company_id,
@@ -10,3 +15,4 @@ select
 from {{ ref('stg_payment') }} p
 left join {{ ref('stg_invoice') }} i
     on p.invoice_id = i.invoice_id
+    and p._company_name = i._company_name

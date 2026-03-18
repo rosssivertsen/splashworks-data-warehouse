@@ -1,3 +1,8 @@
+{{ config(
+    materialized='incremental',
+    unique_key=['route_move_id', '_company_name']
+) }}
+
 select
     rm._company_name,
     rm.route_move_id,
