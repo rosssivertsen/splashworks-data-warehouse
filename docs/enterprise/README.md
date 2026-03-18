@@ -127,9 +127,14 @@ Write it so a non-technical stakeholder can understand it without further contex
 | Contact | [glossary/contact.md](glossary/contact.md) | A person associated with a customer account |
 | Service Location | [glossary/service-location.md](glossary/service-location.md) | A physical address where pool service is performed |
 | Pool | [glossary/pool.md](glossary/pool.md) | A body of water at a service location that receives maintenance |
+| Work Order | [glossary/work-order.md](glossary/work-order.md) | A repair, maintenance, or one-time service request at a service location |
+| Invoice | [glossary/invoice.md](glossary/invoice.md) | A billing document aggregating charges from service stops and work orders |
+| Payment | [glossary/payment.md](glossary/payment.md) | A financial transaction recording money received against an invoice |
+| Product | [glossary/product.md](glossary/product.md) | A chemical, part, or equipment item used or sold during pool service |
 
 ## Version History
 
 | Version | Date | Change |
 |---------|------|--------|
-| v1.0 | 2026-03-14 | Initial glossary -- 4 customer-centric entities, 4 systems |
+| v1.0 | 2026-03-14 | Initial glossary — 4 customer-centric entities, 4 systems |
+| v1.1 | 2026-03-18 | Added Work Order, Invoice, Payment, Product entities (EIA-3 + EIA-4 scope) |

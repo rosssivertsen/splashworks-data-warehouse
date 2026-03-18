@@ -1,0 +1,29 @@
+# Ripple RAG Corpus Manifest
+# Controls which files get chunked, embedded, and indexed into pgvector.
+# Run: python -m ripple.cli.index_docs
+
+sources:
+  # EIA glossary entities
+  - docs/enterprise/glossary/customer.md
+  - docs/enterprise/glossary/contact.md
+  - docs/enterprise/glossary/service-location.md
+  - docs/enterprise/glossary/pool.md
+  - docs/enterprise/glossary/work-order.md
+  - docs/enterprise/glossary/invoice.md
+  - docs/enterprise/glossary/payment.md
+  - docs/enterprise/glossary/product.md
+
+  # EIA standards & references
+  - docs/enterprise/standards/naming-conventions.md
+  - docs/enterprise/system-landscape.md
+  - docs/enterprise/references/qbo-accounting-api.md
+  - docs/enterprise/references/qbo-payments-api.md
+
+  # Data warehouse documentation
+  - docs/skimmer-semantic-layer.yaml
+  - docs/DATA_DICTIONARY.md
+  - docs/ERD.md
+
+  # Ripple-specific corpus (inbox for new RAG-only docs)
+  - docs/ripple/corpus/**/*.md
+  - docs/ripple/corpus/**/*.yaml

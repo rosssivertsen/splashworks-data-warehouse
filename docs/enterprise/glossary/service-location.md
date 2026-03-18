@@ -84,6 +84,8 @@ Data Warehouse
 
 - [Customer](customer.md) — many:1 (each service location belongs to one customer)
 - [Pool](pool.md) — 1:many (each service location can have multiple pools)
+- [Work Order](work-order.md) — 1:many (work orders are performed at a service location)
+- [Invoice](invoice.md) — many:many via InvoiceLocation (a location's charges appear on invoices)
 
 ## Change Log
 
