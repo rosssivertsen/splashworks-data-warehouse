@@ -4,16 +4,16 @@
 
 sources:
   # EIA glossary entities
-  - docs/enterprise/customer.md
-  - docs/enterprise/contact.md
-  - docs/enterprise/service-location.md
-  - docs/enterprise/pool.md
+  - docs/enterprise/glossary/customer.md
+  - docs/enterprise/glossary/contact.md
+  - docs/enterprise/glossary/service-location.md
+  - docs/enterprise/glossary/pool.md
 
   # EIA standards & references
-  - docs/enterprise/naming-conventions.md
+  - docs/enterprise/standards/naming-conventions.md
   - docs/enterprise/system-landscape.md
-  - docs/enterprise/qbo-accounting-api.md
-  - docs/enterprise/qbo-payments-api.md
+  - docs/enterprise/references/qbo-accounting-api.md
+  - docs/enterprise/references/qbo-payments-api.md
 
   # Data warehouse documentation
   - docs/skimmer-semantic-layer.yaml
