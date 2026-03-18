@@ -3,7 +3,7 @@
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
 **Backlog:** [BACKLOG.md](./BACKLOG.md)
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-03-18
 
 ---
 
@@ -12,7 +12,7 @@
 **Phase:** Phase 1 + Semantic Enrichment + UI Refinements + AI Query Intelligence + IN-4 COMPLETE. All deployed.
 **Status:** 6 Docker services, Cloudflare Access, 73 frontend + 66 API unit + 16 E2E tests.
 **Streams:** Data Layer (DL), AI Query (AQ), Enterprise Info Architecture (EIA), Dashboard (DA), Infrastructure (IN)
-**Next:** EIA-1/EIA-2 (agent-ready docs), DL-5 (rpt_profitability)
+**Next:** DL-5 (rpt_profitability), ETL-4 (equipment tables), EIA-1/EIA-2 (agent-ready docs)
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase)
 
 ---
@@ -119,6 +119,25 @@
 | DL-3 | rpt_service_history — denormalized service visits with names + addresses (69,186 rows) | DONE |
 | DL-4 | rpt_payment_summary — denormalized payments with customer names + invoice details (12,247 rows) | DONE |
 
+## Data Layer — New Fact Tables (2026-03-18)
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| DL-10 | fact_invoice_item — line-item grain, product mix analysis, all invoice statuses (16,517 rows) | DONE |
+| DL-11 | fact_route_skip — unified day-of + pre-planned skips with reasons (806 rows) | DONE |
+| DL-12 | fact_route_move — schedule changes with move_type classification (3,510 rows) | DONE |
+| — | stg_route_skip, stg_skipped_stop_reason, stg_route_move staging models | DONE |
+| — | stg_route_stop enhanced — added is_skipped, skipped_stop_reason_id, route_assignment_id, route_move_id | DONE |
+| — | _sources.yml — added RouteSkip, RouteMove, SkippedStopReason (both companies) | DONE |
+
+## ETL — Historical Accumulation (2026-03-18)
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| ETL-1 | All 10 fact tables switched to `incremental` materialization with unique dedup keys | DONE |
+| — | Fixed missing `_company_name` on cross-table joins in 6 fact tables (pre-existing bug) | DONE |
+| — | Added `service_stop_entry_id` to fact_dosage, fact_dosage_gallons, fact_work_order_dosage | DONE |
+
 ## Infrastructure
 
 | Step | Deliverable | Status |
@@ -141,6 +160,8 @@
 
 ## Key Findings
 
+- **ETL loads ALL 44 tables** — RouteSkip, RouteMove, SkippedStopReason were already in raw Postgres
+- **`dbt run --full-refresh` on facts destroys accumulated history** — nightly cron uses plain `dbt run` (safe)
 - **44 tables per database** (not 30 as documented — 14 additional tables in nightly extracts)
 - **712K total rows:** AQPS 189,873 + JOMO 522,394 across 44 tables each
 - **Column name case sensitivity:** SQLite `SubTotal` → Postgres `Subtotal`
