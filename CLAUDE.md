@@ -35,6 +35,26 @@ cd dbt && dbt run --select staging      # Run staging models only
 etl/scripts/nightly-pipeline.sh         # Full pipeline: sync → ETL → dbt → health (VPS cron)
 ```
 
+## Branch Strategy
+
+**One branch per work stream. Never commit cross-stream changes to the same branch.**
+
+| Stream | Branch Pattern | Scope |
+|--------|---------------|-------|
+| Data Layer / ETL | `feature/dl-*` or `feature/etl-*` | dbt models, ETL pipeline, warehouse schema |
+| Ripple | `feature/ripple-*` | Ripple chat agent, corpus, RAG pipeline |
+| AI Query | `feature/aq-*` | Query intelligence, SQL repair, system prompt |
+| UI / Dashboard | `feature/da-*` | React frontend, dashboard features |
+| Infrastructure | `feature/in-*` | VPS, Docker, security, networking |
+
+**At session start:** Always check the current branch. If the user states a stream (e.g., "let's work on Ripple"), switch to or create the appropriate branch off `main`. Never reuse another stream's branch.
+
+**Shared docs (BACKLOG.md, PROGRESS.md):** Each branch updates these for its own stream. Merge conflicts are expected and straightforward to resolve.
+
+**VPS deployment:** The VPS tracks `main` for production. Feature branches can be deployed for testing but must be merged to `main` via PR before the nightly cron runs against them.
+
+**CRITICAL:** `dbt run --full-refresh` on fact tables destroys accumulated history. The nightly cron uses plain `dbt run` (safe). Only use `--full-refresh` when intentionally resetting a fact table's schema.
+
 ## Architecture
 
 - **Frontend:** React + TypeScript SPA (`src/`), served via Nginx in Docker
