@@ -8,6 +8,10 @@ sources:
   - docs/enterprise/glossary/contact.md
   - docs/enterprise/glossary/service-location.md
   - docs/enterprise/glossary/pool.md
+  - docs/enterprise/glossary/work-order.md
+  - docs/enterprise/glossary/invoice.md
+  - docs/enterprise/glossary/payment.md
+  - docs/enterprise/glossary/product.md
 
   # EIA standards & references
   - docs/enterprise/standards/naming-conventions.md

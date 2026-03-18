@@ -81,6 +81,7 @@ Data Warehouse
 
 - [Service Location](service-location.md) — many:1 (each pool belongs to one service location)
 - [Customer](customer.md) — indirect via Service Location (Pool → Service Location → Customer)
+- [Product](product.md) — 1:many for equipment (equipment items are installed at specific pools)
 
 ## Change Log
 

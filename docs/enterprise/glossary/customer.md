@@ -99,6 +99,8 @@ Data Warehouse
 - [Service Location](service-location.md) — 1:many (a customer can have multiple service addresses)
 - [Contact](contact.md) — logical concept embedded in Customer across most systems
 - [Pool](pool.md) — indirect via Service Location (Customer → Service Location → Pool)
+- [Invoice](invoice.md) — 1:many (a customer receives invoices for service)
+- [Payment](payment.md) — 1:many (a customer makes payments against invoices)
 
 ## Change Log
 
