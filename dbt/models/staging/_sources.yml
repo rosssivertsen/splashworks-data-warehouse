@@ -24,6 +24,9 @@ sources:
       - name: AQPS_Payment
       - name: AQPS_CustomerTag
       - name: AQPS_Tag
+      - name: AQPS_RouteSkip
+      - name: AQPS_RouteMove
+      - name: AQPS_SkippedStopReason
       # --- JOMO ---
       - name: JOMO_Customer
       - name: JOMO_ServiceLocation
@@ -43,3 +46,6 @@ sources:
       - name: JOMO_Payment
       - name: JOMO_CustomerTag
       - name: JOMO_Tag
+      - name: JOMO_RouteSkip
+      - name: JOMO_RouteMove
+      - name: JOMO_SkippedStopReason
