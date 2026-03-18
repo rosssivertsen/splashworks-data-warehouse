@@ -74,5 +74,33 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  ripple-api:
+    build:
+      context: .
+      dockerfile: ripple/api/Dockerfile
+    container_name: splashworks-ripple-api
+    environment:
+      DATABASE_URL: postgresql://splashworks:${DB_PASSWORD}@postgres:5432/splashworks
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CORS_ORIGINS: https://ripple.splshwrks.com
+    ports:
+      - "127.0.0.1:8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ripple-frontend:
+    build:
+      context: .
+      dockerfile: ripple/frontend/Dockerfile
+    container_name: splashworks-ripple-frontend
+    ports:
+      - "127.0.0.1:3003:80"
+    depends_on:
+      - ripple-api
+    restart: unless-stopped
+
 volumes:
   pg_data:
