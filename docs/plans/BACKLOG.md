@@ -34,9 +34,9 @@
 
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
-| ETL-1 | **Incremental fact accumulation** — switch dbt fact tables to `incremental` materialization with dedup keys | dbt + ETL | M | Facts only (not dims). Dedup on `(primary_key, _company_name)`. Prevents data loss when records age out of Skimmer's 6-month rolling window. |
-| ETL-2 | **Load RouteSkip + SkippedStopReason** — add to ETL raw sources | ETL | S | New raw tables needed for fact_route_skip |
-| ETL-3 | **Load RouteMove** — add to ETL raw sources | ETL | S | New raw table needed for fact_route_move |
+| ~~ETL-1~~ | ~~**Incremental fact accumulation** — switch dbt fact tables to `incremental` materialization with dedup keys~~ | ~~dbt + ETL~~ | ~~M~~ | ~~DONE 2026-03-18. All 10 facts incremental. Also fixed missing `_company_name` joins + added `service_stop_entry_id` to dosage facts.~~ |
+| ~~ETL-2~~ | ~~**Load RouteSkip + SkippedStopReason** — add to ETL raw sources~~ | ~~ETL~~ | ~~S~~ | ~~DONE 2026-03-18. Already in raw (ETL loads all 44 tables). Added dbt sources + staging models.~~ |
+| ~~ETL-3~~ | ~~**Load RouteMove** — add to ETL raw sources~~ | ~~ETL~~ | ~~S~~ | ~~DONE 2026-03-18. Same — already in raw. Added dbt source + staging model.~~ |
 | ETL-4 | **Load Equipment tables** — EquipmentItem, InstalledItem, PartCategory, PartMake, PartModel | ETL | S | New raw tables needed for DL-6 (dim_equipment) |
 
 ### Data Layer — Warehouse Models
@@ -50,9 +50,9 @@
 | DL-5 | `rpt_profitability` — profitability with customer names (no IDs) | dbt model | S | Metabase-friendly wrapper around semantic_profit |
 | DL-6 | `dim_equipment` — equipment/parts per service location | dbt model | M | Depends on ETL-4. Zero coverage currently. |
 | DL-7 | Metabase schema cleanup — hide raw/staging/IDs, rename columns | Config | S | Admin > Table Metadata; no code changes |
-| DL-10 | `fact_invoice_item` — line-item revenue analysis, product mix, cross-sell | dbt model | S | Staging model already exists (`stg_invoice_item`). Quick win. |
-| DL-11 | `fact_route_skip` — skipped service tracking with reasons, revenue leakage | dbt model | S | Depends on ETL-2. Skip rate by customer/tech/day. |
-| DL-12 | `fact_route_move` — schedule disruption tracking, tech reassignment patterns | dbt model | S | Depends on ETL-3. |
+| ~~DL-10~~ | ~~`fact_invoice_item` — line-item revenue analysis, product mix, cross-sell~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 16,517 rows.~~ |
+| ~~DL-11~~ | ~~`fact_route_skip` — skipped service tracking with reasons, revenue leakage~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 806 rows (day-of + pre-planned).~~ |
+| ~~DL-12~~ | ~~`fact_route_move` — schedule disruption tracking, tech reassignment patterns~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 3,510 rows.~~ |
 | DL-13 | `fact_equipment_install` — equipment lifecycle, replacement cycles, parts spend | dbt model | M | Depends on ETL-4 + DL-6. |
 
 ### App — AI Query Intelligence (The Moat)
