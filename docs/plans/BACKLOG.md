@@ -38,6 +38,10 @@
 | ~~ETL-2~~ | ~~**Load RouteSkip + SkippedStopReason** — add to ETL raw sources~~ | ~~ETL~~ | ~~S~~ | ~~DONE 2026-03-18. Already in raw (ETL loads all 44 tables). Added dbt sources + staging models.~~ |
 | ~~ETL-3~~ | ~~**Load RouteMove** — add to ETL raw sources~~ | ~~ETL~~ | ~~S~~ | ~~DONE 2026-03-18. Same — already in raw. Added dbt source + staging model.~~ |
 | ETL-4 | **Load Equipment tables** — EquipmentItem, InstalledItem, PartCategory, PartMake, PartModel | ETL | S | New raw tables needed for DL-6 (dim_equipment) |
+| ETL-5 | **Nightly reconciliation check** — compare raw vs warehouse counts/totals, JSON report, pass/fail in pipeline | ETL | S | Phase 1 of source traceability. Runs after dbt in nightly-pipeline.sh. |
+| ETL-6 | **Add `_loaded_at` + `_extract_date` to fact tables** — row-level provenance for incremental facts | ETL | S | Phase 2 of source traceability. Enables "when did this row enter the warehouse?" |
+| ETL-7 | **Row-level trace CLI** — given a Skimmer ID, trace it through raw → staging → warehouse → semantic | ETL | M | Phase 2 of source traceability. `./cli/trace-record.sh payment abc123 AQPS` |
+| ETL-8 | **`rpt_reconciliation` dbt model** — point-in-time snapshots of source vs warehouse totals with variance | dbt model | S | Phase 3 of source traceability. Auditable trail for compliance. |
 
 ### Data Layer — Warehouse Models
 
