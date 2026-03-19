@@ -204,9 +204,12 @@ def compare_results(
         if raw_val == 0 and wh_val == 0:
             continue
 
+        # Float precision tolerance: differences < 0.01 (1 cent) are rounding artifacts
+        float_epsilon = 0.01
+
         if direction == "warehouse_gte_raw":
             # Warehouse should be >= raw (accumulated history)
-            if wh_val < raw_val:
+            if wh_val < raw_val and abs(raw_val - wh_val) > float_epsilon:
                 diff_pct = abs(raw_val - wh_val) / max(raw_val, 1) * 100
                 issues.append(
                     f"{company}: warehouse ({wh_val}) < raw ({raw_val}), "
