@@ -1,3 +1,12 @@
+---
+entity: product
+type: glossary
+system_of_record: skimmer
+systems: [skimmer, qbo, warehouse]
+warehouse_tables: [fact_dosage, fact_invoice_item]
+related: [invoice, work-order]
+---
+
 # Product
 
 ## Definition

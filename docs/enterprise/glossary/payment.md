@@ -1,3 +1,12 @@
+---
+entity: payment
+type: glossary
+system_of_record: qbo
+systems: [skimmer, qbo, warehouse]
+warehouse_tables: [fact_payment, rpt_payment_summary]
+related: [customer, invoice]
+---
+
 # Payment
 
 ## Definition

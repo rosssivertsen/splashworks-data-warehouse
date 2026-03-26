@@ -1,3 +1,12 @@
+---
+entity: contact
+type: glossary
+system_of_record: zoho_crm
+systems: [skimmer, zoho_crm]
+warehouse_tables: []
+related: [customer]
+---
+
 # Contact
 
 ## Definition

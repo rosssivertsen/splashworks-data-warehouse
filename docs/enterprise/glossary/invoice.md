@@ -1,3 +1,12 @@
+---
+entity: invoice
+type: glossary
+system_of_record: qbo
+systems: [skimmer, qbo, warehouse]
+warehouse_tables: [fact_invoice, fact_invoice_item]
+related: [customer, payment, work-order, product]
+---
+
 # Invoice
 
 ## Definition

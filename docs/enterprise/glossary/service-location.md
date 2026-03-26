@@ -1,3 +1,12 @@
+---
+entity: service-location
+type: glossary
+system_of_record: skimmer
+systems: [skimmer, warehouse]
+warehouse_tables: [dim_service_location]
+related: [customer, pool, work-order]
+---
+
 # Service Location
 
 ## Definition
