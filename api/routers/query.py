@@ -20,7 +20,14 @@ router = APIRouter()
 
 
 def _client_ip(request: Request) -> str | None:
-    """Extract client IP from X-Forwarded-For header or connection info."""
+    """Extract client IP, preferring Cloudflare's verified header.
+
+    CF-Connecting-IP is set by Cloudflare's edge and cannot be spoofed by clients.
+    X-Forwarded-For is client-supplied and unreliable for attribution.
+    """
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip:
+        return cf_ip.strip()
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()

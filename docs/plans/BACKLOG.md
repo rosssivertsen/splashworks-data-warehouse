@@ -93,8 +93,10 @@
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
 | IN-1 | Cloudflare WARP for Power BI remote access | Config | M | VA in Manila needs Power BI connectivity |
-| IN-2 | Read-only Postgres user for Metabase | Config | S | `metabase_ro` with SELECT-only on warehouse/semantic |
+| IN-2 | Read-only Postgres users for Metabase + Ripple | Config | S | `metabase_ro` (SELECT on warehouse/semantic), `ripple_rw` (SELECT/INSERT on ripple schema only). Consolidates Metabase + Ripple privilege separation. |
 | IN-3 | Deploy UI refinements to VPS (UI.11) | Deploy | S | Number formatting, date handling, starter prompts |
+| IN-7 | **Ripple CF Access auth middleware** — add CloudflareAccessMiddleware to Ripple API, forward JWT in Ripple Nginx | Security | S | High priority. /api/chat triggers LLM calls — must not be directly callable without auth. Same pattern as main API (IN-5/IN-6). |
+| IN-8 | **Use CF-Connecting-IP for audit logging** — replace X-Forwarded-For trust with Cloudflare's verified header | Security | S | X-Forwarded-For is client-spoofable. CF-Connecting-IP is set by Cloudflare edge, not forwardable. Affects query_audit_log attribution. |
 
 ---
 
