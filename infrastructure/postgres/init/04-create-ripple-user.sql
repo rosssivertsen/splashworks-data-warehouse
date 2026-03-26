@@ -16,5 +16,6 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ripple GRANT SELECT, INSERT, UPDATE, DELETE O
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ripple TO ripple_rw;
 ALTER DEFAULT PRIVILEGES IN SCHEMA ripple GRANT USAGE, SELECT ON SEQUENCES TO ripple_rw;
 
--- Ripple needs to create the vector extension (already exists but CREATE IF NOT EXISTS requires it)
+-- Ripple's ensure_schema() runs CREATE SCHEMA IF NOT EXISTS on startup
+GRANT CREATE ON DATABASE splashworks TO ripple_rw;
 GRANT USAGE ON SCHEMA public TO ripple_rw;
