@@ -6,11 +6,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
+from api.middleware.cf_access import CloudflareAccessMiddleware
 from ripple.api.db import ensure_schema, get_connection
 from ripple.api.models.schemas import ChatFeedback, ChatRequest, CorpusStatus
 from ripple.api.services.doc_retriever import generate_answer_stream, search_docs
 
 app = FastAPI(title="Ripple — Splashworks Knowledge Agent")
+
+# Cloudflare Access JWT validation (same middleware as main API)
+app.add_middleware(
+    CloudflareAccessMiddleware,
+    aud=os.environ.get("CF_ACCESS_AUD", ""),
+    team_domain=os.environ.get("CF_ACCESS_TEAM_DOMAIN", ""),
+)
 
 # CORS
 ALLOWED_ORIGINS = os.environ.get(

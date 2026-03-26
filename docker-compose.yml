@@ -80,10 +80,12 @@ services:
       dockerfile: ripple/api/Dockerfile
     container_name: splashworks-ripple-api
     environment:
-      DATABASE_URL: postgresql://splashworks:${DB_PASSWORD}@postgres:5432/splashworks
+      DATABASE_URL: postgresql://ripple_rw:${DB_RIPPLE_PASSWORD}@postgres:5432/splashworks
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       CORS_ORIGINS: https://ripple.splshwrks.com
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:-}
     ports:
       - "127.0.0.1:8082:8082"
     depends_on:
