@@ -32,7 +32,7 @@ cd dbt && dbt run --select staging      # Run staging models only
 
 # ETL
 ./cli/load-extract.sh                   # Load nightly extract from OneDrive (local)
-etl/scripts/nightly-pipeline.sh         # Full pipeline: sync → ETL → dbt → health (VPS cron)
+etl/scripts/nightly-pipeline.sh         # Full pipeline: sync → ETL → dbt → reconciliation → health (VPS cron)
 ```
 
 ## Branch Strategy
@@ -88,7 +88,7 @@ Nightly extract from Skimmer (pool service management SaaS), trailing 6-month pe
 | File | Purpose |
 |------|---------|
 | `docs/skimmer-semantic-layer.yaml` | Business terms, SQL patterns, join paths, verified queries |
-| `docs/DATA_DICTIONARY.md` | Full field-level documentation for all 30 tables |
+| `docs/DATA_DICTIONARY.md` | Full field-level documentation for all 44 tables |
 | `docs/ERD.md` + `.svg/.png` | Entity relationship diagrams |
 | `docs/plans/BACKLOG.md` | Prioritized backlog |
 | `docs/plans/PROGRESS.md` | Implementation progress tracker |

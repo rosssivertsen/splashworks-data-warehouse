@@ -3,17 +3,17 @@
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
 **Backlog:** [BACKLOG.md](./BACKLOG.md)
-**Last Updated:** 2026-03-18
+**Last Updated:** 2026-03-26
 
 ---
 
 ## Current Status
 
-**Phase:** Phase 1 + Semantic Enrichment + UI Refinements + AI Query Intelligence + IN-4 COMPLETE. All deployed.
-**Status:** 6 Docker services, Cloudflare Access, 73 frontend + 66 API unit + 16 E2E tests.
+**Phase:** Phase 1 + Semantic Enrichment + UI Refinements + AI Query Intelligence + IN-4 + ETL-5 COMPLETE. All deployed.
+**Status:** 8 Docker containers, Cloudflare Access, 73 frontend + 66 API unit + 16 E2E tests. Nightly ETL + reconciliation running.
 **Streams:** Data Layer (DL), AI Query (AQ), Enterprise Info Architecture (EIA), Dashboard (DA), Infrastructure (IN)
-**Next:** DL-5 (rpt_profitability), ETL-4 (equipment tables), EIA-1/EIA-2 (agent-ready docs)
-**Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase)
+**Next:** DL-5 (rpt_profitability), ETL-4 (equipment tables), ETL-6 (row provenance), EIA-1/EIA-2 (agent-ready docs)
+**Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase), ripple.splshwrks.com (Ripple)
 
 ---
 
@@ -138,11 +138,20 @@
 | — | Fixed missing `_company_name` on cross-table joins in 6 fact tables (pre-existing bug) | DONE |
 | — | Added `service_stop_entry_id` to fact_dosage, fact_dosage_gallons, fact_work_order_dosage | DONE |
 
+## ETL — Reconciliation & Traceability (2026-03-26)
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| ETL-5 | Nightly reconciliation checks — 6 raw-vs-warehouse checks (counts + amounts), JSON report, pass/fail in pipeline | DONE |
+| — | Float epsilon for amount comparisons (avoid false failures from floating point drift) | DONE |
+
 ## Infrastructure
 
 | Step | Deliverable | Status |
 |------|-------------|--------|
 | IN-4 | query_audit_log — Postgres audit trail for all /api/query and /api/query/raw requests | DONE |
+| IN-5 | Forward Cf-Access-Jwt-Assertion header through Nginx proxy to API container | DONE |
+| IN-6 | Health endpoint validates CF JWT when present (best-effort) — restores ETL stats in status bar | DONE |
 
 ## Enterprise Information Architecture (v1.0 — 2026-03-14)
 

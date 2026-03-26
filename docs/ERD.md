@@ -1,8 +1,9 @@
 # Skimmer Pool Service Database - Entity Relationship Diagram
 
-**Version**: 1.0  
-**Last Updated**: October 26, 2025  
+**Version**: 1.1
+**Last Updated**: March 26, 2026
 **Database Type**: SQLite
+**Tables**: 44 per company database
 
 ---
 
@@ -85,8 +86,19 @@ erDiagram
     TaxRate ||--o{ TaxGroupRate : "in"
     
     Tag ||--o{ CustomerTag : "tags"
-    
+    Tag ||--o{ QuoteTag : "tags"
+
     Product }o--|| ProductCategory : "categorized_as"
+
+    Customer ||--o{ Quote : "receives"
+    Quote ||--o{ QuoteLocation : "groups_by"
+    Quote ||--o{ QuoteAttachment : "attaches"
+    Quote ||--o{ QuoteTag : "tagged_with"
+    QuoteLocation ||--o{ QuoteItem : "contains"
+    QuoteLocation }o--|| ServiceLocation : "for"
+    QuoteLocation }o--|| TaxGroup : "taxed_by"
+    QuoteItem }o--o| Product : "sells"
+    QuoteItem }o--o| WorkOrderType : "type_is"
     
     Company {
         TEXT id PK
@@ -238,6 +250,48 @@ erDiagram
         TEXT PaymentType
         TEXT Status
         REAL Amount
+    }
+
+    Quote {
+        TEXT id PK
+        TEXT CompanyId FK
+        TEXT CustomerId FK
+        INTEGER QuoteNumber
+        DATETIME QuoteDate
+        TEXT Status
+        REAL Total
+        REAL Subtotal
+        REAL Margin
+    }
+
+    QuoteLocation {
+        TEXT id PK
+        TEXT QuoteId FK
+        TEXT ServiceLocationId FK
+        TEXT TaxGroupId FK
+    }
+
+    QuoteItem {
+        TEXT id PK
+        TEXT QuoteLocationId FK
+        TEXT Item
+        REAL Quantity
+        REAL Rate
+        REAL Cost
+        BOOLEAN IsTaxable
+    }
+
+    QuoteAttachment {
+        TEXT id PK
+        TEXT QuoteId FK
+        TEXT FileName
+        TEXT FileUrl
+    }
+
+    QuoteTag {
+        TEXT id PK
+        TEXT QuoteId FK
+        TEXT TagId FK
     }
 ```
 

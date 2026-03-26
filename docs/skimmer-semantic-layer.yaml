@@ -1,6 +1,6 @@
 # Splashworks Pool Service — Semantic Layer
 # Target: PostgreSQL warehouse (dbt-managed schemas)
-# Last updated: 2026-03-10
+# Last updated: 2026-03-26
 
 warehouse_schema:
   staging: public_staging
@@ -221,6 +221,38 @@ tables:
     description: "Work order facts — ad hoc maintenance tasks"
     key_columns: [work_order_id, service_location_id, tech_id, service_date, service_status, labor_cost, price]
     grain: "one row per work order"
+
+  fact_work_order_dosage:
+    schema: public_warehouse
+    description: "Chemical dosages applied during work orders"
+    key_columns: [service_stop_entry_id, work_order_id, _company_name, entry_description, dosage_cost, dosage_price]
+    grain: "one row per dosage entry per work order"
+
+  fact_dosage_gallons:
+    schema: public_warehouse
+    description: "Chemical dosages normalized by pool gallons for cross-pool comparison"
+    key_columns: [service_stop_entry_id, service_stop_id, _company_name, gallons, dosage_cost, dosage_price]
+    grain: "one row per dosage entry with pool gallon context"
+
+  fact_invoice_item:
+    schema: public_warehouse
+    description: "Invoice line items — product mix, revenue by item type, cross-sell analysis"
+    key_columns: [invoice_item_id, invoice_id, customer_id, _company_name, product_name, quantity, rate, amount, is_taxable]
+    grain: "one row per invoice line item"
+
+  fact_route_skip:
+    schema: public_warehouse
+    description: "Skipped service stops — day-of skips (tech skipped in field) and pre-planned skips (RouteSkip table). Includes skip reasons."
+    key_columns: [route_stop_id, route_assignment_id, _company_name, service_date, skip_type, skip_reason]
+    grain: "one row per skipped stop"
+    note: "skip_type: 'day_of' (IsSkipped on RouteStop) or 'pre_planned' (RouteSkip table). Skip reasons from SkippedStopReason lookup."
+
+  fact_route_move:
+    schema: public_warehouse
+    description: "Route schedule changes — temporary and permanent moves with move type classification"
+    key_columns: [route_move_id, route_assignment_id, _company_name, original_date, new_date, move_type]
+    grain: "one row per route move"
+    note: "move_type derived from move pattern: reschedule, bring-forward, delay, same-day, etc."
 
   semantic_profit:
     schema: public_semantic
@@ -507,8 +539,8 @@ data_gaps:
     skimmer_doc: "https://help.getskimmer.com/article/301-installed-items-report"
 
   - name: "Route Optimization"
-    description: "RouteMove, RouteSkip tables exist but not modeled beyond staging"
-    impact: "Cannot analyze route efficiency or skip reasons beyond basic assignment data"
+    description: "RouteMove and RouteSkip are modeled as fact_route_move (3,466 rows) and fact_route_skip (773 rows) in the warehouse layer. Skip reasons are tracked. Further route efficiency analysis (geographic density, drive time optimization) is blocked on geocoding."
+    impact: "Basic route skip/move analysis available. Advanced route optimization (density, drive time) requires geocoding integration."
 
   - name: "Product Categories"
     description: "Product table staged but not dimensionalized with categories"
@@ -517,6 +549,10 @@ data_gaps:
   - name: "LSI Calculation"
     description: "Langelier Saturation Index formula documented but not operationalized as a model"
     impact: "Cannot calculate water balance index from readings"
+
+  - name: "Quotes/Proposals"
+    description: "5 Quote tables (Quote, QuoteLocation, QuoteItem, QuoteAttachment, QuoteTag) in raw extracts but not staged or modeled. AQPS: 1,515 quotes, JOMO: 1,072 quotes."
+    impact: "Cannot answer questions about quote volume, win rates, proposal margins, or quote-to-job conversion"
 
 industry_metrics:
   route_production_per_tech:
