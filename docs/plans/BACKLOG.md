@@ -93,10 +93,10 @@
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
 | IN-1 | Cloudflare WARP for Power BI remote access | Config | M | VA in Manila needs Power BI connectivity |
-| IN-2 | Read-only Postgres users for Metabase + Ripple | Config | S | `metabase_ro` (SELECT on warehouse/semantic), `ripple_rw` (SELECT/INSERT on ripple schema only). Consolidates Metabase + Ripple privilege separation. |
+| ~~IN-2~~ | ~~Read-only Postgres users for Metabase + Ripple~~ | ~~Config~~ | ~~S~~ | ~~DONE 2026-03-26. `ripple_rw` + `metabase_ro` created. Ripple switched to restricted user.~~ |
 | IN-3 | Deploy UI refinements to VPS (UI.11) | Deploy | S | Number formatting, date handling, starter prompts |
-| IN-7 | **Ripple CF Access auth middleware** — add CloudflareAccessMiddleware to Ripple API, forward JWT in Ripple Nginx | Security | S | High priority. /api/chat triggers LLM calls — must not be directly callable without auth. Same pattern as main API (IN-5/IN-6). |
-| IN-8 | **Use CF-Connecting-IP for audit logging** — replace X-Forwarded-For trust with Cloudflare's verified header | Security | S | X-Forwarded-For is client-spoofable. CF-Connecting-IP is set by Cloudflare edge, not forwardable. Affects query_audit_log attribution. |
+| ~~IN-7~~ | ~~**Ripple CF Access auth middleware**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. CloudflareAccessMiddleware added, JWT forwarded in Nginx.~~ |
+| ~~IN-8~~ | ~~**Use CF-Connecting-IP for audit logging**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. Prefers CF-Connecting-IP over spoofable X-Forwarded-For.~~ |
 
 ---
 
@@ -181,6 +181,9 @@
 | ~~ETL-5~~ | Nightly reconciliation — 6 raw-vs-warehouse checks, JSON report | 2026-03-26 |
 | ~~IN-5~~ | Forward Cf-Access-Jwt-Assertion through Nginx to API | 2026-03-26 |
 | ~~IN-6~~ | Health endpoint best-effort JWT validation — restore ETL stats in status bar | 2026-03-26 |
+| ~~IN-7~~ | Ripple CF Access auth middleware — protect /api/chat LLM endpoint | 2026-03-26 |
+| ~~IN-8~~ | CF-Connecting-IP for unspoofable audit log IP attribution | 2026-03-26 |
+| ~~IN-2~~ | Restricted DB users — ripple_rw + metabase_ro privilege separation | 2026-03-26 |
 
 ---
 
