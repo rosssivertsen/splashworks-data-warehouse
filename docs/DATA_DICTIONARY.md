@@ -1,9 +1,10 @@
 # Skimmer Pool Service Database - Data Dictionary
 
-**Version**: 1.0  
-**Last Updated**: October 26, 2025  
-**Database Type**: SQLite  
+**Version**: 1.1
+**Last Updated**: March 26, 2026
+**Database Type**: SQLite
 **Purpose**: Pool service management, scheduling, billing, and operations tracking
+**Tables**: 44 per company database (AQPS, JOMO)
 
 ---
 
@@ -42,6 +43,12 @@
     - [Chemical](#chemical)
     - [EntryDescription](#entrydescription)
     - [EntryValue](#entryvalue)
+  - [Quotes \& Proposals](#quotes--proposals)
+    - [Quote](#quote)
+    - [QuoteLocation](#quotelocation)
+    - [QuoteItem](#quoteitem)
+    - [QuoteAttachment](#quoteattachment)
+    - [QuoteTag](#quotetag)
   - [System \& Configuration](#system--configuration)
     - [WorkOrderType](#workordertype)
     - [LocationWorkOrderType](#locationworkordertype)
@@ -1026,6 +1033,140 @@ ORDER BY total_amount DESC;
 | EntryDescriptionId | TEXT | Foreign Key to EntryDescription |
 | Value | FLOAT | Preset value |
 | CompanyId | TEXT | Foreign Key |
+
+---
+
+## Quotes & Proposals
+
+### Quote
+**Purpose**: Customer proposals for one-time or project work (repairs, renovations, equipment installs)
+
+| Column | Type | Description | Business Rules |
+|--------|------|-------------|----------------|
+| id | TEXT | Unique quote identifier | Primary Key |
+| CompanyId | TEXT | Company reference | Foreign Key to Company |
+| CustomerId | TEXT | Customer reference | Foreign Key to Customer |
+| CustomerDisplayName | TEXT | Denormalized customer name | For display |
+| CustomerAddress | TEXT | Denormalized billing address | |
+| CustomerCity | TEXT | Billing city | |
+| CustomerState | TEXT | Billing state | |
+| CustomerZip | TEXT | Billing zip | |
+| CustomerEmailAddresses | TEXT | Customer emails | For sending quotes |
+| QuoteNumber | INTEGER | Sequential quote number | Unique per company |
+| QuoteDate | DATETIME | Date quote was created | |
+| ExpirationDate | DATETIME | When quote expires | |
+| SentDate | DATETIME | When sent to customer | Null if not sent |
+| StatusDate | DATETIME | Last status change | |
+| Status | TEXT | Quote status | e.g., Draft, Sent, Accepted, Rejected |
+| Total | FLOAT | Quote total including tax | |
+| Subtotal | FLOAT | Quote subtotal before tax | |
+| TaxAmount | FLOAT | Tax amount | |
+| DiscountName | TEXT | Discount label | |
+| DiscountTotal | FLOAT | Total discount applied | |
+| FeeName | TEXT | Fee label | |
+| FeeTotal | FLOAT | Total fees applied | |
+| Margin | FLOAT | Profit margin | |
+| Message | TEXT | Customer-facing message | |
+| InternalNotes | TEXT | Internal notes | Not visible to customer |
+| RejectReason | TEXT | Why customer rejected | Populated on rejection |
+| Signature | TEXT | Customer signature data | |
+| IsArchived | BOOLEAN | Archive flag | |
+| DepositTotal | FLOAT | Required deposit amount | |
+| DepositStatus | TEXT | Deposit payment status | |
+| JobId | TEXT | Linked job/work order | |
+| CreatedAt | DATETIME | Record creation timestamp | |
+| UpdatedAt | DATETIME | Last modification timestamp | |
+| Deleted | BOOLEAN | Soft delete flag | |
+
+**Relationships**:
+- **Many:1** → Customer
+- **1:Many** → QuoteLocation (service locations on this quote)
+- **1:Many** → QuoteAttachment (photos, documents)
+- **Many:Many** → Tag (via QuoteTag)
+
+### QuoteLocation
+**Purpose**: Service location line grouping within a quote (quotes can span multiple locations)
+
+| Column | Type | Description | Business Rules |
+|--------|------|-------------|----------------|
+| id | TEXT | Unique identifier | Primary Key |
+| CompanyId | TEXT | Company reference | Foreign Key |
+| QuoteId | TEXT | Parent quote | Foreign Key to Quote |
+| ServiceLocationId | TEXT | Service location | Foreign Key to ServiceLocation |
+| ServiceLocationAddress | TEXT | Denormalized address | |
+| ServiceLocationCity | TEXT | Denormalized city | |
+| ServiceLocationState | TEXT | Denormalized state | |
+| ServiceLocationZip | TEXT | Denormalized zip | |
+| TaxGroupId | TEXT | Tax group reference | Foreign Key to TaxGroup |
+| ServiceLocationTaxGroupName | TEXT | Denormalized tax group | |
+| ServiceLocationTaxGroupRate | FLOAT | Denormalized tax rate | |
+| DiscountFlat | FLOAT | Location-level flat discount | |
+| DiscountPercent | FLOAT | Location-level % discount | |
+| FeeFlat | FLOAT | Location-level flat fee | |
+| FeePercent | FLOAT | Location-level % fee | |
+
+**Relationships**:
+- **Many:1** → Quote
+- **Many:1** → ServiceLocation
+- **1:Many** → QuoteItem (line items)
+
+### QuoteItem
+**Purpose**: Individual line items on a quote (products, labor, work order types)
+
+| Column | Type | Description | Business Rules |
+|--------|------|-------------|----------------|
+| id | TEXT | Unique identifier | Primary Key |
+| CompanyId | TEXT | Company reference | Foreign Key |
+| QuoteLocationId | TEXT | Parent location group | Foreign Key to QuoteLocation |
+| Sequence | INTEGER | Display order | |
+| Item | TEXT | Line item name | |
+| Description | TEXT | Line item description | |
+| Quantity | FLOAT | Quantity | |
+| Rate | FLOAT | Unit price | |
+| Cost | FLOAT | Unit cost | For margin calculation |
+| IsTaxable | BOOLEAN | Subject to tax | |
+| Source | TEXT | Origin type | |
+| ProductId | TEXT | Product reference | Foreign Key to Product (optional) |
+| WorkOrderTypeId | TEXT | Work order type | Foreign Key to WorkOrderType (optional) |
+
+**Relationships**:
+- **Many:1** → QuoteLocation
+- **Many:1** → Product (optional)
+- **Many:1** → WorkOrderType (optional)
+
+### QuoteAttachment
+**Purpose**: Files attached to quotes (photos, PDFs, documents)
+
+| Column | Type | Description | Business Rules |
+|--------|------|-------------|----------------|
+| id | TEXT | Unique identifier | Primary Key |
+| CompanyId | TEXT | Company reference | Foreign Key |
+| QuoteId | TEXT | Parent quote | Foreign Key to Quote |
+| FileName | TEXT | Original filename | |
+| FilePath | TEXT | Storage path | |
+| FileUrl | TEXT | Public URL | |
+| ContentType | TEXT | MIME type | |
+| Caption | TEXT | Description | |
+| Sequence | INTEGER | Display order | |
+| AddedByAccountId | TEXT | Uploaded by | Foreign Key to Account |
+
+**Relationships**:
+- **Many:1** → Quote
+- **Many:1** → Account (uploader)
+
+### QuoteTag
+**Purpose**: Junction table linking quotes to tags for categorization
+
+| Column | Type | Description | Business Rules |
+|--------|------|-------------|----------------|
+| id | TEXT | Unique identifier | Primary Key |
+| CompanyId | TEXT | Company reference | Foreign Key |
+| QuoteId | TEXT | Quote reference | Foreign Key to Quote |
+| TagId | TEXT | Tag reference | Foreign Key to Tag |
+
+**Relationships**:
+- **Many:1** → Quote
+- **Many:1** → Tag
 
 ---
 

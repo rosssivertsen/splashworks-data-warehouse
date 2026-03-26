@@ -1,7 +1,7 @@
 # Splashworks Data Warehouse — Backlog
 
 **Project:** Splashworks Enterprise Data Platform
-**Last Updated:** 2026-03-18
+**Last Updated:** 2026-03-26
 
 ---
 
@@ -38,7 +38,7 @@
 | ~~ETL-2~~ | ~~**Load RouteSkip + SkippedStopReason** — add to ETL raw sources~~ | ~~ETL~~ | ~~S~~ | ~~DONE 2026-03-18. Already in raw (ETL loads all 44 tables). Added dbt sources + staging models.~~ |
 | ~~ETL-3~~ | ~~**Load RouteMove** — add to ETL raw sources~~ | ~~ETL~~ | ~~S~~ | ~~DONE 2026-03-18. Same — already in raw. Added dbt source + staging model.~~ |
 | ETL-4 | **Load Equipment tables** — EquipmentItem, InstalledItem, PartCategory, PartMake, PartModel | ETL | S | New raw tables needed for DL-6 (dim_equipment) |
-| ETL-5 | **Nightly reconciliation check** — compare raw vs warehouse counts/totals, JSON report, pass/fail in pipeline | ETL | S | Phase 1 of source traceability. Runs after dbt in nightly-pipeline.sh. |
+| ~~ETL-5~~ | ~~**Nightly reconciliation check** — compare raw vs warehouse counts/totals, JSON report, pass/fail in pipeline~~ | ~~ETL~~ | ~~S~~ | ~~DONE 2026-03-26. 6 checks (active customers, payments, invoice items, service stops, payment totals, route skips). Runs nightly after dbt.~~ |
 | ETL-6 | **Add `_loaded_at` + `_extract_date` to fact tables** — row-level provenance for incremental facts | ETL | S | Phase 2 of source traceability. Enables "when did this row enter the warehouse?" |
 | ETL-7 | **Row-level trace CLI** — given a Skimmer ID, trace it through raw → staging → warehouse → semantic | ETL | M | Phase 2 of source traceability. `./cli/trace-record.sh payment abc123 AQPS` |
 | ETL-8 | **`rpt_reconciliation` dbt model** — point-in-time snapshots of source vs warehouse totals with variance | dbt model | S | Phase 3 of source traceability. Auditable trail for compliance. |
@@ -170,6 +170,15 @@
 | ~~DL-2~~ | rpt_customer_360 — denormalized customer profile with LTV | 2026-03-14 |
 | ~~DL-3~~ | rpt_service_history — denormalized service visits (69,186 rows) | 2026-03-15 |
 | ~~DL-4~~ | rpt_payment_summary — denormalized payments (12,247 rows) | 2026-03-15 |
+| ~~ETL-1~~ | Incremental fact accumulation — all 10 facts switched to incremental + dedup keys | 2026-03-18 |
+| ~~ETL-2~~ | RouteSkip + SkippedStopReason — dbt sources + staging models | 2026-03-18 |
+| ~~ETL-3~~ | RouteMove — dbt source + staging model | 2026-03-18 |
+| ~~DL-10~~ | fact_invoice_item — line-item revenue analysis (16,517 rows) | 2026-03-18 |
+| ~~DL-11~~ | fact_route_skip — skipped service tracking with reasons (806 rows) | 2026-03-18 |
+| ~~DL-12~~ | fact_route_move — schedule disruption tracking (3,510 rows) | 2026-03-18 |
+| ~~ETL-5~~ | Nightly reconciliation — 6 raw-vs-warehouse checks, JSON report | 2026-03-26 |
+| ~~IN-5~~ | Forward Cf-Access-Jwt-Assertion through Nginx to API | 2026-03-26 |
+| ~~IN-6~~ | Health endpoint best-effort JWT validation — restore ETL stats in status bar | 2026-03-26 |
 
 ---
 

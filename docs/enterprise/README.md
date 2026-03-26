@@ -26,14 +26,21 @@
 ```
 docs/enterprise/
   README.md                  # This file -- entry point and index
+  CLAUDE.md                  # AI tooling context for this directory
   glossary/                  # One file per business entity
     customer.md
     contact.md
     service-location.md
     pool.md
+    work-order.md
+    invoice.md
+    payment.md
+    product.md
   standards/                 # Cross-cutting rules and conventions
-                             # (naming standards, data quality rules, etc.)
+    naming-conventions.md
   references/                # API docs, integration specs, external resources
+    qbo-accounting-api.md
+    qbo-payments-api.md
   system-landscape.md        # Architecture diagram showing system integrations
 ```
 
