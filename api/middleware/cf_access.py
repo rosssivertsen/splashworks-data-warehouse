@@ -121,8 +121,38 @@ class CloudflareAccessMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Exempt paths
+        # Health endpoint: try to validate JWT if present, but always allow through
         if request.url.path == "/api/health":
+            token = request.cookies.get("CF_Authorization")
+            if not token:
+                auth_header = request.headers.get("authorization", "")
+                if auth_header.startswith("Bearer "):
+                    token = auth_header[7:]
+            if not token:
+                token = request.headers.get("cf-access-jwt-assertion", "")
+            if token:
+                try:
+                    keys = _get_jwks(self.team_domain)
+                    if keys:
+                        expected_issuer = f"https://{self.team_domain}.cloudflareaccess.com"
+                        public_keys = {}
+                        for key_data in keys:
+                            kid = key_data.get("kid")
+                            if kid:
+                                public_keys[kid] = jwt.algorithms.RSAAlgorithm.from_jwk(key_data)
+                        unverified_header = jwt.get_unverified_header(token)
+                        kid = unverified_header.get("kid")
+                        key = public_keys.get(kid)
+                        if not key and public_keys:
+                            key = next(iter(public_keys.values()))
+                        if key:
+                            payload = jwt.decode(
+                                token, key, algorithms=["RS256"],
+                                audience=self.aud, issuer=expected_issuer,
+                            )
+                            request.state.cf_user_email = payload.get("email")
+                except Exception:
+                    pass  # Health is always allowed; just won't get enriched data
             await self.app(scope, receive, send)
             return
 
@@ -131,12 +161,14 @@ class CloudflareAccessMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Extract token from cookie or Authorization header
+        # Extract token from cookie, Authorization header, or CF header
         token = request.cookies.get("CF_Authorization")
         if not token:
             auth_header = request.headers.get("authorization", "")
             if auth_header.startswith("Bearer "):
                 token = auth_header[7:]
+        if not token:
+            token = request.headers.get("cf-access-jwt-assertion", "")
 
         if not token:
             resp = JSONResponse(
