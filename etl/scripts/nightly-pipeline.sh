@@ -61,8 +61,17 @@ else
     exit 1
 fi
 
-# Step 4: Health check
-log "Step 4: Health check..."
+# Step 4: Reconciliation — compare raw vs warehouse
+log "Step 4: Running reconciliation checks..."
+cd "$PROJECT_DIR"
+if python3 -m etl.reconcile 2>&1 | tee -a "$LOG_FILE"; then
+    log "Step 4: Reconciliation passed"
+else
+    log "WARNING: Reconciliation found discrepancies (see data/reconciliation.json)"
+fi
+
+# Step 5: Health check
+log "Step 5: Health check..."
 cd "$PROJECT_DIR"
 HEALTH=$(curl -sf http://localhost:8080/api/health 2>/dev/null || echo '{"status":"unreachable"}')
 STATUS=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "parse_error")
