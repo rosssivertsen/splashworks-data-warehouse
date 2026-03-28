@@ -13,14 +13,8 @@ from ripple.api.services.doc_retriever import generate_answer_stream, search_doc
 
 app = FastAPI(title="Ripple — Splashworks Knowledge Agent")
 
-# Cloudflare Access JWT validation (same middleware as main API)
-app.add_middleware(
-    CloudflareAccessMiddleware,
-    aud=os.environ.get("CF_ACCESS_AUD", ""),
-    team_domain=os.environ.get("CF_ACCESS_TEAM_DOMAIN", ""),
-)
-
-# CORS
+# CORS (registered first in source order so it executes AFTER auth on request path —
+# Starlette reverses middleware order)
 ALLOWED_ORIGINS = os.environ.get(
     "CORS_ORIGINS",
     "https://ripple.splshwrks.com",
@@ -31,6 +25,18 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
+)
+
+# Cloudflare Access JWT validation (registered after CORS in source order,
+# which means it executes BEFORE CORS on the request path).
+# fail_closed=True in Docker (production/staging) — rejects all requests if auth is misconfigured.
+# fail_closed=False locally — allows development without Cloudflare credentials.
+_in_docker = os.path.exists("/.dockerenv")
+app.add_middleware(
+    CloudflareAccessMiddleware,
+    aud=os.environ.get("CF_ACCESS_AUD", ""),
+    team_domain=os.environ.get("CF_ACCESS_TEAM_DOMAIN", ""),
+    fail_closed=_in_docker,
 )
 
 
