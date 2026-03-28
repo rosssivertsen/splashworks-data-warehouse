@@ -3,16 +3,16 @@
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
 **Backlog:** [BACKLOG.md](./BACKLOG.md)
-**Last Updated:** 2026-03-26
+**Last Updated:** 2026-03-28
 
 ---
 
 ## Current Status
 
-**Phase:** Phase 1 + Semantic Enrichment + UI Refinements + AI Query Intelligence + IN-4 + ETL-5 COMPLETE. All deployed.
-**Status:** 8 Docker containers, Cloudflare Access, 73 frontend + 66 API unit + 16 E2E tests. Nightly ETL + reconciliation running.
+**Phase:** Phase 1 + all interstitials + security audit hardening COMPLETE. All deployed.
+**Status:** 8 Docker containers, Cloudflare Access, CSP headers, fail-closed auth, 73 frontend + 66 API unit + 16 E2E tests. Nightly ETL + reconciliation running.
 **Streams:** Data Layer (DL), AI Query (AQ), Enterprise Info Architecture (EIA), Dashboard (DA), Infrastructure (IN)
-**Next:** DL-5 (rpt_profitability), ETL-4 (equipment tables), ETL-6 (row provenance), EIA-1/EIA-2 (agent-ready docs)
+**Next:** ETL-4 (equipment tables), ETL-6 (row provenance), SA-M1–M7 (medium security findings), Ripple Phase 2
 **Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase), ripple.splshwrks.com (Ripple)
 
 ---
@@ -164,6 +164,27 @@
 | EIA-0.5 | QBO Accounting + Payments API references | DONE |
 | EIA-0.6 | Enterprise CLAUDE.md (context isolation) | DONE |
 | EIA-0.7 | Root CLAUDE.md pointer | DONE |
+
+## Quick Wins (2026-03-28)
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| DL-5 | rpt_profitability — Metabase-friendly profitability report with margin % | DONE |
+| EIA-1 | Agent-ready YAML frontmatter on 8 glossary + 1 standard doc | DONE |
+| EIA-2 | Enterprise index manifest (enterprise-index.yaml) | DONE |
+| AQ-2 | SQL explanation shown as collapsible "How I interpreted this" detail | DONE |
+
+## Security Audit Hardening (2026-03-28)
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| SA-C1 | Ripple fail_closed — reject all if CF auth misconfigured in Docker | DONE |
+| SA-H1 | Remove hardcoded DB passwords — env-var-sourced via 06-set-passwords.sh | DONE |
+| SA-H2 | Content-Security-Policy + Permissions-Policy on all nginx configs | DONE |
+| SA-H3 | Ripple middleware ordering — auth executes before CORS on request path | DONE |
+| — | Cleaned stale Cloudflare Workers integration (poolserviceai) | DONE |
+| — | Removed stale AWS Amplify webhook | DONE |
+| — | Docs reorganization: 28 legacy files → archive/, added README with naming convention | DONE |
 
 ---
 
