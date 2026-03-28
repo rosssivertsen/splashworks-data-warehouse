@@ -17,9 +17,9 @@ glossary:
 
   - entity: contact
     file: glossary/contact.md
-    system_of_record: zoho_crm
-    description: Person associated with a customer account
-    warehouse_tables: []
+    system_of_record: skimmer
+    description: Person associated with a customer account — embedded in Customer record
+    warehouse_tables: [dim_customer]
 
   - entity: service-location
     file: glossary/service-location.md
