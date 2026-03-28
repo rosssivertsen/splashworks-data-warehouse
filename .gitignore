@@ -87,3 +87,12 @@ dbt/target/
 dbt/logs/
 dbt/.user.yml
 .firecrawl/
+
+# Security audit artifacts (Shannon pentest, Playwright snapshots)
+deliverables/
+.playwright-cli/
+.playwright-mcp/
+
+# Stray screenshots from browser automation
+*.png
+!docs/**/*.png

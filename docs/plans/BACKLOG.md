@@ -98,6 +98,23 @@
 | ~~IN-7~~ | ~~**Ripple CF Access auth middleware**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. CloudflareAccessMiddleware added, JWT forwarded in Nginx.~~ |
 | ~~IN-8~~ | ~~**Use CF-Connecting-IP for audit logging**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. Prefers CF-Connecting-IP over spoofable X-Forwarded-For.~~ |
 
+### Security Audit Findings (2026-03-28) — Open
+
+| ID | Severity | Item | Category | Effort | Notes |
+|----|----------|------|----------|--------|-------|
+| SA-M1 | Medium | SQL validation regex bypass via comments — strip block comments before regex check | Security | S | `api/services/query_executor.py`. Mitigated by read-only DB user. |
+| SA-M2 | Medium | Rate limiter uses spoofable client IP — switch to CF-Connecting-IP | Security | S | `api/rate_limit.py`. Same fix pattern as IN-8. |
+| SA-M3 | Medium | Metabase using H2 embedded DB — migrate to Postgres-backed Metabase | Security | M | `docker-compose.yml:64-75`. H2 has known CVEs, not backed up with pg volume. |
+| SA-M4 | Medium | Audit logger shares main DATABASE_URL — consider separate audit DB user | Security | S | `api/services/audit_logger.py`. Privilege separation concern. |
+| SA-M5 | Medium | Frontend Dockerfile uses `npm install` instead of `npm ci` | Security | S | Supply chain risk from dynamic resolution. |
+| SA-M6 | Medium | MD5 used for ETL file checksums — switch to SHA-256 | Security | S | `etl/extract.py:39-44`. MD5 is deprecated. |
+| SA-M7 | Medium | Ripple `ripple_rw` has overly broad CREATE DATABASE permission | Security | S | Pre-create ripple schema, remove CREATE ON DATABASE grant. |
+| SA-L2 | Low | No CSRF token on mutation endpoints | Security | S | Mitigated by CF Access + CORS. |
+| SA-L3 | Low | Unquoted shell variables in deploy script | Security | S | `scripts/deploy.sh:53`. |
+| SA-L4 | Low | Docker containers run as root | Security | S | Add USER directive to Dockerfiles. Overlaps PH-5. |
+| SA-L5 | Low | `firebase-debug.log` committed to repo | Security | S | Remove and add to .gitignore. |
+| SA-L6 | Low | FastAPI docs endpoint exposed in production | Security | S | `api/main.py:13`. Disable /docs and /redoc in production. |
+
 ---
 
 ## Priority: Medium
@@ -184,6 +201,15 @@
 | ~~IN-7~~ | Ripple CF Access auth middleware — protect /api/chat LLM endpoint | 2026-03-26 |
 | ~~IN-8~~ | CF-Connecting-IP for unspoofable audit log IP attribution | 2026-03-26 |
 | ~~IN-2~~ | Restricted DB users — ripple_rw + metabase_ro privilege separation | 2026-03-26 |
+| ~~DL-5~~ | rpt_profitability — Metabase-friendly profitability report with margin % | 2026-03-28 |
+| ~~EIA-1~~ | Agent-ready YAML frontmatter on 8 glossary + 1 standard doc | 2026-03-28 |
+| ~~EIA-2~~ | Enterprise index manifest (enterprise-index.yaml) | 2026-03-28 |
+| ~~AQ-2~~ | SQL explanation shown as collapsible detail in query results | 2026-03-28 |
+| ~~SA-C1~~ | Ripple fail_closed — reject requests if CF auth misconfigured in Docker | 2026-03-28 |
+| ~~SA-H1~~ | Removed hardcoded DB passwords from init scripts | 2026-03-28 |
+| ~~SA-H2~~ | Content-Security-Policy + Permissions-Policy on all nginx configs | 2026-03-28 |
+| ~~SA-H3~~ | Ripple middleware ordering — auth before CORS on request path | 2026-03-28 |
+| ~~SA-L1~~ | Permissions-Policy header added (camera, mic, geo, payment disabled) | 2026-03-28 |
 
 ---
 
