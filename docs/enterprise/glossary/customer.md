@@ -1,3 +1,12 @@
+---
+entity: customer
+type: glossary
+system_of_record: skimmer
+systems: [skimmer, zoho_crm, qbo, warehouse]
+warehouse_tables: [dim_customer, rpt_customer_360]
+related: [contact, service-location, invoice, payment]
+---
+
 # Customer
 
 ## Definition

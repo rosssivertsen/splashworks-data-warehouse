@@ -1,0 +1,105 @@
+# Enterprise Information Architecture — Document Index
+# Auto-discoverable catalog for agents and tooling
+# Last updated: 2026-03-26
+
+version: "1.0"
+generated_by: manual
+description: >
+  Master index of all enterprise documentation. Agents should read this file
+  first to discover available glossary entities, standards, and references.
+
+glossary:
+  - entity: customer
+    file: glossary/customer.md
+    system_of_record: skimmer
+    description: Person or organization contracting for pool service
+    warehouse_tables: [dim_customer, rpt_customer_360]
+
+  - entity: contact
+    file: glossary/contact.md
+    system_of_record: skimmer
+    description: Person associated with a customer account — embedded in Customer record
+    warehouse_tables: [dim_customer]
+
+  - entity: service-location
+    file: glossary/service-location.md
+    system_of_record: skimmer
+    description: Physical address where pool service is performed
+    warehouse_tables: [dim_service_location]
+
+  - entity: pool
+    file: glossary/pool.md
+    system_of_record: skimmer
+    description: Body of water at a service location
+    warehouse_tables: [dim_pool]
+
+  - entity: work-order
+    file: glossary/work-order.md
+    system_of_record: skimmer
+    description: Repair, maintenance, or one-time service request
+    warehouse_tables: [fact_work_order, fact_work_order_dosage]
+
+  - entity: invoice
+    file: glossary/invoice.md
+    system_of_record: qbo
+    description: Billing document aggregating charges from service and work orders
+    warehouse_tables: [fact_invoice, fact_invoice_item]
+
+  - entity: payment
+    file: glossary/payment.md
+    system_of_record: qbo
+    description: Financial transaction recording money received
+    warehouse_tables: [fact_payment, rpt_payment_summary]
+
+  - entity: product
+    file: glossary/product.md
+    system_of_record: skimmer
+    description: Chemical, part, or equipment used during pool service
+    warehouse_tables: [fact_dosage, fact_invoice_item]
+
+standards:
+  - name: naming-conventions
+    file: standards/naming-conventions.md
+    scope: cross-system
+    description: Column casing, date formats, identifier patterns, address formatting
+
+references:
+  - name: qbo-accounting-api
+    file: references/qbo-accounting-api.md
+    system: qbo
+    description: QuickBooks Online Accounting API endpoints and sync patterns
+
+  - name: qbo-payments-api
+    file: references/qbo-payments-api.md
+    system: qbo
+    description: QuickBooks Online Payments API for card/ACH processing
+
+other:
+  - name: system-landscape
+    file: system-landscape.md
+    description: Architecture diagram showing system integrations and data flows
+
+  - name: README
+    file: README.md
+    description: Entry point — glossary template, directory structure, how to contribute
+
+systems:
+  skimmer:
+    role: Service operations
+    entities: [customer, contact, service-location, pool, work-order, product]
+    extract_method: Nightly SQLite dumps via OneDrive
+
+  zoho_crm:
+    role: Sales and leads
+    entities: [contact, customer]
+    extract_method: API (planned)
+
+  qbo:
+    role: Invoicing, payments, accounting
+    entities: [invoice, payment, product]
+    extract_method: Skimmer sync + QBO API
+
+  warehouse:
+    role: Analytics hub
+    entities: [customer, service-location, pool, work-order, invoice, payment, product]
+    engine: PostgreSQL 16 + pgvector + dbt

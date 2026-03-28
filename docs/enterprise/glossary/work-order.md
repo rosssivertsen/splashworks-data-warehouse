@@ -1,3 +1,12 @@
+---
+entity: work-order
+type: glossary
+system_of_record: skimmer
+systems: [skimmer, warehouse]
+warehouse_tables: [fact_work_order, fact_work_order_dosage]
+related: [service-location, invoice, product]
+---
+
 # Work Order
 
 ## Definition

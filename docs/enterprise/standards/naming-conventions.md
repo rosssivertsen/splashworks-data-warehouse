@@ -1,3 +1,9 @@
+---
+type: standard
+scope: cross-system
+applies_to: [skimmer, zoho_crm, qbo, warehouse]
+---
+
 # Naming Conventions
 
 **Version:** 1.0
