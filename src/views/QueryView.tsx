@@ -129,12 +129,6 @@ export function QueryView({ onAddToDashboard }: QueryViewProps) {
         <UnansweredPanel reason={unanswered.reason} hint={unanswered.hint} />
       )}
 
-      {explanation && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm">
-          {explanation}
-        </div>
-      )}
-
       {sql && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -150,6 +144,16 @@ export function QueryView({ onAddToDashboard }: QueryViewProps) {
               Run SQL
             </button>
           </div>
+          {explanation && (
+            <details className="text-sm">
+              <summary className="cursor-pointer text-neutral-500 hover:text-neutral-700 select-none">
+                How I interpreted this
+              </summary>
+              <p className="mt-1 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-md text-neutral-600">
+                {explanation}
+              </p>
+            </details>
+          )}
           <SqlEditor value={sql} onChange={setSql} onRun={handleRunSql} />
         </div>
       )}
