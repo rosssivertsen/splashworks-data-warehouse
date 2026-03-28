@@ -3,7 +3,7 @@
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'metabase_ro') THEN
-        CREATE ROLE metabase_ro WITH LOGIN PASSWORD 'changeme_override_via_env';
+        CREATE ROLE metabase_ro WITH LOGIN PASSWORD 'will_be_reset_by_init_script';
     END IF;
 END
 $$;

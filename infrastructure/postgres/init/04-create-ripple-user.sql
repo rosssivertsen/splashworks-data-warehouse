@@ -3,7 +3,7 @@
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ripple_rw') THEN
-        CREATE ROLE ripple_rw WITH LOGIN PASSWORD 'changeme_override_via_env';
+        CREATE ROLE ripple_rw WITH LOGIN PASSWORD 'will_be_reset_by_init_script';
     END IF;
 END
 $$;
