@@ -1,9 +1,10 @@
 -- Read-only user for API query execution
 -- The API should connect as this user to limit blast radius of SQL injection
+-- Password is set by 06-set-passwords.sh from environment variables
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'splashworks_ro') THEN
-        CREATE ROLE splashworks_ro WITH LOGIN PASSWORD 'changeme_override_via_env';
+        CREATE ROLE splashworks_ro WITH LOGIN PASSWORD 'will_be_reset_by_init_script';
     END IF;
 END
 $$;
