@@ -107,8 +107,26 @@ Skimmer (completed service stops + work orders)
 - [Payment](payment.md) — 1:many (an invoice can have multiple payments, e.g., partial payments)
 - [Product](product.md) — via InvoiceItem (product sales appear as line items)
 
+## API Limitations (Verified April 2026)
+
+- **Skimmer API is read-only for invoices.** No POST, PUT, or DELETE endpoints exist for Invoices, Billing, Payments, or any billing-adjacent entity. Confirmed on both sandbox and production API keys.
+- **Invoice creation requires browser UI.** The only write path is through the Skimmer web application at `/Client/Billing/Invoices/Create`.
+- **Invoice Generator** is batch-only for Skimmer-native service data — it cannot import external invoices.
+- **Invoices save as Draft by default.** Nothing is customer-facing until explicitly sent via the UI. This makes Draft status safe for migration staging.
+- **QBO Sync is one-directional for invoices.** Skimmer pushes invoices to QBO; QBO does not push back to Skimmer.
+
+## Cross-System Migration Patterns
+
+When migrating invoices from QBO to Skimmer:
+- Use the **Amount** column (not Open Balance) per CFO direction — represents the full invoice value
+- Invoice description format: `QBO Inv #XXXXX | Product Name` — enables traceability back to QBO
+- Customer matching requires name resolution (see [QBO-Skimmer Customer Mapping](../../ripple/corpus/integrations/qbo-skimmer-customer-mapping.md))
+- Products must match exactly: "Residential Service", "Residential Repairs", "Residential Non-Recurring", "Commercial Service", "Commercial Repairs", "Commercial Non-Recurring"
+- Full operational runbook: [QBO to Skimmer Invoice Import](../../ripple/corpus/operations/qbo-to-skimmer-invoice-import.md)
+
 ## Change Log
 
 | Date | Change | Author |
 |------|--------|--------|
+| 2026-04-02 | Added API limitations, cross-system migration patterns from QBO migration (374 invoices) | Claude / Ross Sivertsen |
 | 2026-03-18 | Initial definition — Skimmer + QBO cross-system mapping, training links | Ross Sivertsen |
