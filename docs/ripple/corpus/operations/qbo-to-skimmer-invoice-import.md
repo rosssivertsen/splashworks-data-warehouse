@@ -90,6 +90,18 @@ Generate at completion:
 | Invoice Date | `getByRole('combobox').nth(0)` (after customer selection) |
 | Due Date | `getByRole('combobox').nth(1)` |
 
+## Editing Existing Invoices
+
+If dates or amounts need correction after entry:
+
+1. Use the **Invoice # filter** in the toolbar (not the grid filter row) to find the invoice
+2. Click **Details** on the matching row
+3. Click **Edit** — the detail page is read-only by default
+4. Modify date fields using the same `Meta+a → Backspace → type MMDDYYYY` approach
+5. Click **Save**
+
+URL pattern: `/Client/Billing/Invoices/{UUID}` — you need the Details button to get there, not the invoice number.
+
 ## Known Gotchas
 
 - **Date fields use mask input**: type zero-padded MMDDYYYY (no slashes) — mask auto-inserts them
