@@ -111,6 +111,21 @@ URL pattern: `/Client/Billing/Invoices/{UUID}` — you need the Details button t
 - **`beforeunload` dialog**: fires when navigating away from partially-filled form — need `page.on('dialog', d => d.accept())`
 - **API-created customers are NOT billing-eligible**: they get `isLead: true` and don't appear in the invoice customer dropdown
 
+## Printing Draft Invoices to PDF
+
+For customers without email, invoices must be printed and mailed. Skimmer has no batch print — each invoice must be printed individually.
+
+**Automated flow:** Detail page → More → Preview (opens new tab) → `page.pdf()` with `scale: 0.82` and `0.3in` margins → save to output directory.
+
+**Key patterns:**
+- Preview opens a new tab — use `page.context().waitForEvent('page')` to capture it
+- Override `window.print = () => {}` on the preview page to prevent system dialog
+- Scale 0.82 with 0.3in margins fits Skimmer invoices on a single Letter page
+- Navigate to each invoice individually (not from listing) to avoid popup blocking after first preview
+- Script: `print-all-drafts.js` in the invoice-entry project
+
+**Reuse:** "Print the drafts" is now a ~2 minute operation with existing context and scripts.
+
 ## Results — April 2026 Migration
 
 | Metric | Value |
