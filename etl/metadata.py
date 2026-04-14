@@ -51,6 +51,7 @@ def complete_load(conn, log_id: int, row_count: int, checksum: str) -> None:
 
 def fail_load(conn, log_id: int, error_message: str) -> None:
     """Mark a table load as failed."""
+    conn.rollback()
     with conn.cursor() as cur:
         cur.execute(
             """

@@ -125,6 +125,10 @@ def create_current_view(conn, table_name: str, extract_date: date, company_name:
 
     This gives dbt a stable source name (e.g., AQPS_Customer) that always
     points to the latest date-stamped table (e.g., AQPS_Customer_20260308).
+
+    If the upstream schema changed (new/removed/reordered columns), Postgres
+    rejects CREATE OR REPLACE VIEW.  In that case we DROP the old view first
+    — safe because the view is only a pointer to the dated table.
     """
     prefix = f"{company_name}_" if company_name else ""
     dated_table = f"{prefix}{table_name}_{extract_date.strftime('%Y%m%d')}"
@@ -136,7 +140,15 @@ def create_current_view(conn, table_name: str, extract_date: date, company_name:
         pgsql.Identifier(dated_table),
     )
     with conn.cursor() as cur:
-        cur.execute(view_sql)
+        try:
+            cur.execute(view_sql)
+        except psycopg2.errors.InvalidTableDefinition:
+            conn.rollback()
+            cur.execute(pgsql.SQL("DROP VIEW IF EXISTS {}.{} CASCADE").format(
+                pgsql.Identifier(RAW_SCHEMA),
+                pgsql.Identifier(view_name),
+            ))
+            cur.execute(view_sql)
     conn.commit()
     return f'{RAW_SCHEMA}."{view_name}"'
 
