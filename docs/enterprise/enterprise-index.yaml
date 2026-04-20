@@ -79,6 +79,18 @@ other:
     file: system-landscape.md
     description: Architecture diagram showing system integrations and data flows
 
+  - name: entity-map
+    file: entity-map.md
+    description: Visual ontology of canonical business entities grouped by domain, color-coded by System of Record
+
+  - name: data-flow-diagrams
+    file: data-flow-diagrams.md
+    description: Sequence and flow diagrams for key business processes (service-to-cash, inventory reconciliation, lead-to-customer, analytics pipeline)
+
+  - name: state-diagrams
+    file: state-diagrams.md
+    description: Lifecycle state machines for Customer, Invoice, Work Order, Service Stop, and Inventory Count
+
   - name: README
     file: README.md
     description: Entry point — glossary template, directory structure, how to contribute
