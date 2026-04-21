@@ -54,8 +54,10 @@ Skimmer produces a nightly SQLite database extract per company, delivered to One
 |---------|---------|----------|
 | OneDrive sync failure | rclone returns non-zero; stale .db files | Re-run `rclone sync` manually. Check OneDrive auth token. |
 | Skimmer extract delayed | .db file timestamp older than expected | Wait and re-run. Skimmer support if persistent. |
-| ETL load error | Python traceback in pipeline log | Check `/opt/splashworks/logs/pipeline.log`. Fix schema drift if new columns appeared. |
-| dbt model failure | dbt returns non-zero; specific model named | Run `dbt run --select <model>` to isolate. Check upstream staging model. |
+| ETL load error | Python traceback in pipeline log | Check `/opt/splashworks/logs/pipeline.log`. |
+| Schema drift (governed table) | Pipeline aborts in Phase 1 with `CTRL-01: drift detected`, Slack `#alerts` fires, row in `public.etl_schema_drift` | Follow `docs/data-governance/procedures/drift-incident-response.md`. Approve via contract PR or mark as ignored/reverted. Pipeline resumes automatically on next run after resolution. |
+| Schema drift (pre-governance table) | Row-count checksum + schema fingerprint detect change, table is dropped and rebuilt on next load | No manual action — the schema-aware checksum (since 2026-04-20) auto-recovers. The drift is still logged in `public.etl_load_log.schema_fingerprint` for audit. |
+| dbt model failure | dbt returns non-zero; specific model named | Run `dbt run --select <model>` to isolate. Check upstream staging model. CTRL-04 classifier decides whether reconciliation still runs. |
 | Postgres disk full | ETL fails mid-load, partial data | Clear old Docker logs/images. Expand VPS disk if recurring. |
 
 ### Reconciliation

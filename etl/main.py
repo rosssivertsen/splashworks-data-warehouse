@@ -17,6 +17,7 @@ from etl.extract import (
 from etl.load import create_current_view, create_raw_table, drop_raw_table, get_connection, load_rows_copy
 from etl.checksums import get_previous_checksum
 from etl.metadata import complete_load, fail_load, generate_run_id, start_load
+from etl.schema_contract import compose_checksum, compute_source_fingerprint
 
 
 def get_sqlite_column_types(db_path: Path, table_name: str) -> list[str]:
@@ -77,8 +78,16 @@ def run_etl(extract_dir: Path = None, extract_date: date = None) -> dict:
                     sqlite_types = get_sqlite_column_types(db_path, table_name)
                     row_count = len(rows)
 
-                    # Compute table-level checksum (row count + first/last row hash)
-                    table_checksum = f"{row_count}"
+                    # Schema-aware change detection (hotfix: schema-governance-seed).
+                    # Previously this was `f"{row_count}"` which masked any schema
+                    # change that preserved row count. Now the checksum combines
+                    # row count with a stable fingerprint of (name, type, ordinal)
+                    # tuples — a column addition/removal/rename/retype/reorder all
+                    # force a rebuild. See docs/data-governance/controls/CTRL-01-schema-validation.md.
+                    schema_fingerprint, _column_list = compute_source_fingerprint(
+                        db_path, table_name
+                    )
+                    table_checksum = compose_checksum(row_count, schema_fingerprint)
 
                     # Check if data changed
                     prev_checksum = get_previous_checksum(
@@ -86,7 +95,10 @@ def run_etl(extract_dir: Path = None, extract_date: date = None) -> dict:
                     )
                     if prev_checksum == table_checksum:
                         print(f"    {table_name}: {row_count} rows (unchanged, skipped)")
-                        complete_load(conn, log_id, row_count, table_checksum)
+                        complete_load(
+                            conn, log_id, row_count, table_checksum,
+                            schema_fingerprint=schema_fingerprint,
+                        )
                         company_summary["skipped"] += 1
                         continue
 
@@ -100,7 +112,10 @@ def run_etl(extract_dir: Path = None, extract_date: date = None) -> dict:
                     )
                     loaded = load_rows_copy(conn, fq_table, columns, rows)
 
-                    complete_load(conn, log_id, loaded, table_checksum)
+                    complete_load(
+                        conn, log_id, loaded, table_checksum,
+                        schema_fingerprint=schema_fingerprint,
+                    )
                     company_summary["tables"] += 1
                     company_summary["rows"] += loaded
 

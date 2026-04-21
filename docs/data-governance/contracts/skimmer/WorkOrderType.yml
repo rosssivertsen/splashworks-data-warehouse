@@ -1,0 +1,74 @@
+# Canonical schema contract: Skimmer.WorkOrderType
+#
+# This file is the LAW for raw_skimmer.{AQPS,JOMO}_WorkOrderType.
+# Changes to this file are schema changes to the warehouse.
+# The git history of this file IS the approval audit trail.
+#
+# Behavior:
+#   - ETL fingerprints every source WorkOrderType SQLite table against this contract.
+#   - A source with extra columns → drift event (unapproved additive drift).
+#   - A source missing any column listed here → drift event (unapproved subtractive drift).
+#   - A column whose source type does not match → drift event (type drift).
+#   - On drift, the pipeline fails fast and alerts per CTRL-02.
+#   - On match, the ETL rebuilds the raw table whenever the source fingerprint
+#     differs from the Postgres table fingerprint (schema-aware change detection).
+
+contract_version: v1.1
+table: WorkOrderType
+source_system: skimmer
+applies_to_companies: [AQPS, JOMO]
+since: 2026-04-20
+
+# Columns in source-order (matching SQLite PRAGMA table_info ordinal_position).
+# Ordering is part of the fingerprint — reordering is a drift event even if the
+# column set is identical.
+columns:
+  - {name: CreatedAt,                          type: DATETIME, required: true,  since: v1.0}
+  - {name: UpdatedAt,                          type: DATETIME, required: true,  since: v1.0}
+  - {name: Deleted,                            type: BOOLEAN,  required: true,  since: v1.0}
+  - {name: Version,                            type: BLOB,     required: true,  since: v1.0}
+  - {name: id,                                 type: TEXT,     required: true,  since: v1.0, primary_key: true}
+  - {name: Description,                        type: TEXT,     required: true,  since: v1.0}
+  - {name: ColorCode,                          type: TEXT,     required: false, since: v1.0}
+  - {name: RecurMonths,                        type: INTEGER,  required: false, since: v1.0}
+  - {name: DefaultWorkNeeded,                  type: TEXT,     required: false, since: v1.0}
+  - {name: DefaultWorkPerformed,               type: TEXT,     required: false, since: v1.0}
+  - {name: DefaultMinutes,                     type: INTEGER,  required: false, since: v1.0}
+  - {name: DefaultLaborCost,                   type: FLOAT,    required: false, since: v1.0}
+  - {name: DefaultPrice,                       type: FLOAT,    required: false, since: v1.0}
+  - {name: AllowTechsToAdd,                    type: BOOLEAN,  required: false, since: v1.0}
+  - {name: NeedsToBeInvoiced,                  type: BOOLEAN,  required: false, since: v1.0}
+  - {name: SendAlert,                          type: BOOLEAN,  required: false, since: v1.0}
+  - {name: PhotoIsRequired,                    type: BOOLEAN,  required: false, since: v1.0}
+  - {name: SendEmail,                          type: BOOLEAN,  required: false, since: v1.0}
+  - {name: DefaultEmailSubject,                type: TEXT,     required: false, since: v1.0}
+  - {name: DefaultEmailHeader,                 type: TEXT,     required: false, since: v1.0}
+  - {name: DefaultEmailMessage,                type: TEXT,     required: false, since: v1.0}
+  - {name: SoftDeleted,                        type: BOOLEAN,  required: false, since: v1.0}
+  - {name: Sequence,                           type: INTEGER,  required: false, since: v1.0}
+  - {name: CompanyId,                          type: TEXT,     required: true,  since: v1.0}
+  - {name: Recurs,                             type: BOOLEAN,  required: false, since: v1.0}
+  - {name: RecurType,                          type: TEXT,     required: false, since: v1.0}
+  - {name: RecurValue,                         type: INTEGER,  required: false, since: v1.0}
+  - {name: SendFinishedAlert,                  type: BOOLEAN,  required: false, since: v1.0}
+  # --- v1.1 (2026-04-20): Skimmer added SetCustomerActiveWhenScheduled.
+  # First observed in JOMO extract 2026-04-15 (additive drift event).
+  # Both AQPS and JOMO extracts have the column as of 2026-04-20.
+  # Approved for adoption into warehouse contract: 2026-04-20.
+  - {name: SetCustomerActiveWhenScheduled,     type: BOOLEAN,  required: false, since: v1.1}
+
+# Amendment log — parallel to git history, here for quick human review.
+amendments:
+  - version: v1.0
+    date: 2026-04-20
+    change: |
+      Initial contract. Locks in the 28-column schema that was in force for
+      AQPS through 2026-04-20 and for JOMO through 2026-04-15.
+    author: Ross Sivertsen
+  - version: v1.1
+    date: 2026-04-20
+    change: |
+      Added SetCustomerActiveWhenScheduled (BOOLEAN, optional).
+      Closes the 2026-04-15 → 2026-04-20 drift incident.
+      Source of truth: both AQPS and JOMO SQLite extracts as of 2026-04-20.
+    author: Ross Sivertsen

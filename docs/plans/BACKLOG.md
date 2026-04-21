@@ -42,6 +42,7 @@
 | ETL-6 | **Add `_loaded_at` + `_extract_date` to fact tables** — row-level provenance for incremental facts | ETL | S | Phase 2 of source traceability. Enables "when did this row enter the warehouse?" |
 | ETL-7 | **Row-level trace CLI** — given a Skimmer ID, trace it through raw → staging → warehouse → semantic | ETL | M | Phase 2 of source traceability. `./cli/trace-record.sh payment abc123 AQPS` |
 | ETL-8 | **`rpt_reconciliation` dbt model** — point-in-time snapshots of source vs warehouse totals with variance | dbt model | S | Phase 3 of source traceability. Auditable trail for compliance. |
+| ETL-9 | **Schema governance rollout** — full CTRL-01/02/04/05 implementation on top of hotfix seed | ETL + dbt | L | Builds on `docs/data-governance/` scaffold landed 2026-04-20. Scope: (1) YAML contract loader + validator in `etl/schema_contract.py`, (2) drift detector + `etl_schema_drift` population, (3) atomic pipeline gate in `nightly-pipeline.sh` (drift → abort before any load), (4) Slack `#alerts` alerting for drift events, (5) append-only triggers + `auditor_ro` role on evidence tables, (6) `union_companies()` macro rewrite to emit explicit column lists from contracts, (7) dbt tests generated from contracts, (8) migrate all 45 Skimmer tables from pre-governance → governed (one contract file per table, reviewed PR per migration). **Policy:** `docs/data-governance/policy.md` (*Lex Immutabilis*). **Drives:** future QBO + Zoho onboarding per `procedures/new-source-onboarding.md`. |
 
 ### Data Layer — Warehouse Models
 

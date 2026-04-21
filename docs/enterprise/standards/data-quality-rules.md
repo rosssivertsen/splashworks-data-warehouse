@@ -145,8 +145,10 @@ The nightly ETL pipeline (`etl/scripts/nightly-pipeline.sh`) runs the following 
 | Check | Table | Rule | Action on Failure |
 |-------|-------|------|-------------------|
 | Row count | All | Row count > 0 | Pipeline fails, alert sent |
-| Checksum | All | Skip re-load if checksum matches prior extract | Log and skip (optimization, not error) |
+| Checksum (schema-aware, since 2026-04-20) | All | Skip re-load if row count **AND** schema fingerprint both match prior extract. Schema fingerprint is a SHA-256 of (column_name, column_type, ordinal) tuples from the SQLite source. | Log and skip (optimization, not error). A change in either component forces a rebuild. |
+| Schema governance — CTRL-01 | Governed tables (`docs/data-governance/contracts/<source>/_index.yml`) | Source schema fingerprint must match the current canonical contract version. | Pipeline fails atomically (fail-fast, no loads). Drift event recorded in `public.etl_schema_drift`. Slack `#alerts`. See `docs/data-governance/controls/CTRL-01-schema-validation.md`. |
 | Company count | All | Exactly 2 companies (AQPS, JOMO) | Pipeline fails |
+| Reconciliation — CTRL-03 | See control doc | 6 raw↔warehouse row/amount checks | `data/reconciliation.json` flags discrepancies. See `docs/data-governance/controls/CTRL-03-reconciliation.md`. |
 
 ### Recommended Future Checks
 
