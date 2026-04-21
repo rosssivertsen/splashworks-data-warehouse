@@ -32,8 +32,23 @@ def start_load(
     return row_id
 
 
-def complete_load(conn, log_id: int, row_count: int, checksum: str) -> None:
-    """Mark a table load as completed."""
+def complete_load(
+    conn,
+    log_id: int,
+    row_count: int,
+    checksum: str,
+    schema_fingerprint: str | None = None,
+    contract_version: str | None = None,
+) -> None:
+    """Mark a table load as completed.
+
+    Args:
+        schema_fingerprint: SHA-256 hex of the source (column_name, type, ordinal)
+            tuples. Captures schema state independent of row data. See
+            docs/data-governance/controls/CTRL-01-schema-validation.md.
+        contract_version: Governance contract version in force at load time.
+            None for pre-governance tables (not yet in contracts/<source>/_index.yml).
+    """
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -41,10 +56,12 @@ def complete_load(conn, log_id: int, row_count: int, checksum: str) -> None:
             SET status = 'completed',
                 row_count = %s,
                 checksum = %s,
+                schema_fingerprint = %s,
+                contract_version = %s,
                 load_completed_at = NOW()
             WHERE id = %s
             """,
-            (row_count, checksum, log_id),
+            (row_count, checksum, schema_fingerprint, contract_version, log_id),
         )
     conn.commit()
 

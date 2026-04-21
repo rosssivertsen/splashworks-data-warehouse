@@ -1,0 +1,33 @@
+# Skimmer source — governed table index
+#
+# Lists every Skimmer table that is currently under schema governance.
+# Tables NOT listed here fall back to pre-governance behavior (row-count
+# checksum only) until their contract is authored. This lets governance
+# roll out table-by-table without a big-bang migration.
+#
+# To bring a new table under governance:
+#   1. Create `contracts/skimmer/<TableName>.yml` following WorkOrderType.yml
+#   2. Add it to the `governed:` list below
+#   3. Open a PR — merge is the approval
+#   4. Next ETL run fingerprints source against contract and gates accordingly
+#
+# Status values:
+#   governed        Full schema-contract enforcement (fail-fast on drift)
+#   pre-governance  Row-count checksum only (legacy behavior, current default)
+
+version: 1
+source: skimmer
+governed:
+  - name: WorkOrderType
+    contract_file: WorkOrderType.yml
+    status: governed
+    since: 2026-04-20
+    rationale: |
+      First table under governance. Chosen because it triggered the
+      2026-04-15 drift incident (AQPS schema frozen at 28 cols while
+      JOMO advanced to 29 cols after Skimmer added
+      SetCustomerActiveWhenScheduled). Seeding governance here closes
+      the incident with a durable control.
+
+# Every other Skimmer table is pre-governance until migrated.
+# ETL-9 tracks the full migration in docs/plans/BACKLOG.md.
