@@ -213,14 +213,17 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
 
     # Route assignment guidance
     lines.append("")
-    lines.append("### Route Assignments")
+    lines.append("### Route Assignments (Active Routes)")
     lines.append("- For 'active routes', 'route list', 'tech schedule', or 'service schedule' questions, use public_staging.stg_route_assignment")
     lines.append("- Join: stg_route_assignment.account_id = stg_account.account_id (technician), stg_route_assignment.service_location_id = stg_service_location.service_location_id (address)")
-    lines.append("- Active filter: end_date >= CURRENT_DATE::text (Skimmer uses '2080-01-01' as 'no end' sentinel)")
+    lines.append("- **CANONICAL active filter (default):** WHERE ra.end_date >= CURRENT_DATE::text AND c.is_inactive = 0 — requires joining to dim_customer")
+    lines.append("- **OPERATIONAL STRICT (for CEO / dispatcher / 'routes actually running' questions):** canonical + customer serviced in last 90 days. Join to fact_service_stop on service_location_id and filter service_date::date >= CURRENT_DATE - INTERVAL '90 days'")
+    lines.append("- Do NOT filter on ra.end_date = '2080-01-01' — current data has zero rows with that value; older docs are stale on that sentinel claim. Use the >= filter only.")
     lines.append("- day_of_week is already a text string ('Monday', 'Tuesday', etc.) — do NOT use dim_date for route day")
-    lines.append("- frequency values: 'Weekly', 'Every 2 Weeks'")
+    lines.append("- frequency values: 'Weekly', 'Every 2 Weeks', 'Triweekly', 'Monthly', 'EveryFourWeeks', 'EveryFiveWeeks', 'EveryTwoMonths'")
     lines.append("- GROUP BY route_assignment_id to avoid duplicates when joining to dim_pool (multiple bodies of water per service location)")
-    lines.append("- Filter out placeholder techs: WHERE full_name NOT LIKE '%Unscheduled%'")
+    lines.append("- Filter out placeholder techs: WHERE a.full_name NOT LIKE '%Unscheduled%' (JOMO has a '1 -AA Unscheduled' row that absorbs overflow stops)")
+    lines.append("- There is NO dim_route_assignment — route data is staging-only. Analytics join stg_route_assignment to dim_tech / dim_service_location / dim_customer directly.")
 
     # Customer lifecycle guidance
     lines.append("")

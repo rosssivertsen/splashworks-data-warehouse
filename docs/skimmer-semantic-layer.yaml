@@ -119,8 +119,13 @@ business_terms:
     synonyms: ["chlorine dosage", "chlorine added", "chlorine chemicals"]
 
   active_route:
-    description: "A current route assignment for a technician at a service location. Uses RouteAssignment table (staging). Active means EndDate >= today (Skimmer uses 2080-01-01 as 'no end' sentinel). Groups by service location, NOT individual bodies of water (Pool + Spa at same address = 1 route stop)."
+    description: "A current route assignment for a technician at a service location. Uses RouteAssignment table (staging). Grain is per service location (NOT per body of water — Pool + Spa at same address = 1 route stop)."
+    definitions:
+      basic: "end_date >= CURRENT_DATE::text — every row that hasn't expired. Raw filter; uses the ETL convention only."
+      canonical: "end_date >= CURRENT_DATE::text AND c.is_inactive = 0 — adds customer-active constraint. Identical counts to basic in current data because Skimmer keeps these in sync. This is the default for AI Query / Ripple answers."
+      operational_strict: "canonical + serviced in last 90 days. Excludes 'paper-active' assignments that have no recent service visits. Use for CEO-facing and dispatcher-facing questions where the ask is 'routes actually running now'. Verified 2026-04-22: drops ~0.5% (AQPS 5/971, JOMO 16/2217)."
     sql_pattern: |
+      -- Canonical active-route query (default for AI answers)
       SELECT a.full_name AS technician, ra.day_of_week, c.clean_customer_name, sl.address, sl.city, sl.state, sl.zip, ra.frequency, MAX(p.gallons) AS pool_size
       FROM public_staging.stg_route_assignment ra
       JOIN public_staging.stg_account a ON ra.account_id = a.account_id AND ra._company_name = a._company_name
@@ -129,9 +134,9 @@ business_terms:
       LEFT JOIN public_warehouse.dim_pool p ON sl.service_location_id = p.service_location_id AND sl._company_name = p._company_name
       WHERE ra.end_date >= CURRENT_DATE::text AND c.is_inactive = 0
       GROUP BY ra.route_assignment_id, a.full_name, ra.day_of_week, c.clean_customer_name, sl.address, sl.city, sl.state, sl.zip, ra.frequency
-    tables: [stg_route_assignment, stg_account, stg_service_location, dim_customer, dim_pool]
-    synonyms: ["route", "route assignment", "route list", "tech schedule", "service schedule", "active routes"]
-    note: "RouteAssignment.DayOfWeek is a text string (Monday, Tuesday, etc.), not a number. Frequency values: Weekly, Every 2 Weeks. EndDate of 2080-01-01 means 'no end date' (still active)."
+    tables: [stg_route_assignment, stg_account, stg_service_location, dim_customer, dim_pool, fact_service_stop]
+    synonyms: ["route", "route assignment", "route list", "tech schedule", "service schedule", "active routes", "running routes"]
+    note: "DayOfWeek is text ('Monday'..'Sunday'), not a number — do NOT use dim_date. Frequency values: 'Weekly', 'Every 2 Weeks', 'Triweekly', 'Monthly', 'EveryFourWeeks', 'EveryFiveWeeks', 'EveryTwoMonths'. The 2080-01-01 'no end' sentinel that older docs mention is NOT present in current data — every active assignment has a real future EndDate. Do not filter on 2080-01-01 specifically."
 
   installed_item:
     description: "Parts/chemicals marked installed during service. NOT YET IN WAREHOUSE — raw data only."
@@ -429,7 +434,65 @@ verified_queries:
         CASE ra.day_of_week WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
           WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 WHEN 'Sunday' THEN 7 END,
         ra.sequence
-    expected: "~2100+ active route assignments for JOMO, grouped by tech and day"
+    expected: "~2100+ active route assignments for JOMO, grouped by tech and day (canonical definition — excludes 'Unscheduled' placeholder tech)"
+
+  - question: "How many active routes does each company have, broken down by technician and day of week?"
+    sql: |
+      -- Operational strict definition: canonical + serviced in last 90 days
+      -- Answers executive / dispatcher questions about capacity and coverage.
+      WITH recent_service AS (
+        SELECT DISTINCT _company_name, service_location_id
+        FROM public_warehouse.fact_service_stop
+        WHERE service_date::date >= (CURRENT_DATE - INTERVAL '90 days')
+      )
+      SELECT
+        ra._company_name AS company,
+        a.full_name AS technician,
+        ra.day_of_week AS day,
+        COUNT(*) AS assignments,
+        COUNT(DISTINCT ra.service_location_id) AS service_locations
+      FROM public_staging.stg_route_assignment ra
+      JOIN public_staging.stg_account a ON ra.account_id = a.account_id AND ra._company_name = a._company_name
+      JOIN public_staging.stg_service_location sl ON ra.service_location_id = sl.service_location_id AND ra._company_name = sl._company_name
+      JOIN public_warehouse.dim_customer c ON sl.customer_id = c.customer_id AND sl._company_name = c._company_name
+      JOIN recent_service rs ON rs._company_name = ra._company_name AND rs.service_location_id = ra.service_location_id
+      WHERE ra.end_date >= CURRENT_DATE::text
+        AND c.is_inactive = 0
+        AND a.full_name NOT LIKE '%Unscheduled%'
+      GROUP BY ra._company_name, a.full_name, ra.day_of_week
+      ORDER BY ra._company_name, a.full_name,
+        CASE ra.day_of_week WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
+          WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 WHEN 'Sunday' THEN 7 END
+    expected: "~270 rows (tech × day-of-week). Verified 2026-04-22: AQPS 82 distinct routes / 19 techs / 966 assignments; JOMO 192 distinct routes (ex-Unscheduled) / 41 techs / 2,201 assignments."
+
+  - question: "Which active customers don't have an active route?"
+    sql: |
+      -- Gap analysis: customers marked active in dim_customer but with no
+      -- active RouteAssignment. Indicates one-off service, quote-stage,
+      -- or stale 'is_inactive' flag. Verified 2026-04-22: ~628 customers
+      -- (AQPS 127, JOMO 501).
+      SELECT
+        c._company_name AS company,
+        c.clean_customer_name,
+        c.billing_city,
+        c.billing_state,
+        c.created_at,
+        c.updated_at
+      FROM public_warehouse.dim_customer c
+      WHERE c.is_inactive = 0
+        AND c.deleted = 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public_staging.stg_route_assignment ra
+          JOIN public_staging.stg_service_location sl
+            ON sl.service_location_id = ra.service_location_id
+           AND sl._company_name = ra._company_name
+          WHERE sl.customer_id = c.customer_id
+            AND sl._company_name = c._company_name
+            AND ra.end_date >= CURRENT_DATE::text
+        )
+      ORDER BY c._company_name, c.clean_customer_name
+    expected: "~628 active customers without an active route — data-quality signal or legitimate one-off/quote-stage business."
 
   - question: "What are the most common chemical readings?"
     sql: |
