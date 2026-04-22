@@ -59,6 +59,7 @@
 | ~~DL-11~~ | ~~`fact_route_skip` — skipped service tracking with reasons, revenue leakage~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 806 rows (day-of + pre-planned).~~ |
 | ~~DL-12~~ | ~~`fact_route_move` — schedule disruption tracking, tech reassignment patterns~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 3,510 rows.~~ |
 | DL-13 | `fact_equipment_install` — equipment lifecycle, replacement cycles, parts spend | dbt model | M | Depends on ETL-4 + DL-6. |
+| ~~DL-14~~ | ~~`rpt_active_routes` + `cli/export-active-routes.sh` — CEO-recurring active routes export. Vendor-canonical filter (Glenn/Skimmer 2026-04-22). Observational service-state labels.~~ | ~~dbt + CLI~~ | ~~S~~ | ~~DONE 2026-04-22. Fills Skimmer Route Dashboard export gap (native only supports screenshots).~~ |
 
 ### App — AI Query Intelligence (The Moat)
 
