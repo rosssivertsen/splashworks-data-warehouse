@@ -68,6 +68,7 @@ def complete_load(
 
 def fail_load(conn, log_id: int, error_message: str) -> None:
     """Mark a table load as failed."""
+    conn.rollback()
     with conn.cursor() as cur:
         cur.execute(
             """
