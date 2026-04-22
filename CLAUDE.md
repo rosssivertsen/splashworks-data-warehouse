@@ -106,7 +106,9 @@ See `docs/enterprise/README.md` for structure and usage.
 - `dim_customer` — lifecycle columns: `created_at`, `updated_at`, `is_inactive`, `deleted`
 - `dim_service_location` — `address`, `city`, `state`, `zip`, `rate`, `labor_cost`
 - `dim_pool` — body of water, gallons
-- `dim_tech`, `dim_date`, `dim_route_assignment`
+- `dim_tech`, `dim_date`
+
+**Route data** lives only in `public_staging.stg_route_assignment` (no warehouse dim — see `docs/enterprise/glossary/route-assignment-DRAFT.md`). Canonical `active_route` definition is in `docs/skimmer-semantic-layer.yaml`.
 
 **Warehouse facts:**
 - `fact_service_stop` — per-visit records with chemical readings
