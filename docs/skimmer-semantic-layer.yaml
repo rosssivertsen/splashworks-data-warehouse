@@ -136,6 +136,12 @@ business_terms:
       GROUP BY ra.route_assignment_id, a.full_name, ra.day_of_week, c.clean_customer_name, sl.address, sl.city, sl.state, sl.zip, ra.frequency
     tables: [stg_route_assignment, stg_account, stg_service_location, dim_customer, dim_pool, fact_service_stop]
     synonyms: ["route", "route assignment", "route list", "tech schedule", "service schedule", "active routes", "running routes"]
+    skimmer_doc: "https://help.getskimmer.com/article/98-view-build-and-manage-routes-web"
+    skimmer_docs_related:
+      - "https://help.getskimmer.com/article/97-manage-route-assignments-web"
+      - "https://help.getskimmer.com/article/37-move-a-route-assignment-app"
+      - "https://help.getskimmer.com/article/273-the-schedule-calendar"
+    operational_vs_analytical: "For the *action* of moving a customer to a different tech or day, Skimmer's Route Dashboard (web) is the system of record. The warehouse is read-only and only supports analytics / reporting / dashboarding on route state. If a user asks 'how do I reassign a customer', redirect them to the Skimmer Route Dashboard — do not try to answer via warehouse SQL."
     note: "DayOfWeek is text ('Monday'..'Sunday'), not a number — do NOT use dim_date. Frequency values: 'Weekly', 'Every 2 Weeks', 'Triweekly', 'Monthly', 'EveryFourWeeks', 'EveryFiveWeeks', 'EveryTwoMonths'. The 2080-01-01 'no end' sentinel that older docs mention is NOT present in current data — every active assignment has a real future EndDate. Do not filter on 2080-01-01 specifically."
 
   installed_item:
