@@ -151,8 +151,14 @@ class CloudflareAccessMiddleware:
                                 audience=self.aud, issuer=expected_issuer,
                             )
                             request.state.cf_user_email = payload.get("email")
-                except Exception:
-                    pass  # Health is always allowed; just won't get enriched data
+                    else:
+                        logger.warning("Health JWT present but JWKS fetch returned empty; enriched data suppressed")
+                except jwt.ExpiredSignatureError:
+                    logger.warning("Health JWT expired; enriched data suppressed")
+                except jwt.InvalidTokenError as exc:
+                    logger.warning("Health JWT invalid: %s; enriched data suppressed", exc)
+                except Exception as exc:
+                    logger.warning("Health JWT validation unexpected error: %s; enriched data suppressed", exc)
             await self.app(scope, receive, send)
             return
 
