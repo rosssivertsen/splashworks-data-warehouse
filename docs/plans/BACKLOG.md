@@ -59,6 +59,7 @@
 | ~~DL-11~~ | ~~`fact_route_skip` — skipped service tracking with reasons, revenue leakage~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 806 rows (day-of + pre-planned).~~ |
 | ~~DL-12~~ | ~~`fact_route_move` — schedule disruption tracking, tech reassignment patterns~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 3,510 rows.~~ |
 | DL-13 | `fact_equipment_install` — equipment lifecycle, replacement cycles, parts spend | dbt model | M | Depends on ETL-4 + DL-6. |
+| DL-14 | `rpt_recurring_checklist` — per-location recurring service due/overdue report | dbt model | S | Branch: `feature/dl-recurring-checklist`. Adds `LocationWorkOrderType` source + `stg_location_work_order_type` + `rpt_recurring_checklist` skeleton. Pending: business-logic CTE for `next_due_date` + `status` (recur-type semantics, overdue-bucket thresholds, NEVER_DONE handling). |
 
 ### App — AI Query Intelligence (The Moat)
 

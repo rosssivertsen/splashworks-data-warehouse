@@ -17,6 +17,7 @@ sources:
       - name: AQPS_RouteAssignment
       - name: AQPS_WorkOrder
       - name: AQPS_WorkOrderType
+      - name: AQPS_LocationWorkOrderType
       - name: AQPS_Invoice
       - name: AQPS_InvoiceItem
       - name: AQPS_InvoiceLocation
@@ -39,6 +40,7 @@ sources:
       - name: JOMO_RouteAssignment
       - name: JOMO_WorkOrder
       - name: JOMO_WorkOrderType
+      - name: JOMO_LocationWorkOrderType
       - name: JOMO_Invoice
       - name: JOMO_InvoiceItem
       - name: JOMO_InvoiceLocation
