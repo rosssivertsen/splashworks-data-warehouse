@@ -1,9 +1,10 @@
 # VPS Migration Runbook — May 2026
 
-**Status:** DRAFT — pending decision on cutover window and tunnel strategy
+**Status:** READY for Phase 0.6 (dump/restore dry run) and Phase 1 cutover. All pre-flight discovery complete.
 **Stream:** IN (Infrastructure)
 **Branch:** `feature/in-vps-migration`
 **Authored:** 2026-05-01
+**Updated:** 2026-05-01 (post-audit revisions)
 
 ---
 
@@ -16,209 +17,247 @@
 | **Plan** | KVM-2 (2 CPU / 8 GB RAM / 100 GB disk / 8 TB BW) | KVM-4 (4 CPU / 16 GB RAM / 200 GB disk / 16 TB BW) |
 | **Hostname** | srv1317522.hstgr.cloud | srv1590691.hstgr.cloud |
 | **IPv4** | 76.13.29.44 | 2.24.202.170 |
-| **IPv6** | 2a02:4780:2d:599d::1 | 2a02:4780:75:e087::1 |
 | **DC** | 17 | 24 |
 | **OS** | Ubuntu 24.04 LTS | Ubuntu 24.04 LTS |
-| **Created** | 2026-02-01 | 2026-04-15 |
-
-Net effect: 2x compute, 2x RAM, 2x disk, 2x bandwidth — and ownership moves from personal to splashworks billing. No OS-level migration concerns; Ubuntu major version matches.
+| **Disk usage** | 30 GB / 96 GB (32%) | 3 GB / 193 GB (2%) |
 
 ---
 
-## Inventory of what's moving
+## Decisions locked in (2026-05-01)
 
-### Irreplaceable state (must dump/restore correctly)
+| # | Decision | Resolution |
+|---|----------|------------|
+| 1 | Cutover window | Not weekend-bound; "material amount done as quickly as possible" over the next week |
+| 2 | Source retention | **Indefinite** — no decommission timer |
+| 3 | Tunnel strategy | **Move tunnel via token-based systemd unit copy** |
+| 4 | Production-read access | **Authorized** — full root credentials |
+| 5 | External IP whitelists | None expected; no SLA-bound external customer traffic |
 
-- **Postgres 16 + pgvector data**, schemas: `public`, `public_staging`, `public_warehouse`, `public_semantic`, `ripple`, plus `etl` metadata schema. **Critical:** `public_warehouse.fact_*` tables are incremental and have accumulated history beyond the rolling 6-month raw window — losing them means losing accumulated transactions.
-- **Postgres roles + grants:** `postgres` (admin), `ripple_rw`, `metabase_ro`. Captured via `pg_dumpall --globals-only`.
-- **`query_audit_log`** — audit trail for all `/api/query` and `/api/query/raw` requests (compliance artifact, not regenerable).
-- **`.env`** — DB password, Anthropic API key, OpenAI API key, Cloudflare service tokens.
-
-### Recreatable from sources (no dump needed)
-
-- `data/` SQLite extracts — re-pulled from OneDrive after rclone is reconfigured on target.
-- dbt artifacts (`target/`, `dbt_packages/`) — regenerated via `dbt deps && dbt run`.
-- Docker images — pulled fresh on target (faster than scp'ing image tarballs over the public internet).
-- Frontend static builds — produced by `npm run build` from repo source.
-- Python venvs, npm node_modules — reinstalled by Dockerfile builds.
-
-### Configuration to copy (small files, scp via SSH)
-
-- `/etc/cloudflared/` — tunnel credentials JSON, `cert.pem`, `config.yml`, systemd unit.
-- `/etc/systemd/system/cloudflared.service` — service definition.
-- `/etc/cron.d/` or root crontab — nightly ETL pipeline schedule.
-- `~/.config/rclone/rclone.conf` — OneDrive OAuth tokens. **May need re-auth on target** if Microsoft Graph rejects the migrated token.
-- `/opt/splashworks/.env` — secrets file.
-- SSH `authorized_keys` for ongoing access.
-
-### Lives elsewhere — does not move
-
-- **DNS records** in Cloudflare → still point at `<tunnel-id>.cfargotunnel.com`. Zero DNS edits required if we keep the tunnel ID.
-- **Cloudflare Access policies** — applications + login methods + email allowlists live in the CF dashboard. Survive automatically.
-- **Cloudflare Tunnel routing rules** — defined in `config.yml` on the VPS, not in CF dashboard.
-- **GitHub repo** — clone fresh on target.
+Domain → separate Cloudflare account is a **post-migration project**, out of scope here.
 
 ---
 
-## Strategy: tunnel-credential move + maintenance-window cutover
+## Audit findings (2026-05-01) — what's actually running on source
 
-The migration uses **the same tunnel ID** on both VPSes (sequentially, never simultaneously). Cloudflare DNS records reference `f062b2e4-2fed-4575-85ea-f9f9f39e5525.cfargotunnel.com` — by moving the tunnel credentials JSON file from source to target, the tunnel "follows" the credentials. No DNS changes, no TTL waiting, no propagation risk.
+### Application stack (8 containers, all healthy 26h)
 
-**Why not run both tunnels in parallel for a no-downtime cutover?**
+| Container | Port | Public route |
+|---|---|---|
+| `splashworks-postgres` (pgvector/pgvector:pg16) | 5432 | internal |
+| `splashworks-api` | 8080 | api.splshwrks.com |
+| `splashworks-frontend` | 3001 | app.splshwrks.com |
+| `splashworks-metabase` (metabase/metabase:latest) | 3000 | bi.splshwrks.com |
+| `splashworks-ripple-api` | 8082 | ripple.splshwrks.com (via ripple-frontend) |
+| `splashworks-ripple-frontend` | 3003 | ripple.splshwrks.com |
+| `splashworks-staging-api` | 8081 | staging-api.splshwrks.com |
+| `splashworks-staging-frontend` | 3002 | staging-app.splshwrks.com |
 
-A single Cloudflare tunnel ID supports multiple replicas (Cloudflare load-balances between them). But during the data-sync window, the application stack must be writing to exactly one Postgres — running two app stacks simultaneously while the database moves causes split-brain writes and lost data. The cleanest sequencing is: stop source app stack → dump → restore → start target app stack → swap tunnel.
+### Postgres state
 
-Estimated downtime: **30–60 minutes** for a fresh `pg_dump --format=custom` of a few GB of data, transfer, and `pg_restore`. Verification adds 30 minutes.
+- **Single database:** `splashworks` (12 GB) — schemas `public`, `public_staging`, `public_warehouse`, `public_semantic`, `ripple`, `etl` all live inside this one DB
+- **Superuser role:** `splashworks` (NOT `postgres`)
+- **Other roles:** `splashworks_ro`, `ripple_rw`, `metabase_ro`
+- **Volume:** `splashworks_pg_data` (Docker-managed, 14 GB on host)
+
+### Cloudflared
+
+- **Mode:** token-based (`tunnel run --token <base64>`) — *not* credentials-file mode
+- **Tunnel ID:** `f062b2e4-2fed-4575-85ea-f9f9f39e5525`
+- **Config file:** `/etc/cloudflared/config.yml` exists but is **vestigial** — token mode ignores it. Routing is managed in the Cloudflare dashboard.
+- **Systemd unit:** `/etc/systemd/system/cloudflared.service` — token is embedded in `ExecStart`. This is the file we move.
+- **Active service:** `systemctl is-active cloudflared` → `active`
+
+### Cron / scheduled work
+
+- **Root crontab:** `15 1 * * * /opt/splashworks/etl/scripts/nightly-pipeline.sh >> /opt/splashworks/data/pipeline-cron.log 2>&1`
+- **No systemd timers for app workload** (only stock Ubuntu housekeeping)
+
+### Other
+
+- **Repo:** `/opt/splashworks/` on commit `3602c69` (latest main), clean working tree
+- **`.env`:** 10 lines, secrets including DB password, Anthropic key, OpenAI key
+- **rclone:** `onedrive:` remote configured
 
 ---
 
-## Phase 0 — Pre-flight (this week, before cutover window)
+## Audit findings (2026-05-01) — what's running on target
 
-| # | Step | Owner | Verifies |
-|---|------|-------|----------|
-| 0.1 | Audit source VPS (read-only): `df -h`, `docker compose ps`, `crontab -l`, `du -sh /var/lib/docker /opt/splashworks /var/lib/postgresql`, `systemctl status cloudflared`, list `/etc/cloudflared/`, `rclone listremotes` | Sherpa (gated on Ross OK for prod read) | Sizing + completeness of inventory |
-| 0.2 | Audit target VPS: confirm clean Ubuntu install or document any pre-existing config; install SSH key for ongoing access | Sherpa | Target is reachable + safe to provision |
-| 0.3 | Install on target: Docker, Docker Compose plugin, cloudflared, rclone, postgresql-client (for pg_dump/restore), `git` | Sherpa | Target ready to receive workload |
-| 0.4 | Clone repo on target into `/opt/splashworks/`, install secrets (`.env`) but DO NOT start containers | Sherpa | App layer ready to flip on |
-| 0.5 | Pre-pull all Docker images on target (`docker compose pull`) | Sherpa | Cutover window doesn't include image pulls |
-| 0.6 | Test pg_dump → pg_restore round-trip with a recent snapshot (use staging schema or a dump-to-/tmp restore test) | Sherpa | Catch dump/restore issues *before* the live cutover |
-| 0.7 | Verify Cloudflare Access policies still work (test login from a fresh browser session at `app.splshwrks.com`) | Ross | Baseline before cutover |
-| 0.8 | Disable nightly ETL cron on source (comment out crontab entry) — runs from 1:15 AM UTC | Sherpa | No mid-migration ETL writes |
-| 0.9 | Confirm rollback procedure: source stays *paused but intact* for retention window | Ross | Rollback target exists |
+- **Already running:** `jomo-inventory` (port 8000) + `jomo-inventory-staging` (port 8001) — separate Splashworks app, healthy 11+ days. **MUST NOT BE DISTURBED.**
+- **Port conflicts with warehouse stack:** **None** (warehouse uses 3000-3003, 5432, 8080-8082; jomo uses 8000-8001).
+- **Pre-installed:** Docker 29.4.0, docker compose v5.1.3, **cloudflared 2026.3.0 (binary present, not configured)**, git, curl
+- **Not yet installed:** rclone, postgresql-client (for pg_dump/restore)
+- **Firewall:** UFW inactive; iptables `policy ACCEPT`. Docker manages its own iptables rules.
+- **`/etc/cloudflared/`:** does not exist yet
+- **Cron:** empty
+- **SSH:** Ross's key authorized; access confirmed
 
 ---
 
-## Phase 1 — Cutover window (Saturday, time TBD)
+## Strategy: token-based tunnel handoff + maintenance-window cutover
 
-Target window: **TBD — recommend Sat 10pm CT** (low traffic, internal users asleep).
+Cloudflare tunnel uses **token-based authentication**, not credentials-file mode. Tunnel "movement" is just installing the same systemd unit (with embedded token) on the target and starting it. Cloudflare load-balances between tunnel replicas if both are running, but we'll sequence stop-source-then-start-target to avoid split-brain Postgres writes.
+
+DNS records and ingress routing live in the Cloudflare dashboard, keyed by tunnel ID `f062b2e4-2fed-4575-85ea-f9f9f39e5525`. Zero DNS work required.
+
+Estimated downtime: **20-30 minutes** for stop → pg_dump (12 GB compressed to ~2-4 GB) → scp → pg_restore → start. Verification adds ~30 minutes (Phase 2).
+
+---
+
+## Phase 0 — Pre-flight (in progress)
+
+| # | Step | Status | Notes |
+|---|------|--------|-------|
+| 0.1 | Source audit (read-only) | ✅ DONE 2026-05-01 | Findings in section above |
+| 0.2 | Target audit | ✅ DONE 2026-05-01 | Findings in section above |
+| 0.3a | Install rclone on target | TODO | `apt install rclone` |
+| 0.3b | Install postgresql-client-16 on target | TODO | `apt install postgresql-client-16` |
+| 0.3c | Pre-create `/etc/cloudflared/` directory on target | TODO | Permissions: 755 root:root |
+| 0.4 | Clone repo on target into `/opt/splashworks/` | TODO | Same path as source for parity |
+| 0.4b | Copy `.env` from source to target | TODO | scp; chmod 600; gated on cutover window |
+| 0.5 | `docker compose pull` on target (pre-pull all images) | TODO | Compose file uses pgvector/pgvector:pg16 + custom-built api/frontend/ripple |
+| 0.5b | `docker compose build` on target (custom images) | TODO | api, frontend, ripple-api, ripple-frontend, staging-* are built locally from repo |
+| 0.6 | Dump/restore round-trip dry run | TODO | Use `splashworks` DB → `splashworks_test`, verify counts. **Highest-value rehearsal step.** |
+| 0.7 | Configure rclone OneDrive on target | TODO | OAuth flow may require browser-based re-auth — Ross's MS account |
+| 0.8 | Disable nightly cron on source | TODO | Right before Phase 1 starts. Not earlier — we want fresh data through last night. |
+| 0.9 | Snapshot row counts on source | TODO | Pre-cutover comparison baseline |
+
+---
+
+## Phase 1 — Cutover sequence
 
 ```
-T+0:00  Disable nightly cron on source (already done in 0.8 if not earlier)
-T+0:00  ssh source: docker compose down              # stops api/frontend/metabase/ripple/etc.
-T+0:01  ssh source: pg_dumpall --globals-only > /tmp/globals.sql
-T+0:02  ssh source: pg_dump --format=custom --no-owner --no-privileges --jobs=2 \
-                    --file=/tmp/warehouse.dump warehouse
-T+0:08  ssh source: pg_dump --format=custom --no-owner --no-privileges \
-                    --file=/tmp/ripple.dump ripple        # if separate DB; verify
-T+0:10  scp /tmp/*.dump /tmp/globals.sql target:/tmp/
-T+0:15  ssh target: createdb warehouse (and ripple) on the postgres container
-T+0:16  ssh target: psql -f /tmp/globals.sql            # users, roles, grants
-T+0:17  ssh target: pg_restore --no-owner --no-privileges \
-                    --jobs=4 -d warehouse /tmp/warehouse.dump
-T+0:25  ssh target: VACUUM ANALYZE; reindex if needed
-T+0:30  Move tunnel credentials:
-        scp /etc/cloudflared/* target:/etc/cloudflared/
-T+0:31  ssh source: systemctl stop cloudflared          # tunnel is now offline
-T+0:32  ssh target: systemctl enable --now cloudflared  # tunnel reattaches from new IP
-T+0:33  ssh target: docker compose up -d                # bring up api/frontend/etc.
+T+0:00  ssh source: crontab -l > /tmp/source-crontab.bak  # save before disabling
+T+0:00  ssh source: crontab -r                            # disable nightly cron
+T+0:00  ssh source: cd /opt/splashworks && docker compose down
+T+0:01  ssh source: docker run --rm -v splashworks_pg_data:/var/lib/postgresql/data \
+                    -e POSTGRES_USER=splashworks -e POSTGRES_DB=splashworks \
+                    pgvector/pgvector:pg16 bash -c \
+                    "pg_dumpall -U splashworks --globals-only > /tmp/globals.sql"
+                    # Tricky — Postgres needs to be UP for dump. Better:
+T+0:01  ssh source: docker compose up -d postgres        # bring postgres back up only
+T+0:02  ssh source: docker exec splashworks-postgres bash -c \
+                    "pg_dumpall -U splashworks --globals-only" > /tmp/globals.sql
+T+0:03  ssh source: docker exec splashworks-postgres bash -c \
+                    "pg_dump -U splashworks --format=custom --no-owner --no-privileges \
+                     --jobs=2 splashworks" > /tmp/splashworks.dump
+        # ~3-8 minutes for 12 GB → ~2-4 GB compressed
+T+0:11  scp source:/tmp/splashworks.dump /tmp/globals.sql target:/tmp/
+        # ~2-5 minutes depending on egress bandwidth
+T+0:15  ssh target: mkdir -p /opt/splashworks
+T+0:15  ssh target: cd /opt/splashworks && git clone https://github.com/rosssivertsen/splashworks-data-warehouse.git .
+T+0:16  ssh target: scp source:/opt/splashworks/.env /opt/splashworks/.env && chmod 600 .env
+T+0:17  ssh target: cd /opt/splashworks && docker compose up -d postgres
+        # Wait for healthcheck
+T+0:19  ssh target: docker exec splashworks-postgres bash -c \
+                    "psql -U splashworks -d postgres -f /tmp/globals.sql"
+T+0:19  ssh target: docker exec splashworks-postgres bash -c \
+                    "createdb -U splashworks splashworks"
+T+0:20  ssh target: docker exec splashworks-postgres bash -c \
+                    "pg_restore -U splashworks --no-owner --no-privileges \
+                     --jobs=4 -d splashworks /tmp/splashworks.dump"
+        # ~5-10 minutes
+T+0:28  ssh target: docker exec splashworks-postgres psql -U splashworks -d splashworks \
+                    -c "VACUUM ANALYZE;"
+T+0:30  Move cloudflared service:
+        scp source:/etc/systemd/system/cloudflared.service target:/etc/systemd/system/
+T+0:31  ssh source: systemctl stop cloudflared && systemctl disable cloudflared
+T+0:32  ssh target: systemctl daemon-reload && systemctl enable --now cloudflared
+        # Tunnel reattaches from new IP; CF dashboard sees new connection
+T+0:33  ssh target: cd /opt/splashworks && docker compose up -d
+        # api, frontend, metabase, ripple-*, staging-*
 T+0:35  Begin verification (Phase 2)
 ```
 
-If anything fails between T+0:30 and T+0:35, see **Rollback**.
+If anything fails between T+0:30 and T+0:35 → see **Rollback** below.
 
 ---
 
-## Phase 2 — Verification (immediately after cutover)
+## Phase 2 — Verification
 
 Run in this order — each step gates the next:
 
-1. **Tunnel reattach:** `ssh target: cloudflared tunnel info <tunnel-id>` shows the new IP as the active connection.
-2. **Public reachability:** `curl -I https://app.splshwrks.com` and `https://api.splshwrks.com/api/health` from off-network. Expect 200 (or 302 to CF Access login on `app.`).
-3. **Cloudflare Access:** browser login at `app.splshwrks.com` succeeds via GitHub OAuth.
-4. **Database integrity:**
+1. **Tunnel reattach:** `ssh target: journalctl -u cloudflared -n 50` shows `Connection registered with protocol`. Old connections from source IP are gone.
+2. **Public reachability:** off-network, `curl -I https://app.splshwrks.com` → expect 302 (CF Access). `curl -I https://api.splshwrks.com/api/health` → expect 302 or 200.
+3. **CF Access:** browser login at app.splshwrks.com via GitHub OAuth.
+4. **Database integrity** — compare to pre-cutover snapshot:
    ```sql
-   -- Pre-cutover counts (captured during Phase 1 step T+0:00)
-   -- Post-cutover counts (run on target now)
-   SELECT 'dim_customer' AS table, count(*) FROM public_warehouse.dim_customer
-   UNION ALL SELECT 'fact_service_stop', count(*) FROM public_warehouse.fact_service_stop
-   UNION ALL SELECT 'fact_payment',      count(*) FROM public_warehouse.fact_payment
-   UNION ALL SELECT 'fact_invoice_item', count(*) FROM public_warehouse.fact_invoice_item
-   UNION ALL SELECT 'rpt_customer_360',  count(*) FROM public_semantic.rpt_customer_360;
+   SELECT 'dim_customer'      AS t, count(*) FROM public_warehouse.dim_customer
+   UNION ALL SELECT 'fact_service_stop',  count(*) FROM public_warehouse.fact_service_stop
+   UNION ALL SELECT 'fact_payment',       count(*) FROM public_warehouse.fact_payment
+   UNION ALL SELECT 'fact_invoice_item',  count(*) FROM public_warehouse.fact_invoice_item
+   UNION ALL SELECT 'rpt_customer_360',   count(*) FROM public_semantic.rpt_customer_360
+   UNION ALL SELECT 'query_audit_log',    count(*) FROM public.query_audit_log
+   UNION ALL SELECT 'ripple chunks',      count(*) FROM ripple.chunks;
    ```
-   Expect parity with pre-cutover snapshot.
-5. **AI query path:** post a known-verified query (one of the 13 few-shot examples) to `/api/query` and confirm SQL generation + execution returns expected rows.
-6. **Metabase:** load `bi.splshwrks.com`, run a saved question, confirm results.
-7. **Ripple:** `ripple.splshwrks.com` answers a known doc-RAG question. Confirms pgvector is working.
-8. **ETL dry run:** manually invoke `/opt/splashworks/etl/scripts/nightly-pipeline.sh --dry-run` (or equivalent) — confirms rclone OneDrive auth, ETL Python, dbt run all functional.
-9. **Re-enable nightly cron** on target.
-10. **Disable nightly cron** stays disabled on source (already done in 0.8).
+5. **Postgres roles:** `\du` shows `splashworks`, `splashworks_ro`, `ripple_rw`, `metabase_ro`.
+6. **AI query path:** post a known-verified query to `/api/query`. Expect SQL generation + execution.
+7. **Metabase:** load bi.splshwrks.com, run a saved question.
+8. **Ripple:** ripple.splshwrks.com answers a known doc-RAG question (verifies pgvector).
+9. **JOMO Inventory still healthy on target:** `docker ps | grep jomo` shows both containers up. (Confirms our work didn't disturb them.)
+10. **ETL dry run:** manually invoke `nightly-pipeline.sh` (or a dry-run flag if implemented) — confirms rclone OneDrive auth works from new IP.
+11. **Re-enable nightly cron** on target: `crontab` with the original entry.
 
-If steps 1–7 pass: cutover is **GO**. If 8 fails, the platform is up but ETL needs follow-up — not a rollback condition.
+If 1–8 pass: cutover is **GO**. 9 confirms isolation. 10–11 are operational follow-ups.
 
 ---
 
-## Phase 3 — Rollback (if Phase 2 fails before declared GO)
+## Phase 3 — Rollback (only valid before any writes hit target)
 
-Source has been *stopped* but not destroyed. To revert:
+Source has been *stopped* but kept indefinitely (per decision #2).
 
-1. `ssh target: systemctl stop cloudflared && docker compose down`
+1. `ssh target: systemctl stop cloudflared && cd /opt/splashworks && docker compose down`
 2. `ssh target: systemctl disable cloudflared`
-3. `ssh source: systemctl start cloudflared && docker compose up -d`
-4. Tunnel reattaches from source IP. Public traffic flows back.
-5. Re-enable source nightly cron.
-6. Open an incident note documenting what failed; iterate before re-attempting.
+3. `ssh source: systemctl enable --now cloudflared && cd /opt/splashworks && docker compose up -d`
+4. `ssh source: crontab /tmp/source-crontab.bak` to restore the nightly cron
+5. Tunnel reattaches from source IP. Public traffic flows back.
 
-**Critical rollback constraint:** rollback is *only* valid before any writes hit the target Postgres. Once business users start writing (queries logged, dashboards saved, Ripple feedback recorded), rolling back loses those writes. Phase 2 verification should complete before unblocking writes.
+**Critical constraint:** rollback is only valid before users start writing to target. Once query_audit_log entries / Ripple chat / Metabase saved questions accumulate on target, rolling back loses those writes. Phase 2 verification should complete before unblocking writes.
 
 ---
 
-## Phase 4 — Post-cutover (week of 2026-05-04 onwards)
+## Phase 4 — Post-cutover
 
 | Day | Action |
 |-----|--------|
-| Sun | Monitor: confirm nightly ETL ran cleanly on target at 1:15 AM UTC. Spot-check reconciliation JSON. |
-| Mon | Confirm Ripple chat history continues, audit log entries persist. |
-| Tue–Fri | Normal use. Source remains running but offline (containers down, cloudflared down). |
-| **Day 7 (2026-05-09 Sat)** | Decommission source: cancel personal Hostinger subscription `Azz5B5V9vdJnb7Pov`, take final snapshot for archive, release VM 1317522. |
-
-(Retention window of 7 days is recommended default — adjust per Ross's risk tolerance.)
+| Day 1 | Confirm nightly ETL ran cleanly on target at 1:15 UTC. Spot-check `data/reconciliation.json`. |
+| Day 2-7 | Normal use; monitor logs. |
+| Day 7+ | Source remains paused but intact (no auto-decommission per decision #2). |
+| Future | Domain migration to separate Cloudflare account — separate project. |
 
 ---
 
-## Risk register
+## Risk register (post-audit revision)
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|------|-----------|--------|------------|
-| R1 | pg_dump corrupts under load | Low | High | App stack is down before dump; `--format=custom` checksums; round-trip dry run in Phase 0.6 |
-| R2 | pgvector extension version mismatch on target | Med | High | Pin `pgvector/pgvector:pg16` image — same as source. Verify `\dx` on target after restore. |
-| R3 | Tunnel credential conflict (split-brain) | Low | High | Stop source cloudflared *before* starting target. Cloudflared logs the active connection — verify before declaring GO. |
-| R4 | rclone OneDrive token rejected on new IP | Med | Med | Test in Phase 0.6 by running rclone manually from target. Re-auth via OAuth flow if needed (browser-based). |
-| R5 | DNS TTL caching causes intermittent routing | Negligible | Low | Tunnel-credential approach avoids DNS edits entirely. |
-| R6 | OneDrive blocks new IP as suspicious | Low | Med | If hit, Microsoft typically requires interactive sign-in; have Ross's MS account credentials available. |
-| R7 | Hostinger firewall blocks inbound on target | Med | High | Check `firewall_group_id` on target VM (currently `null` — unrestricted). Verify SSH (22), Cloudflared outbound (443) work. |
-| R8 | Postgres data dir UID/GID mismatch | Low | Med | Use Docker volumes (managed by Docker), not bind mounts — no UID issues. Verify `docker compose ps postgres` healthy. |
-| R9 | Schema-governance scaffold expects specific paths | Low | Low | Files live under `/opt/splashworks/docs/data-governance/` — moves with repo clone. |
-| R10 | Crons exist outside captured crontab (e.g., systemd timers) | Med | Med | Phase 0.1 runs `systemctl list-timers` + `crontab -l` for both root and user accounts. |
-| R11 | `/var/lib/docker` size on source > target free space | Low | High | Phase 0.1 captures `du -sh /var/lib/docker` — abort if > 150 GB. Currently expected ~10–20 GB. |
-| R12 | Source IP is whitelisted in any external system (Stripe, Slack webhooks, customer integrations) | Med | Med | Audit `.env` and any IP-allowlist references. Update whitelists during Phase 0 to include target IP. |
+| R1 | pg_dump corrupts under load | Low | High | App stack stopped; `--format=custom` checksums; **Phase 0.6 dry run is mandatory** |
+| R2 | pgvector version mismatch | Negligible | High | Same `pgvector/pgvector:pg16` image on both sides. Verify `\dx` post-restore. |
+| R3 | Tunnel split-brain (both connected) | Low | Med | Sequence: stop source first; verify in CF dashboard before re-enabling target writes |
+| R4 | rclone OneDrive token rejected on new IP | Med | Med | Re-auth in Phase 0.7 via OAuth browser flow; works because Ross has the MS account |
+| R5 | DNS TTL caching | Negligible | Low | Token-based tunnel; no DNS edits |
+| R6 | OneDrive flags new IP | Low | Med | Microsoft typically requires interactive sign-in once; do during Phase 0.7 |
+| R7 | Hostinger firewall blocks inbound on target | Negligible | High | Target `firewall_group_id = null` (unrestricted); UFW inactive. Verified in audit. |
+| R8 | Postgres data volume mount issue | Low | Med | Docker-managed volume; same image; no UID issues |
+| R9 | Disrupts JOMO Inventory on target | Low | High | No port conflicts; separate compose project; verify in Phase 2.9 |
+| R10 | Custom Docker images need rebuild on target | High | Low | Phase 0.5b explicitly builds; confirm before cutover |
+| R11 | `.env` includes secrets — file permissions | Low | High | scp + chmod 600; verify on target |
+| R12 | Source IP whitelisted somewhere unexpected | Low | Med | Per decision #5: none expected. Monitor for failures post-cutover. |
+| R13 | Hostinger personal-account billing lapses (source kept indefinitely) | Med | Low | Source retention costs ~one KVM-2 plan/mo; accept. |
 
 ---
 
-## Open decisions (Ross)
+## Open work after this runbook closes
 
-Need answers before Phase 0 starts:
-
-1. **Cutover window:** Friday night, Saturday day, **Saturday 10pm CT (recommended)**, or Sunday?
-2. **Source retention:** decommission immediately on success, **7 days (recommended)**, or hold until next billing cycle?
-3. **Tunnel strategy:** **move existing tunnel credentials (recommended — zero DNS work)**, or create a new tunnel + update CF DNS?
-4. **Pre-flight prod read access:** OK to SSH read-only to source for Phase 0.1 inventory? Production reads need explicit confirmation.
-5. **External IP whitelists:** any third-party services (Stripe webhooks, customer integrations, monitoring) that whitelist source IP `76.13.29.44`?
+- **DL-14 recurring-checklist report** (separate branch `feature/dl-recurring-checklist`) — independent.
+- **Skimmer Service Checklist data request** — pending Glenn's reply.
+- **Domain migration to separate CF account** — out of scope for this runbook; separate future project.
+- **ETL-9 schema-governance rollout** — independent.
 
 ---
 
-## Out of scope for this runbook
+## Artifacts
 
-- Recreating Cloudflare Access policies (no change needed; already in CF dashboard).
-- Domain/DNS migration (already in Cloudflare; tunnel approach avoids DNS edits).
-- Postgres major-version upgrade (target uses same Postgres 16 image).
-- Application changes — all code moves verbatim via `git clone`.
-- ETL-9 schema-governance rollout — independent stream.
-
----
-
-## Artifacts produced by this migration
-
-- This runbook → committed to `feature/in-vps-migration`.
-- Pre-cutover row-count snapshot → captured in Phase 1 step T+0:00, persisted in `docs/runbooks/2026-05-vps-migration-snapshot.md` post-cutover.
-- Post-cutover verification log → appended to this file as a new section.
-- BACKLOG entry **IN-10** → added on this branch.
+- This runbook → `feature/in-vps-migration` branch
+- Pre-cutover row-count snapshot → captured in Phase 0.9, persisted in this file post-cutover
+- Phase 2 verification log → appended here post-cutover
+- BACKLOG entry **IN-10**
