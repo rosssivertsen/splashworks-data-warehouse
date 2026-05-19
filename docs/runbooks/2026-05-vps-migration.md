@@ -4,7 +4,7 @@
 **Stream:** IN (Infrastructure)
 **Branch:** `feature/in-vps-migration`
 **Authored:** 2026-05-01
-**Updated:** 2026-05-01 (post-audit revisions)
+**Updated:** 2026-05-19 (ETL audit — DB growth from 12 → 18 GB, integrity check expansion)
 
 ---
 
@@ -19,7 +19,7 @@
 | **IPv4** | 76.13.29.44 | 2.24.202.170 |
 | **DC** | 17 | 24 |
 | **OS** | Ubuntu 24.04 LTS | Ubuntu 24.04 LTS |
-| **Disk usage** | 30 GB / 96 GB (32%) | 3 GB / 193 GB (2%) |
+| **Disk usage** | 36 GB / 96 GB (38%) as of 2026-05-19 | 3 GB / 193 GB (2%) |
 
 ---
 
@@ -54,10 +54,10 @@ Domain → separate Cloudflare account is a **post-migration project**, out of s
 
 ### Postgres state
 
-- **Single database:** `splashworks` (12 GB) — schemas `public`, `public_staging`, `public_warehouse`, `public_semantic`, `ripple`, `etl` all live inside this one DB
+- **Single database:** `splashworks` (**18 GB as of 2026-05-19**; was 12 GB at first audit 2026-05-01) — schemas `public`, `public_staging` (views only), `public_warehouse`, `public_semantic`, `ripple`, `warehouse` (dbt snapshots — `snap_tech`, `snap_customer`), `raw_skimmer` (**17 GB / 94% — 2,286 dated snapshot tables + 90 current-pointer views**) all live inside this one DB. Growth driver: `raw_skimmer` accumulates ~230 MB/day from the rolling-window ETL. No `etl` schema is in use — drift tables live in `public` (`etl_load_log`, `etl_schema_log`, `etl_schema_drift`).
 - **Superuser role:** `splashworks` (NOT `postgres`)
 - **Other roles:** `splashworks_ro`, `ripple_rw`, `metabase_ro`
-- **Volume:** `splashworks_pg_data` (Docker-managed, 14 GB on host)
+- **Volume:** `splashworks_pg_data` (Docker-managed, **20 GB on host as of 2026-05-19**; was 14 GB at first audit)
 
 ### Cloudflared
 
@@ -99,7 +99,7 @@ Cloudflare tunnel uses **token-based authentication**, not credentials-file mode
 
 DNS records and ingress routing live in the Cloudflare dashboard, keyed by tunnel ID `f062b2e4-2fed-4575-85ea-f9f9f39e5525`. Zero DNS work required.
 
-Estimated downtime: **20-30 minutes** for stop → pg_dump (12 GB compressed to ~2-4 GB) → scp → pg_restore → start. Verification adds ~30 minutes (Phase 2).
+Estimated downtime: **25-35 minutes** for stop → pg_dump (**18 GB compressed to ~4-6 GB**) → scp → pg_restore → start. Verification adds ~30 minutes (Phase 2). Estimate updated 2026-05-19 to reflect 50% DB growth since first audit, primarily in `raw_skimmer` (dated snapshot accumulation, ~230 MB/day).
 
 ---
 
@@ -140,9 +140,9 @@ T+0:02  ssh source: docker exec splashworks-postgres bash -c \
 T+0:03  ssh source: docker exec splashworks-postgres bash -c \
                     "pg_dump -U splashworks --format=custom --no-owner --no-privileges \
                      --jobs=2 splashworks" > /tmp/splashworks.dump
-        # ~3-8 minutes for 12 GB → ~2-4 GB compressed
+        # ~5-12 minutes for 18 GB → ~4-6 GB compressed (estimate updated 2026-05-19)
 T+0:11  scp source:/tmp/splashworks.dump /tmp/globals.sql target:/tmp/
-        # ~2-5 minutes depending on egress bandwidth
+        # ~3-7 minutes for ~5 GB compressed dump depending on egress bandwidth
 T+0:15  ssh target: mkdir -p /opt/splashworks
 T+0:15  ssh target: cd /opt/splashworks && git clone https://github.com/rosssivertsen/splashworks-data-warehouse.git .
 T+0:16  ssh target: scp source:/opt/splashworks/.env /opt/splashworks/.env && chmod 600 .env
@@ -179,16 +179,35 @@ Run in this order — each step gates the next:
 1. **Tunnel reattach:** `ssh target: journalctl -u cloudflared -n 50` shows `Connection registered with protocol`. Old connections from source IP are gone.
 2. **Public reachability:** off-network, `curl -I https://app.splshwrks.com` → expect 302 (CF Access). `curl -I https://api.splshwrks.com/api/health` → expect 302 or 200.
 3. **CF Access:** browser login at app.splshwrks.com via GitHub OAuth.
-4. **Database integrity** — compare to pre-cutover snapshot:
+4. **Database integrity — row counts.** Compare to pre-cutover snapshot (Phase 0.9). All counts must match exactly:
    ```sql
-   SELECT 'dim_customer'      AS t, count(*) FROM public_warehouse.dim_customer
-   UNION ALL SELECT 'fact_service_stop',  count(*) FROM public_warehouse.fact_service_stop
-   UNION ALL SELECT 'fact_payment',       count(*) FROM public_warehouse.fact_payment
-   UNION ALL SELECT 'fact_invoice_item',  count(*) FROM public_warehouse.fact_invoice_item
-   UNION ALL SELECT 'rpt_customer_360',   count(*) FROM public_semantic.rpt_customer_360
-   UNION ALL SELECT 'query_audit_log',    count(*) FROM public.query_audit_log
-   UNION ALL SELECT 'ripple chunks',      count(*) FROM ripple.chunks;
+   SELECT 'dim_customer'             AS t, count(*) FROM public_warehouse.dim_customer
+   UNION ALL SELECT 'fact_service_stop',     count(*) FROM public_warehouse.fact_service_stop
+   UNION ALL SELECT 'fact_payment',          count(*) FROM public_warehouse.fact_payment
+   UNION ALL SELECT 'fact_invoice',          count(*) FROM public_warehouse.fact_invoice
+   UNION ALL SELECT 'fact_invoice_item',     count(*) FROM public_warehouse.fact_invoice_item
+   UNION ALL SELECT 'fact_dosage',           count(*) FROM public_warehouse.fact_dosage
+   UNION ALL SELECT 'fact_labor',            count(*) FROM public_warehouse.fact_labor
+   UNION ALL SELECT 'rpt_customer_360',      count(*) FROM public_semantic.rpt_customer_360
+   UNION ALL SELECT 'query_audit_log',       count(*) FROM public.query_audit_log
+   UNION ALL SELECT 'ripple.doc_chunks',     count(*) FROM ripple.doc_chunks
+   UNION ALL SELECT 'warehouse.snap_tech',   count(*) FROM warehouse.snap_tech        -- dbt snapshots
+   UNION ALL SELECT 'warehouse.snap_customer', count(*) FROM warehouse.snap_customer
+   UNION ALL SELECT 'etl_load_log',          count(*) FROM public.etl_load_log         -- ETL checksum continuity
+   UNION ALL SELECT 'raw_skimmer tables',    count(*) FROM information_schema.tables WHERE table_schema = 'raw_skimmer';
    ```
+   Added 2026-05-19: `fact_invoice`, `fact_dosage`, `fact_labor`, `warehouse.snap_*`, `etl_load_log`, `raw_skimmer` count. Fixed `ripple.chunks` → `ripple.doc_chunks` (table never existed under former name).
+4b. **Database integrity — per-table schema fingerprints.** The schema-aware change detection hotfix (commit 55c4cf5, 2026-04-20) writes a `schema_fingerprint` per table per nightly run. Run on both source and target; every fingerprint must match exactly. A mismatch indicates restore corruption or partial copy:
+   ```sql
+   SELECT company_name, table_name, schema_fingerprint
+   FROM public.etl_load_log
+   WHERE (company_name, table_name, load_started_at) IN (
+     SELECT company_name, table_name, MAX(load_started_at)
+     FROM public.etl_load_log GROUP BY 1, 2
+   )
+   ORDER BY 1, 2;
+   ```
+   Pipe both outputs through `diff` — expect zero diff. Any mismatch → roll back.
 5. **Postgres roles:** `\du` shows `splashworks`, `splashworks_ro`, `ripple_rw`, `metabase_ro`.
 6. **AI query path:** post a known-verified query to `/api/query`. Expect SQL generation + execution.
 7. **Metabase:** load bi.splshwrks.com, run a saved question.
