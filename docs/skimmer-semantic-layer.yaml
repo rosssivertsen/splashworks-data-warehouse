@@ -145,6 +145,79 @@ business_terms:
     skimmer_doc: "https://help.getskimmer.com/article/59-add-and-delete-equipment-web"
     data_availability: "not_available"
 
+  brand:
+    description: "Customer-facing trade name. Two brands today: 'JOMO' and 'Splashworks'. The warehouse column `_company_name` carries the technical canonical: JOMO='JOMO', Splashworks='AQPS'. Presentation-layer normalization required for the display label."
+    sql_pattern: "dim_customer._company_name (values: 'JOMO', 'AQPS')"
+    tables: [dim_customer, dim_service_location, fact_invoice, fact_payment, fact_service_stop]
+    synonyms: ["company", "tenant", "_company_name", "AQPS (=Splashworks)"]
+    glossary_ref: "enterprise/glossary/brand-DRAFT.md"
+    note: "AQPS is the warehouse value for the Splashworks Brand — legacy of legal entity 'A Quality Pool Services'. JOMO has no asymmetry."
+
+  branch:
+    description: "Geographic sub-division of a Brand. JOMO has one branch (Jacksonville). Splashworks has two: Spring Hill (Hernando County ZIPs) and Ocala (Marion + Citrus). Derived from billing_zip and billing_city via the Branch Classifier."
+    sql_pattern: "derived — see glossary/branch-DRAFT.md for the ZIP set and city keywords"
+    tables: [dim_service_location]
+    synonyms: ["service territory", "dispatch hub", "branch office"]
+    glossary_ref: "enterprise/glossary/branch-DRAFT.md"
+    values:
+      JOMO: ["Jacksonville"]
+      Splashworks: ["Spring Hill", "Ocala"]
+    note: "Currently computed in sales-dashboard/refresh/geography.py. Should move into SDW as a computed column on dim_service_location so all downstream tools share one definition."
+
+  acquisition_cohort:
+    description: "Named group of customers acquired via a specific M&A transaction or branded onboarding wave. Membership is recorded via Skimmer Tag. Six cohorts registered today; see glossary for the canonical list."
+    sql_pattern: |
+      SELECT c.customer_id, t.name AS cohort_tag
+      FROM public_warehouse.dim_customer c
+      JOIN public_staging.stg_customer_tag ct ON ct.customer_id = c.customer_id AND ct._company_name = c._company_name
+      JOIN public_staging.stg_tag t ON t.tag_id = ct.tag_id AND t._company_name = ct._company_name
+      WHERE t.name IN ('PoolLogic','JomoLegacy','SUNCASTER','Russells','Brick City','PurePools')
+    tables: [dim_customer, stg_customer_tag, stg_tag]
+    synonyms: ["acquisition", "M&A cohort", "onboarding cohort", "roll-up cohort"]
+    glossary_ref: "enterprise/glossary/acquisition-cohort-DRAFT.md"
+    note: "Registry of (tag_name, brand, acq_date, mode) lives in sales-dashboard/refresh/cohorts.py:17 — single source of truth until promoted into a dim_acquisition_cohort table."
+
+  acquisition_cohort_mode:
+    description: "Controls who counts as a cohort member. Three values: recent (all tagged customers), legacy (tagged customers with first route in ±90d of acq_date), route_before_tag (tagged customers with first route before acq_date — i.e., pre-existing customers absorbed into a branded cohort)."
+    sql_pattern: "n/a — applied at computation time, see cohorts.py"
+    values: ["recent", "legacy", "route_before_tag"]
+    glossary_ref: "enterprise/glossary/acquisition-cohort-DRAFT.md"
+
+  tenure_bucket:
+    description: "Customer tenure binning based on days since first route StartDate. Used for the dashboard's Tenure Mix tile."
+    sql_pattern: |
+      CASE
+        WHEN days_with_us < 90    THEN '<3 months'
+        WHEN days_with_us < 180   THEN '3-6 months'
+        WHEN days_with_us < 365   THEN '6-12 months'
+        WHEN days_with_us < 730   THEN '1-2 years'
+        WHEN days_with_us < 1825  THEN '2-5 years'
+        ELSE '5+ years'
+      END
+    tables: [dim_customer, stg_route_assignment]
+    values: ["<3 months", "3-6 months", "6-12 months", "1-2 years", "2-5 years", "5+ years"]
+    note: "days_with_us = today - MIN(route_assignment.start_date) per customer. Uses route start, NOT customer.created_at — a customer can be created weeks before their first route, and tenure should track service relationship not record creation."
+
+  at_risk_bucket:
+    description: "Cancellation-risk binning of customers, based on a composite score derived from skipped stops, service alerts, past-due AR, and autopay status. Used for the dashboard's At-Risk Customer Score tile."
+    values: ["Critical", "High", "Medium"]
+    score_ranges:
+      Critical: "70+"
+      High: "40-69"
+      Medium: "15-39"
+    inputs: ["skipped_stops", "service_alerts", "past_due_balance", "autopay_status"]
+    note: "Score formula is NOT YET CODIFIED — compute_at_risk_customers in sales-dashboard/refresh/kpis.py is currently stubbed. Bucket boundaries are set in the dashboard HTML; the calculation that produces the score needs Ross to confirm weighting before this term goes from DRAFT to canonical."
+    status: "DRAFT — score formula pending"
+
+  money_stuck_in_workflow:
+    description: "Portfolio view of revenue that has been earned-but-not-realized due to workflow gaps. Three components: Completed Not Invoiced (work done, invoice not created), Approved Quotes Not Scheduled (sale won, job not on calendar), Aged Sent Quotes (proposal out, no customer response in 14+ days)."
+    components:
+      completed_not_invoiced: "WorkOrder where IsInvoiced=0 AND Price>0 AND CompleteTime IS NOT NULL, 120d lookback"
+      approved_quotes_unscheduled: "Quote where Status='Approved' AND JobId IS NULL"
+      aged_sent_quotes_14d: "Quote where Status='Sent' AND days_since_sent > 14"
+    tables: [stg_work_order, stg_quote]
+    note: "Named business concept introduced by the dashboard (section 7 'Money Stuck in Workflow'). The category itself is a useful executive frame — earned-but-not-realized revenue across the order-to-cash gap."
+
 tables:
   dim_customer:
     schema: public_warehouse

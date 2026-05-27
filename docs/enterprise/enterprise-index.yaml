@@ -57,6 +57,27 @@ glossary:
     description: Chemical, part, or equipment used during pool service
     warehouse_tables: [fact_dosage, fact_invoice_item]
 
+  - entity: brand
+    file: glossary/brand-DRAFT.md
+    status: DRAFT
+    system_of_record: warehouse
+    description: Customer-facing trade name (JOMO, Splashworks). Distinct from technical canonical _company_name (JOMO, AQPS).
+    warehouse_tables: [dim_customer]
+
+  - entity: branch
+    file: glossary/branch-DRAFT.md
+    status: DRAFT
+    system_of_record: warehouse
+    description: Geographic sub-division of a Brand. JOMO=Jacksonville. Splashworks=Spring Hill OR Ocala (ZIP/city derived).
+    warehouse_tables: [dim_service_location]
+
+  - entity: acquisition-cohort
+    file: glossary/acquisition-cohort-DRAFT.md
+    status: DRAFT
+    system_of_record: skimmer
+    description: Named M&A or onboarding-wave cohort tracked via Skimmer Tag. Six cohorts registered, three computation modes.
+    warehouse_tables: [dim_customer, stg_customer_tag, stg_tag]
+
 standards:
   - name: naming-conventions
     file: standards/naming-conventions.md

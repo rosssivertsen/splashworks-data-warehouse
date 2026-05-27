@@ -2,7 +2,7 @@
 
 **Purpose:** One-page visual ontology of Splashworks canonical business entities, grouped by domain and color-coded by System of Record.
 
-**Last updated:** 2026-04-20
+**Last updated:** 2026-05-23
 
 ---
 
@@ -35,6 +35,11 @@ flowchart TB
     classDef zoho fill:#d1fae5,stroke:#059669,color:#000
     classDef warehouse fill:#fef3c7,stroke:#d97706,color:#000
     classDef tbd fill:#f3f4f6,stroke:#6b7280,color:#000,stroke-dasharray: 5 5
+
+    subgraph org[" 🏢 Org & Geography "]
+        BRAND["Brand<br/><i>(D)</i>"]
+        BRANCH["Branch<br/><i>(D)</i>"]
+    end
 
     subgraph people[" 🧑 People "]
         CUST[Customer]
@@ -76,7 +81,13 @@ flowchart TB
         TAG["Tag<br/><i>(D)</i>"]
         CSEG["Customer Segment<br/><i>(P)</i>"]
         PCAT["Product Category<br/><i>(P)</i>"]
+        ACOH["Acquisition Cohort<br/><i>(D)</i>"]
     end
+
+    %% Org & Geography relationships
+    BRAND --> BRANCH
+    BRAND --> CUST
+    BRANCH --> SVCLOC
 
     %% Core structural relationships
     CUST --> CONT
@@ -102,13 +113,16 @@ flowchart TB
     PROD -.-> PCAT
     CUST -.-> CSEG
     CUST -.-> TAG
+    CUST -.-> ACOH
+    ACOH -.-> TAG
     SVCLOC -.-> TAG
     POOL -.-> TAG
     STAFF -.-> VEH
 
     %% System-of-Record coloring
-    class CUST,CONT,SVCLOC,POOL,STAFF,TEAM,COMP,PROD,EQ,WO,SS,CR,SC,RA,RS,QT,TAG,PCAT skimmer
+    class CUST,CONT,SVCLOC,POOL,STAFF,TEAM,COMP,PROD,EQ,WO,SS,CR,SC,RA,RS,QT,TAG,PCAT,ACOH skimmer
     class QOH,INV,PAY,TAX qbo
+    class BRAND,BRANCH warehouse
     class VEH,CSEG tbd
 ```
 
@@ -127,6 +141,8 @@ flowchart TB
 
 ## Key relationships — in plain English
 
+- A **Brand** (JOMO, Splashworks) groups one or more **Branches** and owns **Customers**.
+- A **Branch** is a geographic territory (Jacksonville for JOMO; Spring Hill or Ocala for Splashworks). It contains **Service Locations**. Branch is derived from `billing_zip` + `billing_city`.
 - A **Customer** has one or more **Contacts**, **Service Locations**, and **Invoices**.
 - A **Service Location** has one or more **Pools**.
 - A **Pool** receives **Service Stops**, each of which records **Chemical Readings** and completes a **Service Checklist**.
@@ -135,7 +151,8 @@ flowchart TB
 - **Work Orders** are ad-hoc (not recurring) requests against a Customer; they also consume **Products**.
 - **Invoices** receive **Payments** and apply **Tax Configuration**.
 - **Products** have a point-in-time **QOH** (stock level, per location).
-- **Classification** (Tag, Customer Segment, Product Category) applies cross-cuttingly — shown as dashed.
+- **Classification** (Tag, Customer Segment, Product Category, Acquisition Cohort) applies cross-cuttingly — shown as dashed.
+- **Acquisition Cohort** is implemented via **Tag** — a customer is "in" a cohort when they carry the cohort's named Tag and match the cohort's computation mode (recent / legacy / route_before_tag).
 
 ---
 
