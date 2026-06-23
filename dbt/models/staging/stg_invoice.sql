@@ -13,6 +13,7 @@ renamed as (
         "DueDate" as due_date,
         "Status" as status,
         "PaymentStatus" as payment_status,
+        cast("QuoteId" as text) as quote_id,
         cast("Total" as double precision) as total,
         cast("Subtotal" as double precision) as sub_total,
         cast("TaxAmount" as double precision) as tax_amount,

@@ -26,3 +26,6 @@ models:
     semantic:
       +materialized: table
       +schema: semantic
+    bi_compat:
+      +materialized: view
+      +schema: bi_compat
