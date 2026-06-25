@@ -115,7 +115,7 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 | IN-3 | Deploy UI refinements to VPS (UI.11) | Deploy | S | Number formatting, date handling, starter prompts |
 | ~~IN-7~~ | ~~**Ripple CF Access auth middleware**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. CloudflareAccessMiddleware added, JWT forwarded in Nginx.~~ |
 | ~~IN-8~~ | ~~**Use CF-Connecting-IP for audit logging**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. Prefers CF-Connecting-IP over spoofable X-Forwarded-For.~~ |
-| IN-10 | **VPS migration** — move all production services from 76.13.29.44 (KVM-2, personal Hostinger) to 2.24.202.170 (KVM-4, splashworks Hostinger) | Migration | L | Runbook: `docs/runbooks/2026-05-vps-migration.md`. Branch: `feature/in-vps-migration`. Strategy: tunnel-credential move + maintenance-window cutover. Target weekend 2026-05-02/03. Pending decisions: cutover window, source retention period, prod-read approval. |
+| ~~IN-10~~ | ~~**VPS migration** — move all production services from 76.13.29.44 (KVM-2, personal Hostinger) to 2.24.202.170 (KVM-4, splashworks Hostinger)~~ | ~~Migration~~ | ~~L~~ | ~~**DONE 2026-06-25.** Cutover complete — warehouse + all 8 services live on `2.24.202.170` (tailnet `100.124.108.126`), counts matched source exactly, tunnel stable on `--protocol http2`, Power BI repointed, Metabase H2 migrated + volume-backed. Source stopped + retained (rollback). Runbook Cutover Log: `docs/runbooks/2026-05-vps-migration.md`. **Tail:** day-1 ETL verify, source decommission decision.~~ |
 
 ### Security Audit Findings (2026-03-28) — Open
 
