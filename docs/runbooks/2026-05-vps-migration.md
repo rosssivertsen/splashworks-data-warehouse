@@ -4,7 +4,7 @@
 **Stream:** IN (Infrastructure)
 **Branch:** `feature/in-vps-migration`
 **Authored:** 2026-05-01
-**Updated:** 2026-05-19 (ETL audit — DB growth from 12 → 18 GB, integrity check expansion)
+**Updated:** 2026-06-25 (BI direct-access addendum; DB now 31 GB — see Addendum below)
 
 ---
 
@@ -19,7 +19,7 @@
 | **IPv4** | 76.13.29.44 | 2.24.202.170 |
 | **DC** | 17 | 24 |
 | **OS** | Ubuntu 24.04 LTS | Ubuntu 24.04 LTS |
-| **Disk usage** | 36 GB / 96 GB (38%) as of 2026-05-19 | 3 GB / 193 GB (2%) |
+| **Disk usage** | 48 GB / 96 GB (50%) as of 2026-06-25 (DB 31 GB) | 3 GB / 193 GB (2%) |
 
 ---
 
@@ -34,6 +34,36 @@
 | 5 | External IP whitelists | None expected; no SLA-bound external customer traffic |
 
 Domain → separate Cloudflare account is a **post-migration project**, out of scope here.
+
+---
+
+## Addendum — 2026-06-25 (BI direct-access layer + Tailscale)
+
+The BI reconciliation stream added a **direct Postgres read path** for Power BI, *separate* from the Cloudflare tunnel. The core cutover (Phase 1) is unchanged — public apps still move with the tunnel — but the migration must now also carry/recreate this layer.
+
+**New on source since 2026-05-19:**
+- **DB size: 31 GB** (was 18 GB; ~230 MB/day `raw_skimmer` growth). Disk 48/96 GB (50%). Dump est. **~8 GB compressed; downtime now ~35–45 min.**
+- **Postgres role `powerbi_ro`** (read-only, scoped to `public_bi_compat`) — carries via `pg_dumpall --globals`.
+- **Schema `public_bi_compat`** — views `payment_main`, `payment_inv`, `connectivity_check` — carry via `pg_dump` (also defined in dbt on `main`, so a `dbt run` rebuilds them).
+- **`.env` adds `DB_POWERBI_PASSWORD`** — carries via the `.env` copy (Phase 0.4b); also in Bitwarden.
+- **`docker-compose.override.yml`** (gitignored) binds Postgres to the **Tailscale interface** (`100.76.161.37:5432`) in addition to `127.0.0.1`. The Power BI Desktop pilot connects here directly. **⚠️ NOT in git — will NOT clone to target; MUST be recreated** with the target's own tailscale IP.
+
+**Target gap (confirmed 2026-06-25):** **Tailscale is NOT installed on the target.** Required for the Power BI direct path (the tunnel does not carry raw Postgres).
+
+**Added Phase 0 steps:**
+- **0.3d** — Install Tailscale on target + `tailscale up` (interactive auth → Ross's tailnet). Record the target's assigned `100.x.y.z` IP.
+- **0.4c** — Create `/opt/splashworks/docker-compose.override.yml` on target binding Postgres to the target's tailscale IP (mirror source).
+
+**Added Phase 2 verification:**
+- `\du` includes `powerbi_ro`.
+- `public_bi_compat.payment_main` / `payment_inv` exist and are SELECT-able as `powerbi_ro`.
+- `ss -ltnp | grep 5432` on target shows `127.0.0.1` + target tailscale IP (NOT public eth0).
+
+**Added Phase 4 / post-cutover:**
+- **Repoint the Power BI Payment pilot** from `100.76.161.37` (source tailscale) → the **target's** tailscale IP (from 0.3d). One host change in Power Query; same `powerbi_ro` creds + `bi_compat` views. Until repointed, the pilot reads a **frozen** source snapshot (source ETL stops at cutover).
+- Future BI reports should use a **Power BI host parameter** (not a hardcoded IP) so any future move is a one-line change.
+
+**Added risk R14** — `docker-compose.override.yml` gitignored → tailscale binding lost on target if not recreated. Likelihood Med / Impact Med (BI pilot can't connect; **public apps unaffected**). Mitigation: explicit Phase 0.4c step.
 
 ---
 

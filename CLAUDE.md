@@ -68,11 +68,20 @@ etl/scripts/nightly-pipeline.sh         # Full pipeline: sync → ETL → dbt �
 
 ## Live Endpoints
 
+This repo's stack (currently on `76.13.29.44`, migration to `2.24.202.170` in flight):
+
 | URL | Service |
 |-----|---------|
 | `app.splshwrks.com` | React frontend |
 | `api.splshwrks.com` | FastAPI backend |
 | `bi.splshwrks.com` | Metabase BI |
+
+Related — owned by the [`inventory-app` repo](../inventory-app/AGENTS.md#3-environments), runs on the Splashworks Hostinger VPS `2.24.202.170` (separate from this stack):
+
+| URL | Service |
+|-----|---------|
+| `inventory.splshwrks.com` | JOMO inventory app (legacy hostname, still resolves) |
+| `app.jomopools.com` | JOMO inventory app (primary hostname since 2026-05-19 cutover) |
 
 ## Data Sources
 
