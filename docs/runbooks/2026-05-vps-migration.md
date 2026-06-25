@@ -42,7 +42,7 @@ Domain → separate Cloudflare account is a **post-migration project**, out of s
 The BI reconciliation stream added a **direct Postgres read path** for Power BI, *separate* from the Cloudflare tunnel. The core cutover (Phase 1) is unchanged — public apps still move with the tunnel — but the migration must now also carry/recreate this layer.
 
 **New on source since 2026-05-19:**
-- **DB size: 31 GB** (was 18 GB; ~230 MB/day `raw_skimmer` growth). Disk 48/96 GB (50%). Dump est. **~8 GB compressed; downtime now ~35–45 min.**
+- **DB size: 31 GB** (was 18 GB; ~230 MB/day `raw_skimmer` growth). Disk 48/96 GB (50%). **Dry run 2026-06-25 (Phase 0.6) PASSED:** dump → 5.5 GB compressed in **632s**; tailnet transfer **94s** (~58 MB/s direct); parallel restore (`-j4`) **157s** → **~15 min total, all 8 verification counts exact, pgvector 0.8.3 carried, rc=0.** **Cutover downtime ≈ 15–20 min.** Dump is the bottleneck (single-thread compression on the source's 2 CPUs) — for cutover use `pg_dump -Fc` (NOT `--jobs=2`, which is invalid with `--format=custom`); optionally add `-Z1` to trade size for speed. `raw_skimmer` is now **3,746 tables** (was 2,286).
 - **Postgres role `powerbi_ro`** (read-only, scoped to `public_bi_compat`) — carries via `pg_dumpall --globals`.
 - **Schema `public_bi_compat`** — views `payment_main`, `payment_inv`, `connectivity_check` — carry via `pg_dump` (also defined in dbt on `main`, so a `dbt run` rebuilds them).
 - **`.env` adds `DB_POWERBI_PASSWORD`** — carries via the `.env` copy (Phase 0.4b); also in Bitwarden.
@@ -146,7 +146,7 @@ Estimated downtime: **25-35 minutes** for stop → pg_dump (**18 GB compressed t
 | 0.4b | Copy `.env` from source to target | TODO | scp; chmod 600; gated on cutover window |
 | 0.5 | `docker compose pull` on target (pre-pull all images) | TODO | Compose file uses pgvector/pgvector:pg16 + custom-built api/frontend/ripple |
 | 0.5b | `docker compose build` on target (custom images) | TODO | api, frontend, ripple-api, ripple-frontend, staging-* are built locally from repo |
-| 0.6 | Dump/restore round-trip dry run | TODO | Use `splashworks` DB → `splashworks_test`, verify counts. **Highest-value rehearsal step.** |
+| 0.6 | Dump/restore round-trip dry run | ✅ DONE 2026-06-25 | PASSED. `splashworks` → `splashworks_test`; all 8 counts exact (incl. 3,746 raw_skimmer tables); pgvector 0.8.3; rc=0. ~15 min (dump 632s / xfer 94s / restore 157s). |
 | 0.7 | Configure rclone OneDrive on target | TODO | OAuth flow may require browser-based re-auth — Ross's MS account |
 | 0.8 | Disable nightly cron on source | TODO | Right before Phase 1 starts. Not earlier — we want fresh data through last night. |
 | 0.9 | Snapshot row counts on source | TODO | Pre-cutover comparison baseline |
