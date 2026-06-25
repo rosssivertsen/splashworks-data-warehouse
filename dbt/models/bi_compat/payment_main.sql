@@ -12,7 +12,7 @@ select
     p.payment_id                                   as "PaymentID",
     p.invoice_id                                   as "InvoiceID",
     p.customer_id                                  as "CustomerID",
-    to_char(p.payment_date::timestamp, 'MM/DD/YYYY') as "PaymentDate",
+    p.payment_date::date                           as "PaymentDate",
     to_char(p.payment_date::timestamp, 'YYYY')     as "PaymentDateYear",
     to_char(p.payment_date::timestamp, 'MM')       as "PaymentDateMonth",
     p.payment_origin                               as "PaymentOrigin",
@@ -47,10 +47,10 @@ select
 
     -- invoice
     c.invoice_number                               as "InvoiceNumber",
-    to_char(c.invoice_date::timestamp, 'MM/DD/YYYY') as "InvoiceDate",
+    c.invoice_date::date                           as "InvoiceDate",
     to_char(c.invoice_date::timestamp, 'YYYY')     as "InvoiceDateYear",
     to_char(c.invoice_date::timestamp, 'MM')       as "InvoiceDateMonth",
-    to_char(c.due_date::timestamp, 'MM/DD/YYYY')   as "InvoiceDueDate",
+    c.due_date::date                               as "InvoiceDueDate",
     to_char(c.due_date::timestamp, 'YYYY')         as "InvoiceDueDateYear",
     to_char(c.due_date::timestamp, 'MM')           as "InvoiceDueDateMonth",
     c.status                                       as "InvoiceStatus",
