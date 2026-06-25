@@ -310,3 +310,22 @@ Source has been *stopped* but kept indefinitely (per decision #2).
 - Pre-cutover row-count snapshot → captured in Phase 0.9, persisted in this file post-cutover
 - Phase 2 verification log → appended here post-cutover
 - BACKLOG entry **IN-10**
+
+---
+
+## Cutover Log — 2026-06-25 ✅ COMPLETE
+
+**Result: SUCCESS.** Warehouse live on target (`2.24.202.170` / tailnet `100.124.108.126`). Source stopped + retained (rollback-safe, decision #2).
+
+**Sequence run:** disabled+saved source cron → stopped 7 source app containers (postgres kept up) → baseline counts → dump **5.5 GB / 609s** → tailnet transfer **82s** → drop/recreate + `pg_restore -j4` + VACUUM (rc=0) → **verification gate: all 8 counts matched source EXACTLY** → created `docker-compose.override.yml` (tailscale Postgres bind) → `docker compose up -d` (core + staging) → moved `cloudflared.service` to target (3 edges registered) → rclone OneDrive config copied (token valid from new IP, no re-auth) → re-enabled nightly cron. **Public endpoints app/api/bi/ripple all 302 (CF Access). jomo undisturbed.**
+
+**⚠️ Issue hit + fixed — RUNBOOK GAP (make this a standard step):** `pg_dump --no-privileges` strips **all role GRANTs**. Post-restore, `ripple_rw` couldn't `CREATE SCHEMA` (ripple-api crash-looped); `metabase_ro`/`powerbi_ro`/`splashworks_ro` had zero grants. **FIX:** re-run `infrastructure/postgres/init/0[1-5]*.sql` against the restored DB, plus re-grant `powerbi_ro` on `public_bi_compat`. (Role *passwords* carry fine via `pg_dumpall --globals`; only object GRANTs are stripped.)
+
+**Runbook corrections:** dump `--jobs=2 --format=custom` is **invalid** (parallel needs `-Fd`) → use `pg_dump -Fc` (no `-j`); `pg_restore -j4` IS valid with `-Fc`.
+
+**Remaining (post-cutover):**
+- [ ] Repoint Power BI Payment pilot → target tailnet IP `100.124.108.126`.
+- [ ] Authenticated smoke test: AI query, Metabase question, Ripple answer (CF Access browser).
+- [ ] Day-1: confirm nightly ETL ran clean on target at 1:15 UTC; check `data/reconciliation.json`.
+- [ ] Cleanup: remove ephemeral `/tmp/mig_key` (source) + its `authorized_keys` line (target); `rm /tmp/*.dump` both.
+- [ ] Billing flag: source still on personal Hostinger (retained, stopped).
