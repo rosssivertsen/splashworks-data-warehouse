@@ -321,6 +321,8 @@ Source has been *stopped* but kept indefinitely (per decision #2).
 
 **⚠️ Issue hit + fixed — RUNBOOK GAP (make this a standard step):** `pg_dump --no-privileges` strips **all role GRANTs**. Post-restore, `ripple_rw` couldn't `CREATE SCHEMA` (ripple-api crash-looped); `metabase_ro`/`powerbi_ro`/`splashworks_ro` had zero grants. **FIX:** re-run `infrastructure/postgres/init/0[1-5]*.sql` against the restored DB, plus re-grant `powerbi_ro` on `public_bi_compat`. (Role *passwords* carry fine via `pg_dumpall --globals`; only object GRANTs are stripped.)
 
+**⚠️ Issue #2 — tunnel Error 1033 (QUIC blocked on target DC):** after moving the tunnel it flapped (`failed to dial quic: timeout: no recent network activity`) → only 2/4 connections, then none → Error 1033. The target's Hostinger DC blocks/throttles **UDP/QUIC** (the source's DC allowed it). **FIX: add `--protocol http2` to the cloudflared `ExecStart`** (TCP-based) → all 4 connections registered stably, 0 churn. **Make `--protocol http2` standard for the target** (the copied source service file defaults to QUIC).
+
 **Runbook corrections:** dump `--jobs=2 --format=custom` is **invalid** (parallel needs `-Fd`) → use `pg_dump -Fc` (no `-j`); `pg_restore -j4` IS valid with `-Fc`.
 
 **Remaining (post-cutover):**
