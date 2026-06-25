@@ -323,10 +323,13 @@ Source has been *stopped* but kept indefinitely (per decision #2).
 
 **⚠️ Issue #2 — tunnel Error 1033 (QUIC blocked on target DC):** after moving the tunnel it flapped (`failed to dial quic: timeout: no recent network activity`) → only 2/4 connections, then none → Error 1033. The target's Hostinger DC blocks/throttles **UDP/QUIC** (the source's DC allowed it). **FIX: add `--protocol http2` to the cloudflared `ExecStart`** (TCP-based) → all 4 connections registered stably, 0 churn. **Make `--protocol http2` standard for the target** (the copied source service file defaults to QUIC).
 
+**⚠️ Issue #3 — Metabase settings were NOT migrated (RUNBOOK GAP, fixed 2026-06-25):** the migration only `pg_dump`'d the `splashworks` warehouse DB. Metabase runs `MB_DB_TYPE: h2` (embedded H2 app-DB holding all dashboards, saved questions, users, the warehouse connection) **with no volume mount** — so its config lived inside the source container's writable layer and was never captured. The target booted a fresh, empty Metabase (setup wizard). **FIX:** `docker cp` the H2 out of the stopped source container (`/metabase.db/metabase.db.mv.db`, 16.7 MB), transfer to target, and load into a now-persistent named volume. **Permanent fix in `docker-compose.yml`:** added `MB_DB_FILE: /metabase-data/metabase.db` + a `metabase_data` named volume so config survives container recreation (it never did before — one `docker compose down` from deletion on *both* boxes). **Gotchas:** (a) Metabase opens the H2 at `<MB_DB_FILE>/metabase.db.mv.db` (it makes the path a *directory*) — place the file at `/metabase-data/metabase.db/metabase.db.mv.db`, not `/metabase-data/metabase.db.mv.db`; (b) `chown 2000:2000` the file (Metabase runs as uid 2000); (c) target image must be **≥** source version (H2 schema migrates forward only — target v0.62.3.3 ≥ source = safe). Verified: `has-user-setup: true`, warehouse connection re-synced all 6 schemas with no edits (host `postgres` + `metabase_ro` identical on target). **Make H2-app-DB capture a standard migration step for any H2-backed Metabase.**
+
 **Runbook corrections:** dump `--jobs=2 --format=custom` is **invalid** (parallel needs `-Fd`) → use `pg_dump -Fc` (no `-j`); `pg_restore -j4` IS valid with `-Fc`.
 
 **Remaining (post-cutover):**
-- [ ] Repoint Power BI Payment pilot → target tailnet IP `100.124.108.126`.
+- [x] Repoint Power BI Payment pilot → target tailnet IP `100.124.108.126`. **Done 2026-06-25 — reconciled (17,973 rows / $4,298,510.66).**
+- [x] Migrate Metabase H2 app-DB → target (now volume-backed). **Done 2026-06-25 (Issue #3).**
 - [ ] Authenticated smoke test: AI query, Metabase question, Ripple answer (CF Access browser).
 - [ ] Day-1: confirm nightly ETL ran clean on target at 1:15 UTC; check `data/reconciliation.json`.
 - [ ] Cleanup: remove ephemeral `/tmp/mig_key` (source) + its `authorized_keys` line (target); `rm /tmp/*.dump` both.
