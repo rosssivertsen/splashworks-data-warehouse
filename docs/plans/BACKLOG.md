@@ -14,6 +14,23 @@
 | EIA- | Enterprise Info Architecture | Glossary, standards, agent-readiness, Ripple |
 | DA- | Dashboard | Frontend dashboard features |
 | IN- | Infrastructure | VPS, networking, security |
+| SX- | Scrape → Export Triage | UI-only web-scrape deliverables evaluated for warehouse report/export sourcing |
+
+---
+
+## Skimmer Scrape → Export/Report Triage
+
+**Intake rule (established 2026-05-28):** Every Skimmer (or other UI-only) web scrape produced for a client is logged here as a candidate warehouse report/export. The warehouse is the single source of truth for **source-document traceability** — a scrape is a signal that a report/export may belong in SDW. Triage each:
+
+- **(a) Warehouse-derivable** — the underlying data is in the nightly extract → build as a `DL-` report/export and retire the recurring scrape. One lineage, auditable.
+- **(b) UI-only / not in extract** — evaluate as a new `ETL-` ingestion source, *or* consciously accept it as a permanent one-off scrape.
+
+One-off scrapes remain acceptable. This log exists so each scrape is **consciously dispositioned, not silently repeated** — and so that when a report can come from the warehouse, source traceability collapses to a single source.
+
+| ID | Source page | Org(s) scraped | In nightly extract? | Disposition candidate | Effort | Notes |
+|----|-------------|----------------|---------------------|-----------------------|--------|-------|
+| SX-1 | `/Client/Jobs` | Splashworks Ocala (= AQPS?), also exists for JOMO | **No `Job` table** — extract has WorkOrder / Quote / Invoice / Payment but not the Job wrapper entity | (a) reconstruct Job as a `DL-` report by joining WorkOrder + Invoice + Payment + Customer; OR (b) add `Job` to the ETL extract if Skimmer's SQLite exposes it | M | First scrape 2026-05-28 (139 jobs, Splashworks Ocala, $122,770 total). **Confirm:** (1) is Skimmer's "Job" entity in the 44-table extract under another name? (2) does Splashworks Ocala = AQPS legal entity? (3) is "The Pool Deck" org a 3rd entity outside the warehouse? Scraper: `invoice-entry-qbo-skimmer/scripts/scrape-jobs.js`. |
+| SX-2 | `/Client/Integrations/QBO` (Activity tab) | JOMO | **No** — UI-only Skimmer↔QBO sync-event log, not a Skimmer DB table | (b) new `ETL-` source: scrape → `fact_qbo_sync_event`. See EIA sync-observability proposal. | M | First scrape 2026-05-27 (54,520 rows / 180d JOMO, 8.4% error rate). The error subset = the `rpa-disposition-agent` input queue. Ties to the EIA gap: the QBO↔Skimmer integration is marked "real-time/healthy" but has no observability layer in the warehouse. Scraper: `invoice-entry-qbo-skimmer/scripts/scrape-qbo-activity.js`. |
 
 ---
 
@@ -99,6 +116,7 @@
 | IN-3 | Deploy UI refinements to VPS (UI.11) | Deploy | S | Number formatting, date handling, starter prompts |
 | ~~IN-7~~ | ~~**Ripple CF Access auth middleware**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. CloudflareAccessMiddleware added, JWT forwarded in Nginx.~~ |
 | ~~IN-8~~ | ~~**Use CF-Connecting-IP for audit logging**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. Prefers CF-Connecting-IP over spoofable X-Forwarded-For.~~ |
+| ~~IN-10~~ | ~~**VPS migration** — move all production services from 76.13.29.44 (KVM-2, personal Hostinger) to 2.24.202.170 (KVM-4, splashworks Hostinger)~~ | ~~Migration~~ | ~~L~~ | ~~**DONE 2026-06-25.** Cutover complete — warehouse + all 8 services live on `2.24.202.170` (tailnet `100.124.108.126`), counts matched source exactly, tunnel stable on `--protocol http2`, Power BI repointed, Metabase H2 migrated + volume-backed. Source stopped + retained (rollback). Runbook Cutover Log: `docs/runbooks/2026-05-vps-migration.md`. **Tail:** day-1 ETL verify, source decommission decision.~~ |
 
 ### Security Audit Findings (2026-03-28) — Open
 
