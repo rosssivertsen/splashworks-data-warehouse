@@ -14,12 +14,15 @@ set -uo pipefail
 PROD_TS=100.124.108.126                 # prod warehouse over the tailnet
 REPO=/opt/splashworks
 PGC=splashworks-postgres
-SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no"
+PULL_KEY=/root/.ssh/staging_pull_ed25519   # dedicated, from=-restricted on prod
+SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -i $PULL_KEY"
 LOG=/var/log/staging-refresh.log
-SLACK_ALERT_CH=C0ARN4C5KPS              # #alerts (guardrail: alert before/at failures)
+SLACK_WEBHOOK_FILE=/root/.slack_webhook    # #alerts incoming webhook (optional; log-only if absent)
 
 log(){ echo "[$(date -u +%FT%TZ)] $*" | tee -a "$LOG"; }
-fail(){ log "❌ FAILED: $*"; exit 1; }
+notify(){ [ -f "$SLACK_WEBHOOK_FILE" ] && curl -s -X POST -H 'Content-type: application/json' \
+          --data "{\"text\":\"$1\"}" "$(cat "$SLACK_WEBHOOK_FILE")" >/dev/null 2>&1 || true; }
+fail(){ log "❌ FAILED: $*"; notify "🔴 staging-refresh FAILED on srv1317522: $*"; exit 1; }
 
 cd "$REPO" || fail "no repo at $REPO"
 log "=== staging refresh start ==="
@@ -29,7 +32,12 @@ MY_TS=$(tailscale ip -4 2>/dev/null | head -1)
 [ -n "$MY_TS" ] && [ "$MY_TS" = "$PROD_TS" ] && fail "refusing to run: this host IS prod ($PROD_TS)"
 
 # 1. config: pull latest main so staging mirrors prod's code/compose/dbt too
-git fetch -q origin main && git reset -q --hard origin/main || log "warn: git sync skipped"
+#    (SKIP_GIT_SYNC=1 for manual validation runs before scripts are merged to main)
+if [ -z "${SKIP_GIT_SYNC:-}" ]; then
+  git fetch -q origin main && git reset -q --hard origin/main || log "warn: git sync skipped"
+else
+  log "git sync skipped (SKIP_GIT_SYNC set)"
+fi
 
 # 2. dump prod (custom format, no owner/privileges — matches migration runbook).
 #    Exclude raw_skimmer dated drift-snapshot tables (*_YYYYMMDD): ~85% of cells, not test data.
