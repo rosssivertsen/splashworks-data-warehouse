@@ -87,6 +87,21 @@ Skimmer (RouteAssignment — admin creates and manages)
 | Deleted | Deleted | deleted | Soft delete, filtered in staging |
 | Company | CompanyId | _company_name | AQPS or JOMO |
 
+## Training Resources
+
+**Skimmer is the system of record and the action surface for route changes.** The data warehouse is read-only and supports analytics only — it cannot move, reassign, or reorder routes. For the operational workflow ("re-route this customer", "move all of Mike's Wednesday stops to Sarah for the week"), use Skimmer directly:
+
+- [View, Build, and Manage Routes (Web) — Route Dashboard](https://help.getskimmer.com/article/98-view-build-and-manage-routes-web) — primary admin surface
+- [Manage Route Assignments (Web)](https://help.getskimmer.com/article/97-manage-route-assignments-web) — create / edit / end assignments
+- [Move a Route Assignment (App)](https://help.getskimmer.com/article/37-move-a-route-assignment-app) — mobile-side reassignment
+- [The Schedule – Calendar](https://help.getskimmer.com/article/273-the-schedule-calendar) — calendar view across techs
+
+**Temporary vs. permanent move semantics in Skimmer:**
+- **Temporary** (one-off stop shifted to a different tech/day) → generates a `RouteMove` row. The underlying `RouteAssignment` is unchanged. Use when covering a vacation, sick day, or an overrun.
+- **Permanent** ("move this customer to Sarah going forward") → ends the current `RouteAssignment` (sets `EndDate`) and creates a new one. Use when a customer is being reassigned long-term.
+
+The warehouse captures both: `fact_route_move` (temporary) and historical `stg_route_assignment` rows (permanent — identifiable via `EndDate < CURRENT_DATE`).
+
 ## Related Entities
 
 - [Technician](technician-DRAFT.md) — many:1 (each assignment belongs to one technician)
