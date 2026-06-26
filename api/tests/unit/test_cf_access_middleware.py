@@ -129,6 +129,31 @@ class TestCFAccessMiddleware:
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
+    def test_health_logs_on_expired_jwt(self, mock_jwks, caplog):
+        """Expired JWT on /api/health still returns 200 (health is always allowed)
+        but must log a warning so operators can diagnose why enriched data is
+        suppressed. Regression: prior behavior swallowed the exception silently."""
+        app = _make_app()
+        client = TestClient(app)
+        expired_token = _make_jwt(exp_offset=-60)
+        with caplog.at_level("WARNING", logger="api.middleware.cf_access"):
+            resp = client.get("/api/health", cookies={"CF_Authorization": expired_token})
+        assert resp.status_code == 200
+        assert any("Health JWT expired" in rec.message for rec in caplog.records), \
+            f"Expected warning log about expired JWT, got: {[r.message for r in caplog.records]}"
+
+    def test_health_logs_on_invalid_jwt(self, mock_jwks, caplog):
+        """Malformed JWT on /api/health still returns 200 but logs the invalidity."""
+        app = _make_app()
+        client = TestClient(app)
+        with caplog.at_level("WARNING", logger="api.middleware.cf_access"):
+            resp = client.get("/api/health", cookies={"CF_Authorization": "not-a-jwt"})
+        assert resp.status_code == 200
+        assert any(
+            "Health JWT" in rec.message and "suppressed" in rec.message
+            for rec in caplog.records
+        ), f"Expected warning log about invalid JWT, got: {[r.message for r in caplog.records]}"
+
     def test_options_bypasses_auth(self, mock_jwks):
         app = _make_app()
         client = TestClient(app)
