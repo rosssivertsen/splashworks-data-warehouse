@@ -24,13 +24,20 @@ fail(){ log "❌ FAILED: $*"; exit 1; }
 cd "$REPO" || fail "no repo at $REPO"
 log "=== staging refresh start ==="
 
+# 0. PROD-SAFETY GUARD: refuse to run the destructive restore on the prod box itself.
+MY_TS=$(tailscale ip -4 2>/dev/null | head -1)
+[ -n "$MY_TS" ] && [ "$MY_TS" = "$PROD_TS" ] && fail "refusing to run: this host IS prod ($PROD_TS)"
+
 # 1. config: pull latest main so staging mirrors prod's code/compose/dbt too
 git fetch -q origin main && git reset -q --hard origin/main || log "warn: git sync skipped"
 
-# 2. dump prod (custom format, no owner/privileges — matches migration runbook)
-$SSH root@$PROD_TS "docker exec $PGC pg_dump -U splashworks -Fc --no-owner --no-privileges splashworks > /tmp/prod.dump 2>/tmp/pgdump.err && du -h /tmp/prod.dump" \
+# 2. dump prod (custom format, no owner/privileges — matches migration runbook).
+#    Exclude raw_skimmer dated drift-snapshot tables (*_YYYYMMDD): ~85% of cells, not test data.
+#    Reversible — drop the -T flag and the next refresh restores them.
+SNAP_GLOB='raw_skimmer.*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+$SSH root@$PROD_TS "docker exec $PGC pg_dump -U splashworks -Fc --no-owner --no-privileges -T '$SNAP_GLOB' splashworks > /tmp/prod.dump 2>/tmp/pgdump.err && du -h /tmp/prod.dump" \
   || fail "prod pg_dump"
-log "prod dump created"
+log "prod dump created (drift snapshots excluded)"
 
 # 3. transfer over tailnet
 $SSH root@$PROD_TS "cat /tmp/prod.dump" > /tmp/prod.dump || fail "tailnet transfer"
