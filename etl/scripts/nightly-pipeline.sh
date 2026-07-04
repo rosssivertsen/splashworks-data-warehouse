@@ -19,6 +19,14 @@ log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $1" | tee -a "$LOG_FILE"; }
 
 log "=== Pipeline starting ==="
 
+# Activate project venv if present (hosts ETL deps + dbt; the migrated VPS's system
+# python has neither — root cause of the post-cutover exit-127 dbt failures).
+if [ -f "$PROJECT_DIR/.venv/bin/activate" ]; then
+    # shellcheck disable=SC1091
+    source "$PROJECT_DIR/.venv/bin/activate"
+    log "Using venv: $PROJECT_DIR/.venv"
+fi
+
 # Load env vars
 if [ -f "$ENV_FILE" ]; then
     export DATABASE_URL="postgresql://splashworks:$(grep DB_PASSWORD "$ENV_FILE" | cut -d= -f2)@localhost:5432/splashworks"
