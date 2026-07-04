@@ -85,12 +85,15 @@ Related — owned by the [`inventory-app` repo](../inventory-app/AGENTS.md#3-env
 
 ## Data Sources
 
-Nightly extract from Skimmer (pool service management SaaS), trailing 6-month period. Two company entities:
+Nightly extract from Skimmer (pool service management SaaS), trailing 6-month period. Three company entities:
 
 | Database | Company | CompanyId |
 |----------|---------|-----------|
 | `AQPS.db` | A Quality Pool Service of Central Florida, Inc. | `e265c9dee47c47c6a73f689b0df467ca` |
 | `JOMO.db` | Jomo Pool Service | `95d37a64d1794a1caef111e801db5477` |
+| `CLERMONT.db` | Splashworks - Clermont (Splashworks brand, onboarded 2026-07) | `18E63E2C-371C-46B9-BF68-8BBDFDC1008D` |
+
+New company onboarding: add the extract file stem to `etl/config.py` `COMPANY_MAP` — the ETL skips unmapped extracts (loudly). Then extend `dbt/macros/union_companies.sql` + `dbt/models/staging/_sources.yml`, and update the company enumeration in `api/services/schema_context.py`.
 
 ## Key Documentation
 

@@ -158,12 +158,12 @@ business_terms:
     data_availability: "not_available"
 
   brand:
-    description: "Customer-facing trade name. Two brands today: 'JOMO' and 'Splashworks'. The warehouse column `_company_name` carries the technical canonical: JOMO='JOMO', Splashworks='AQPS'. Presentation-layer normalization required for the display label."
-    sql_pattern: "dim_customer._company_name (values: 'JOMO', 'AQPS')"
+    description: "Customer-facing trade name. Two brands today: 'JOMO' and 'Splashworks'. The warehouse column `_company_name` carries the technical canonical: JOMO='JOMO', Splashworks='AQPS' + 'CLERMONT' (the Clermont Skimmer company, onboarded 2026-07, operates under the Splashworks brand). Presentation-layer normalization required for the display label."
+    sql_pattern: "dim_customer._company_name (values: 'JOMO', 'AQPS', 'CLERMONT')"
     tables: [dim_customer, dim_service_location, fact_invoice, fact_payment, fact_service_stop]
-    synonyms: ["company", "tenant", "_company_name", "AQPS (=Splashworks)"]
+    synonyms: ["company", "tenant", "_company_name", "AQPS (=Splashworks)", "CLERMONT (=Splashworks - Clermont)"]
     glossary_ref: "enterprise/glossary/brand-DRAFT.md"
-    note: "AQPS is the warehouse value for the Splashworks Brand — legacy of legal entity 'A Quality Pool Services'. JOMO has no asymmetry."
+    note: "AQPS is the warehouse value for the Splashworks Brand — legacy of legal entity 'A Quality Pool Services'. JOMO has no asymmetry. CLERMONT is a separate Skimmer company ('Splashworks - Clermont', created 2026-06) under the Splashworks brand."
 
   branch:
     description: "Geographic sub-division of a Brand. JOMO has one branch (Jacksonville). Splashworks has two: Spring Hill (Hernando County ZIPs) and Ocala (Marion + Citrus). Derived from billing_zip and billing_city via the Branch Classifier."

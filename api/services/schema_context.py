@@ -155,7 +155,7 @@ def build_system_prompt(schema: dict[str, dict[str, list[str]]], layer: str = "w
     lines.append("- Join staging tables to warehouse dims via customer_id + _company_name")
     lines.append("- Service completion sentinel: '2010-01-01 12:00:00' means NOT completed")
     lines.append("- Active customer filter: is_inactive = 0")
-    lines.append("- _company_name column distinguishes companies: 'AQPS' or 'JOMO'")
+    lines.append("- _company_name column distinguishes companies: 'AQPS', 'JOMO', or 'CLERMONT'")
     example_table = "public_warehouse.dim_customer" if layer == "warehouse" else "public_staging.stg_customer"
     lines.append(f"- Always qualify table names with schema (e.g., {example_table})")
     lines.append("- Use double quotes for column names only if they contain special characters")

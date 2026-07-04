@@ -11,4 +11,9 @@
 
     SELECT *, 'JOMO' AS _company_name
     FROM {{ source('raw_skimmer', 'JOMO_' ~ table_name) }}
+
+    UNION ALL
+
+    SELECT *, 'CLERMONT' AS _company_name
+    FROM {{ source('raw_skimmer', 'CLERMONT_' ~ table_name) }}
 {% endmacro %}

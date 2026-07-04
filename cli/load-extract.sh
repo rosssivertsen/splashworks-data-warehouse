@@ -5,7 +5,7 @@
 #   ./cli/load-extract.sh          # Load from default OneDrive location
 #   ./cli/load-extract.sh status   # Show currently loaded databases
 #
-# Decompresses .db.gz files into data/ as AQPS.db and JOMO.db (gitignored).
+# Decompresses .db.gz files into data/ as AQPS.db, JOMO.db, CLERMONT.db (gitignored).
 # Existing databases in data/ are overwritten.
 
 set -euo pipefail
@@ -16,6 +16,7 @@ EXTRACT_DIR="/Users/rosssivertsen/Library/CloudStorage/OneDrive-Splashworks/Skim
 # Company ID → friendly name mapping
 AQPS_ID="e265c9dee47c47c6a73f689b0df467ca"
 JOMO_ID="95d37a64d1794a1caef111e801db5477"
+CLERMONT_ID="18E63E2C-371C-46B9-BF68-8BBDFDC1008D"  # "Splashworks - Clermont"
 
 show_status() {
     echo "Currently loaded databases:"
@@ -62,6 +63,7 @@ for gz in "$EXTRACT_DIR"/*.db.gz; do
     case "$basename" in
         "$AQPS_ID") name="AQPS" ;;
         "$JOMO_ID") name="JOMO" ;;
+        "$CLERMONT_ID") name="CLERMONT" ;;
         *)          name="$basename" ;;
     esac
 
