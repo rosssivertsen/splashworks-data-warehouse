@@ -17,6 +17,13 @@ ENV_FILE="$PROJECT_DIR/.env"
 
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $1" | tee -a "$LOG_FILE"; }
 
+# Failure triage: classify + log incident + Slack #alerts with impact and
+# recommended fix (etl/triage.py). Guarded — triage can never break the pipeline.
+triage() { # $1=step $2=exit_code
+    (cd "$PROJECT_DIR" && python3 -m etl.triage --step "$1" --exit-code "$2" --log-file "$LOG_FILE") \
+        2>&1 | tee -a "$LOG_FILE" || log "WARN: triage itself failed for step $1"
+}
+
 log "=== Pipeline starting ==="
 
 # Activate project venv if present (hosts ETL deps + dbt; the migrated VPS's system
@@ -43,7 +50,9 @@ if [ "${1:-}" != "--skip-sync" ]; then
     if "$SCRIPT_DIR/sync-extracts.sh" 2>&1 | tee -a "$LOG_FILE"; then
         log "Step 1: Sync complete"
     else
-        log "ERROR: Sync failed (exit $?). Continuing with existing files."
+        rc=$?
+        log "ERROR: Sync failed (exit $rc). Continuing with existing files."
+        triage sync "$rc"
     fi
 else
     log "Step 1: Skipped (--skip-sync)"
@@ -54,8 +63,12 @@ log "Step 2: Running ETL (SQLite → Postgres)..."
 cd "$PROJECT_DIR"
 if python3 -m etl.main 2>&1 | tee -a "$LOG_FILE"; then
     log "Step 2: ETL complete"
+    # surface non-fatal ETL warnings (e.g. an unmapped company extract being skipped)
+    (cd "$PROJECT_DIR" && python3 -m etl.triage --scan-warnings --log-file "$LOG_FILE") || true
 else
-    log "ERROR: ETL failed (exit $?). Aborting."
+    rc=$?
+    log "ERROR: ETL failed (exit $rc). Aborting."
+    triage etl "$rc"
     exit 1
 fi
 
@@ -65,7 +78,9 @@ cd "$PROJECT_DIR/dbt"
 if dbt run --profiles-dir . 2>&1 | tee -a "$LOG_FILE"; then
     log "Step 3: dbt complete"
 else
-    log "ERROR: dbt run failed (exit $?). Aborting."
+    rc=$?
+    log "ERROR: dbt run failed (exit $rc). Aborting."
+    triage dbt "$rc"
     exit 1
 fi
 
@@ -75,7 +90,9 @@ cd "$PROJECT_DIR"
 if python3 -m etl.reconcile 2>&1 | tee -a "$LOG_FILE"; then
     log "Step 4: Reconciliation passed"
 else
+    rc=$?
     log "WARNING: Reconciliation found discrepancies (see data/reconciliation.json)"
+    triage reconcile "$rc"
 fi
 
 # Step 5: Health check
@@ -85,9 +102,13 @@ HEALTH=$(curl -sf http://localhost:8080/api/health 2>/dev/null || echo '{"status
 STATUS=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "parse_error")
 
 if [ "$STATUS" = "healthy" ]; then
-    log "Step 4: API healthy"
+    log "Step 5: API healthy"
 else
     log "WARNING: API health check returned: $STATUS"
+    triage health 1
 fi
+
+# Record success; sends a "recovered" notification if the previous run failed
+(cd "$PROJECT_DIR" && python3 -m etl.triage --record-success) || true
 
 log "=== Pipeline complete ==="
