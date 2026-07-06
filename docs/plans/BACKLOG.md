@@ -1,7 +1,7 @@
 # Splashworks Data Warehouse — Backlog
 
 **Project:** Splashworks Enterprise Data Platform
-**Last Updated:** 2026-03-26
+**Last Updated:** 2026-07-06 (grooming pass: struck completed items, added BI-convergence + Ripple rows)
 
 ---
 
@@ -14,6 +14,7 @@
 | EIA- | Enterprise Info Architecture | Glossary, standards, agent-readiness, Ripple |
 | DA- | Dashboard | Frontend dashboard features |
 | IN- | Infrastructure | VPS, networking, security |
+| RP- | Ripple | Chat agent: corpus, RAG, intent routing |
 | SX- | Scrape → Export Triage | UI-only web-scrape deliverables evaluated for warehouse report/export sourcing |
 
 ---
@@ -40,12 +41,12 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
-| EIA-1 | Agent-ready frontmatter on all glossary/standards docs | Docs | S | YAML frontmatter: entity, type, systems, system_of_record, related |
-| EIA-2 | Enterprise index manifest (`enterprise-index.yaml`) | Docs | S | Auto-discoverable catalog of all EIA docs for agents |
+| ~~EIA-1~~ | ~~Agent-ready frontmatter on all glossary/standards docs~~ | ~~Docs~~ | ~~S~~ | ~~DONE 2026-03-28 (8 glossary + 1 standard doc).~~ |
+| ~~EIA-2~~ | ~~Enterprise index manifest (`enterprise-index.yaml`)~~ | ~~Docs~~ | ~~S~~ | ~~DONE 2026-03-28.~~ |
 | EIA-3 | Invoice + Payment glossary entities | Docs | M | Cross-system mapping (Skimmer → QBO → Warehouse) |
 | EIA-4 | Technician + Route glossary entities | Docs | S | Skimmer-only entities, warehouse mapping |
-| EIA-5 | Ripple POC scope + vector store design | Design | M | MS Copilot agent, Pinecone embeddings, first use cases |
-| EIA-6 | Vector index pipeline (chunk → embed → Pinecone) | Backend | M | Ingest docs/enterprise/ into searchable index |
+| ~~EIA-5~~ | ~~Ripple POC scope + vector store design~~ | ~~Design~~ | ~~M~~ | ~~DONE 2026-03-17 — Ripple design approved (pgvector in shared Postgres, NOT Pinecone/Copilot; see project_ripple_design).~~ |
+| ~~EIA-6~~ | ~~Vector index pipeline (chunk → embed → index)~~ | ~~Backend~~ | ~~M~~ | ~~DONE 2026-03-18 via Ripple Phase 1 — docs/enterprise/ ingested to pgvector (`ripple` schema), 17 files / 222 chunks.~~ |
 
 ### ETL — Historical Accumulation
 
@@ -69,7 +70,7 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 | ~~DL-2~~ | ~~`rpt_customer_360` — denormalized customer + locations + service stats + payments~~ | ~~dbt model~~ | ~~M~~ | ~~DONE 2026-03-14~~ |
 | ~~DL-3~~ | ~~`rpt_service_history` — service visits with customer/tech/pool names (no IDs)~~ | ~~dbt model~~ | ~~M~~ | ~~DONE 2026-03-15~~ |
 | ~~DL-4~~ | ~~`rpt_payment_summary` — payments with customer names, monthly aggregation~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-15~~ |
-| DL-5 | `rpt_profitability` — profitability with customer names (no IDs) | dbt model | S | Metabase-friendly wrapper around semantic_profit |
+| ~~DL-5~~ | ~~`rpt_profitability` — profitability with customer names (no IDs)~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-28 (with margin %).~~ |
 | DL-6 | `dim_equipment` — equipment/parts per service location | dbt model | M | Depends on ETL-4. Zero coverage currently. |
 | DL-7 | Metabase schema cleanup — hide raw/staging/IDs, rename columns | Config | S | Admin > Table Metadata; no code changes |
 | ~~DL-10~~ | ~~`fact_invoice_item` — line-item revenue analysis, product mix, cross-sell~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 16,517 rows.~~ |
@@ -78,6 +79,8 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 | DL-13 | `fact_equipment_install` — equipment lifecycle, replacement cycles, parts spend | dbt model | M | Depends on ETL-4 + DL-6. |
 | ~~DL-14~~ | ~~`rpt_active_routes` + `cli/export-active-routes.sh` — CEO-recurring active routes export. Vendor-canonical filter (Glenn/Skimmer 2026-04-22). Observational service-state labels.~~ | ~~dbt + CLI~~ | ~~S~~ | ~~DONE 2026-04-22. Fills Skimmer Route Dashboard export gap (native only supports screenshots).~~ |
 | DL-15 | **`fact_service_stop` version dedup** — multi-version route stops inflate the fact: AQPS +6,763 / CLERMONT +38 / JOMO +214,476 rows (2026-07-06). Two suspected mechanisms: (1) incremental `unique_key` includes `service_stop_id`, so NULL→value flips between extracts keep both versions; (2) possible join fanout to `stg_service_stop` (JOMO averages 3.3 rows per route_stop_id). Any per-stop metric built on raw row counts overcounts. | dbt model | M | Quantified nightly by reconciliation check `fact_service_stop_version_inflation` (WARN, non-blocking). Fix design must respect incremental history — NO `--full-refresh` on prod without a backfill plan. Flip the check to fail-severity once fixed. |
+| DL-16 | **BI convergence: Invoice report** — next Power BI report onto `public_bi_compat` views (pattern proven by Payment Payout, PR #17/#18) | dbt + Power BI | M | Build order + column contracts: `Skimmer Nightly/RECONCILIATION/report-catalog.md`; recipe + gotchas: `phase2-recipe.md`. Validate against current report numbers before repointing. |
+| DL-17 | **BI convergence: remaining reports** — Tech Performance, shared chem view, Sales, Service Quote (post-Invoice, per catalog order) | dbt + Power BI | L | Consolidation opportunities noted in catalog (Service Ops ≈ Service Route&Chem; QBO Recon #04 == #15). QBO-gap + equipment-gap reports stay parked until those sources exist. |
 
 ### App — AI Query Intelligence (The Moat)
 
@@ -95,7 +98,7 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
 | AQ-1 | Query history / chat history (conversation-style UX) | Frontend | L | New component, API endpoint for threading |
-| AQ-2 | Display generated SQL explanation alongside results | Frontend | S | Already returned by API; not shown prominently |
+| ~~AQ-2~~ | ~~Display generated SQL explanation alongside results~~ | ~~Frontend~~ | ~~S~~ | ~~DONE 2026-03-28 — collapsible detail in query results.~~ |
 | AQ-3 | Retry/refine button on query errors | Frontend | S | "Try again" with modified prompt |
 
 ### App — Dashboard Improvements
@@ -112,12 +115,25 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 
 | ID | Item | Category | Effort | Notes |
 |----|------|----------|--------|-------|
-| IN-1 | Cloudflare WARP for Power BI remote access | Config | M | VA in Manila needs Power BI connectivity |
+| IN-1 | Cloudflare WARP for Power BI remote access | Config | M | VA in Manila needs Power BI connectivity. **Possibly obsoleted 2026-06-26** by the anonymized staging mirror (`dw-bi.canyoncreek.co` gives BI access without WARP or PII exposure) — needs a kill-or-keep decision. |
 | ~~IN-2~~ | ~~Read-only Postgres users for Metabase + Ripple~~ | ~~Config~~ | ~~S~~ | ~~DONE 2026-03-26. `ripple_rw` + `metabase_ro` created. Ripple switched to restricted user.~~ |
-| IN-3 | Deploy UI refinements to VPS (UI.11) | Deploy | S | Number formatting, date handling, starter prompts |
+| ~~IN-3~~ | ~~Deploy UI refinements to VPS (UI.11)~~ | ~~Deploy~~ | ~~S~~ | ~~DONE 2026-03-12 (see UI.11 in Completed).~~ |
+| ~~IN-11~~ | ~~Daily anonymized staging mirror on old VPS (srv1317522)~~ | ~~Infra~~ | ~~M~~ | ~~DONE 2026-06-26 (PR #20). dw-app/dw-api/dw-bi.canyoncreek.co behind CF Access; 03:00 UTC refresh, self-discovering PII anonymizer, fail-closed leak check. Also resolves the source-VPS decommission question — the box is repurposed, not retired (still bills personal Hostinger).~~ |
+| ~~IN-12~~ | ~~Pipeline failure triage — classify, log, notify with impact + fix~~ | ~~ETL/Infra~~ | ~~M~~ | ~~DONE 2026-07-06 (PR #22). etl/triage.py + etl_incident_log + Slack #alerts webhook both boxes; recovery notifications; Haiku enrichment for unknown classes.~~ |
 | ~~IN-7~~ | ~~**Ripple CF Access auth middleware**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. CloudflareAccessMiddleware added, JWT forwarded in Nginx.~~ |
 | ~~IN-8~~ | ~~**Use CF-Connecting-IP for audit logging**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. Prefers CF-Connecting-IP over spoofable X-Forwarded-For.~~ |
 | ~~IN-10~~ | ~~**VPS migration** — move all production services from 76.13.29.44 (KVM-2, personal Hostinger) to 2.24.202.170 (KVM-4, splashworks Hostinger)~~ | ~~Migration~~ | ~~L~~ | ~~**DONE 2026-06-25.** Cutover complete — warehouse + all 8 services live on `2.24.202.170` (tailnet `100.124.108.126`), counts matched source exactly, tunnel stable on `--protocol http2`, Power BI repointed, Metabase H2 migrated + volume-backed. Source stopped + retained (rollback). Runbook Cutover Log: `docs/runbooks/2026-05-vps-migration.md`. **Tail:** day-1 ETL verify, source decommission decision.~~ |
+
+### Ripple Chat Agent (Phase 2)
+
+Phase 1 (doc RAG) LIVE at ripple.splshwrks.com since 2026-03-18. Design: `project_ripple_design` (approved 2026-03-17).
+
+| ID | Item | Category | Effort | Notes |
+|----|------|----------|--------|-------|
+| RP-2.1 | Intent router via Claude Agent SDK — route doc questions vs data questions | Backend | M | CrewAI evaluated and rejected as overkill. |
+| RP-2.2 | Data proxy — route data questions through the AI Query pipeline | Backend | M | Reuses /api/query; Ripple becomes a second front-end to the same moat. |
+| RP-2.5 | Feedback endpoint — thumbs up/down on answers | Full stack | S | Feeds the eval loop. |
+| RP-4.1 | Eval test set — golden questions + expected answers | QA | S | Scaling strategy is corpus + prompt tuning + eval loop, not RL. |
 
 ### Security Audit Findings (2026-03-28) — Open
 
@@ -125,7 +141,7 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 |----|----------|------|----------|--------|-------|
 | SA-M1 | Medium | SQL validation regex bypass via comments — strip block comments before regex check | Security | S | `api/services/query_executor.py`. Mitigated by read-only DB user. |
 | SA-M2 | Medium | Rate limiter uses spoofable client IP — switch to CF-Connecting-IP | Security | S | `api/rate_limit.py`. Same fix pattern as IN-8. |
-| SA-M3 | Medium | Metabase using H2 embedded DB — migrate to Postgres-backed Metabase | Security | M | `docker-compose.yml:64-75`. H2 has known CVEs, not backed up with pg volume. |
+| SA-M3 | Medium | Metabase using H2 embedded DB — migrate to Postgres-backed Metabase | Security | M | **Half-done 2026-06-25:** H2 now on the persistent `metabase_data` volume (no longer one `compose down` from deletion). Remaining: H2→Postgres app-DB migration (CVE surface). |
 | SA-M4 | Medium | Audit logger shares main DATABASE_URL — consider separate audit DB user | Security | S | `api/services/audit_logger.py`. Privilege separation concern. |
 | SA-M5 | Medium | Frontend Dockerfile uses `npm install` instead of `npm ci` | Security | S | Supply chain risk from dynamic resolution. |
 | SA-M6 | Medium | MD5 used for ETL file checksums — switch to SHA-256 | Security | S | `etl/extract.py:39-44`. MD5 is deprecated. |
@@ -231,6 +247,13 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 | ~~SA-H2~~ | Content-Security-Policy + Permissions-Policy on all nginx configs | 2026-03-28 |
 | ~~SA-H3~~ | Ripple middleware ordering — auth before CORS on request path | 2026-03-28 |
 | ~~SA-L1~~ | Permissions-Policy header added (camera, mic, geo, payment disabled) | 2026-03-28 |
+| ~~DL-14~~ | rpt_active_routes + CLI export — vendor-canonical active-route filter | 2026-04-22 |
+| ~~BI-1~~ | Payment Payout report converged onto `public_bi_compat` views + repointed to prod (PR #17/#18) | 2026-06-24 |
+| ~~IN-10~~ | VPS migration → Splashworks Hostinger 2.24.202.170 (+ Metabase H2 migration, PR #19) | 2026-06-25 |
+| ~~IN-11~~ | Anonymized daily staging mirror — dw-*.canyoncreek.co on old VPS (PR #20) | 2026-06-26 |
+| ~~ETL-10~~ | CLERMONT company onboarded + nightly pipeline venv fix (PR #21) | 2026-07-04 |
+| ~~ETL-11~~ | Reconciliation checks 7+8 — source-load fidelity + fact version-inflation watch (PR #21) | 2026-07-06 |
+| ~~IN-12~~ | Pipeline failure triage — etl_incident_log + Slack #alerts + recovery notifications (PR #22) | 2026-07-06 |
 
 ---
 
