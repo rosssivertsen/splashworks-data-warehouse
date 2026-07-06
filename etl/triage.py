@@ -483,12 +483,12 @@ def record_success() -> None:
     state = load_state()
     if state.get("last_run_status") == "fail":
         prev = state.get("last_failure", {})
-        notify_slack(
+        sent = notify_slack(
             f"✅ *Nightly pipeline RECOVERED* on {socket.gethostname()} — full run green "
             f"(previous failure: step `{prev.get('step','?')}`, class `{prev.get('error_class','?')}`, "
             f"incident `{prev.get('incident_id','?')}`)."
         )
-        print("  triage: recovery notification sent")
+        print(f"  triage: recovery detected (notification {'sent' if sent else 'skipped — no webhook'})")
     state["last_run_status"] = "pass"
     state["last_success_at"] = datetime.now(timezone.utc).isoformat()
     save_state(state)
