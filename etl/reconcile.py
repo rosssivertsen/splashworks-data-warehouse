@@ -37,6 +37,21 @@ def _union_raw(table: str, select: str = "", where: str = "") -> str:
     return "\n                UNION ALL\n                ".join(arms)
 
 
+# Tables covered by the source-load vs raw fidelity check (check: what the ETL
+# read from SQLite == what sits in the raw layer). Full-replacement tables only.
+CORE_TABLES = ["Customer", "RouteStop", "Payment", "Invoice", "InvoiceItem"]
+
+
+def _raw_counts_by_table() -> str:
+    """Per company+table raw row counts, keyed 'COMPANY Table'."""
+    arms = [
+        f"SELECT '{c} {t}' AS _key, count(*) AS cnt FROM raw_skimmer.\"{c}_{t}\""
+        for c in COMPANIES
+        for t in CORE_TABLES
+    ]
+    return "\n                UNION ALL\n                ".join(arms)
+
+
 # --- Check Definitions ---
 # Each check compares a raw-layer query against a warehouse-layer query.
 # Tolerance is the allowed percentage difference (0.0 = exact match).
@@ -171,6 +186,47 @@ CHECKS = [
         "tolerance_pct": 0.0,
         "direction": "warehouse_gte_raw",
     },
+    {
+        "name": "source_load_vs_raw",
+        "description": "Load fidelity: rows the ETL read from each SQLite extract == rows in the raw layer (per company+table, exact)",
+        "raw_sql": """
+            SELECT DISTINCT ON (company_name, table_name)
+                company_name || ' ' || table_name AS _key,
+                row_count AS cnt
+            FROM public.etl_load_log
+            WHERE status = 'completed'
+              AND table_name IN ('Customer','RouteStop','Payment','Invoice','InvoiceItem')
+            ORDER BY company_name, table_name, extract_date DESC, load_started_at DESC
+        """,
+        "warehouse_sql": f"""
+            SELECT _key, cnt
+            FROM (
+                {_raw_counts_by_table()}
+            ) src
+            ORDER BY _key
+        """,
+        "compare": "count_by_key",
+        "tolerance_pct": 0.0,
+    },
+    {
+        "name": "fact_service_stop_version_inflation",
+        "description": "Multi-version route stops in fact_service_stop (same route_stop_id kept under changed service_stop_id). WARN-level until the dbt dedup fix lands (DL backlog).",
+        "raw_sql": """
+            SELECT _company_name, COUNT(DISTINCT route_stop_id) as cnt
+            FROM public_warehouse.fact_service_stop
+            GROUP BY _company_name
+            ORDER BY _company_name
+        """,
+        "warehouse_sql": """
+            SELECT _company_name, COUNT(*) as cnt
+            FROM public_warehouse.fact_service_stop
+            GROUP BY _company_name
+            ORDER BY _company_name
+        """,
+        "compare": "count_by_company",
+        "tolerance_pct": 0.0,
+        "severity": "warn",
+    },
 ]
 
 
@@ -238,6 +294,7 @@ def run_reconciliation(verbose: bool = False) -> dict:
         "checks": [],
         "passed": 0,
         "failed": 0,
+        "warned": 0,
     }
 
     for check in CHECKS:
@@ -252,6 +309,11 @@ def run_reconciliation(verbose: bool = False) -> dict:
                 direction=check.get("direction", "exact"),
             )
 
+            # warn-severity checks report discrepancies without failing the run
+            # (known conditions awaiting a fix — visible nightly, non-blocking)
+            if status == "fail" and check.get("severity") == "warn":
+                status = "warn"
+
             result = {
                 "name": check["name"],
                 "description": check["description"],
@@ -264,13 +326,16 @@ def run_reconciliation(verbose: bool = False) -> dict:
             if status == "fail":
                 report["failed"] += 1
                 report["status"] = "fail"
+            elif status == "warn":
+                report["warned"] += 1
+                report["passed"] += 1
             else:
                 report["passed"] += 1
 
             report["checks"].append(result)
 
-            marker = "✓" if status == "pass" else "✗"
-            if verbose or status == "fail":
+            marker = "✓" if status == "pass" else ("⚠" if status == "warn" else "✗")
+            if verbose or status in ("fail", "warn"):
                 print(f"  {marker} {check['name']}: {detail}")
                 if verbose:
                     for co in sorted(set(list(raw_results.keys()) + list(wh_results.keys()))):
