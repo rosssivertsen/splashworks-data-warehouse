@@ -44,20 +44,26 @@ def test_find_extracts_maps_company_ids():
         tmpdir = Path(tmpdir)
         _create_test_gz(tmpdir, "e265c9dee47c47c6a73f689b0df467ca.db.gz")
         _create_test_gz(tmpdir, "95d37a64d1794a1caef111e801db5477.db.gz")
+        _create_test_gz(tmpdir, "18E63E2C-371C-46B9-BF68-8BBDFDC1008D.db.gz")
 
         results = find_extracts(tmpdir)
         names = {r[1] for r in results}
-        assert names == {"AQPS", "JOMO"}
+        assert names == {"AQPS", "JOMO", "CLERMONT"}
 
 
-def test_find_extracts_unknown_company():
+def test_find_extracts_skips_unmapped_company(capsys):
+    """Unmapped extracts are skipped with a warning, NOT loaded under their
+    raw stem (a UUID stem creates >63-char Postgres identifiers that truncate
+    and collide — see the CLERMONT onboarding, 2026-07)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         _create_test_gz(tmpdir, "unknown_company.db.gz")
 
         results = find_extracts(tmpdir)
-        assert len(results) == 1
-        assert results[0][1] == "unknown_company"  # Falls back to filename stem
+        assert results == []
+        captured = capsys.readouterr()
+        assert "unmapped extract skipped" in captured.out
+        assert "unknown_company.db.gz" in captured.out
 
 
 def test_decompress_to_temp():

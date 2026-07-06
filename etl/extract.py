@@ -14,11 +14,22 @@ def find_extracts(extract_dir: Path) -> list[tuple[str, str, Path]]:
     """Find .db.gz files and map to company names.
 
     Returns list of (company_id, company_name, file_path) tuples.
+
+    Unmapped files are SKIPPED (loudly), not loaded under their raw stem:
+    a UUID stem makes >63-char Postgres identifiers that truncate/collide,
+    and onboarding a company is a schema decision that belongs in
+    COMPANY_MAP, not an accident of file arrival (see CLERMONT, 2026-07).
     """
     results = []
     for gz_path in sorted(extract_dir.glob("*.db.gz")):
         stem = gz_path.stem.replace(".db", "")
-        company_name = COMPANY_MAP.get(stem, stem)
+        company_name = COMPANY_MAP.get(stem)
+        if company_name is None:
+            print(
+                f"WARNING: unmapped extract skipped: {gz_path.name} "
+                f"(add to etl/config.py COMPANY_MAP to onboard this company)"
+            )
+            continue
         results.append((stem, company_name, gz_path))
     return results
 

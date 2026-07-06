@@ -17,7 +17,39 @@ from typing import Optional
 
 import psycopg2
 
-from etl.config import DATABASE_URL
+from etl.config import COMPANY_MAP, DATABASE_URL
+
+# All onboarded companies (single source of truth: etl/config.py COMPANY_MAP)
+COMPANIES = sorted(COMPANY_MAP.values())
+
+
+def _union_raw(table: str, select: str = "", where: str = "") -> str:
+    """Build a UNION ALL over every company's raw table.
+
+    Mirrors dbt's union_companies() macro so reconciliation automatically
+    covers new companies added to COMPANY_MAP.
+    """
+    where_clause = f" WHERE {where}" if where else ""
+    arms = [
+        f"SELECT '{c}' AS _company_name{select} FROM raw_skimmer.\"{c}_{table}\"{where_clause}"
+        for c in COMPANIES
+    ]
+    return "\n                UNION ALL\n                ".join(arms)
+
+
+# Tables covered by the source-load vs raw fidelity check (check: what the ETL
+# read from SQLite == what sits in the raw layer). Full-replacement tables only.
+CORE_TABLES = ["Customer", "RouteStop", "Payment", "Invoice", "InvoiceItem"]
+
+
+def _raw_counts_by_table() -> str:
+    """Per company+table raw row counts, keyed 'COMPANY Table'."""
+    arms = [
+        f"SELECT '{c} {t}' AS _key, count(*) AS cnt FROM raw_skimmer.\"{c}_{t}\""
+        for c in COMPANIES
+        for t in CORE_TABLES
+    ]
+    return "\n                UNION ALL\n                ".join(arms)
 
 
 # --- Check Definitions ---
@@ -28,14 +60,10 @@ CHECKS = [
     {
         "name": "active_customer_count",
         "description": "Active customers (is_inactive=0, deleted=0)",
-        "raw_sql": """
+        "raw_sql": f"""
             SELECT _company_name, COUNT(*) as cnt
             FROM (
-                SELECT 'AQPS' AS _company_name, * FROM raw_skimmer."AQPS_Customer"
-                WHERE "IsInactive" = '0' AND "Deleted" = '0'
-                UNION ALL
-                SELECT 'JOMO' AS _company_name, * FROM raw_skimmer."JOMO_Customer"
-                WHERE "IsInactive" = '0' AND "Deleted" = '0'
+                {_union_raw("Customer", select=", *", where='"IsInactive" = \'0\' AND "Deleted" = \'0\'')}
             ) src
             GROUP BY _company_name
             ORDER BY _company_name
@@ -53,12 +81,10 @@ CHECKS = [
     {
         "name": "payment_count",
         "description": "Total payments (non-deleted)",
-        "raw_sql": """
+        "raw_sql": f"""
             SELECT _company_name, COUNT(*) as cnt
             FROM (
-                SELECT 'AQPS' AS _company_name FROM raw_skimmer."AQPS_Payment" WHERE "Deleted" = '0'
-                UNION ALL
-                SELECT 'JOMO' AS _company_name FROM raw_skimmer."JOMO_Payment" WHERE "Deleted" = '0'
+                {_union_raw("Payment", where='"Deleted" = \'0\'')}
             ) src
             GROUP BY _company_name
             ORDER BY _company_name
@@ -77,12 +103,10 @@ CHECKS = [
     {
         "name": "invoice_item_count",
         "description": "Invoice line items (non-deleted)",
-        "raw_sql": """
+        "raw_sql": f"""
             SELECT _company_name, COUNT(*) as cnt
             FROM (
-                SELECT 'AQPS' AS _company_name FROM raw_skimmer."AQPS_InvoiceItem" WHERE "Deleted" = '0'
-                UNION ALL
-                SELECT 'JOMO' AS _company_name FROM raw_skimmer."JOMO_InvoiceItem" WHERE "Deleted" = '0'
+                {_union_raw("InvoiceItem", where='"Deleted" = \'0\'')}
             ) src
             GROUP BY _company_name
             ORDER BY _company_name
@@ -100,12 +124,10 @@ CHECKS = [
     {
         "name": "service_stop_count",
         "description": "Service stops (non-deleted route stops)",
-        "raw_sql": """
+        "raw_sql": f"""
             SELECT _company_name, COUNT(*) as cnt
             FROM (
-                SELECT 'AQPS' AS _company_name FROM raw_skimmer."AQPS_RouteStop" WHERE "Deleted" = '0'
-                UNION ALL
-                SELECT 'JOMO' AS _company_name FROM raw_skimmer."JOMO_RouteStop" WHERE "Deleted" = '0'
+                {_union_raw("RouteStop", where='"Deleted" = \'0\'')}
             ) src
             GROUP BY _company_name
             ORDER BY _company_name
@@ -123,14 +145,10 @@ CHECKS = [
     {
         "name": "payment_total_amount",
         "description": "Total payment amount (current extract window)",
-        "raw_sql": """
+        "raw_sql": f"""
             SELECT _company_name, COALESCE(SUM(amt), 0) as total
             FROM (
-                SELECT 'AQPS' AS _company_name, CAST("Amount" AS double precision) as amt
-                FROM raw_skimmer."AQPS_Payment" WHERE "Deleted" = '0'
-                UNION ALL
-                SELECT 'JOMO' AS _company_name, CAST("Amount" AS double precision) as amt
-                FROM raw_skimmer."JOMO_Payment" WHERE "Deleted" = '0'
+                {_union_raw("Payment", select=', CAST("Amount" AS double precision) as amt', where='"Deleted" = \'0\'')}
             ) src
             GROUP BY _company_name
             ORDER BY _company_name
@@ -149,14 +167,10 @@ CHECKS = [
     {
         "name": "route_skip_day_of_count",
         "description": "Day-of skipped stops (IsSkipped=1 in RouteStop)",
-        "raw_sql": """
+        "raw_sql": f"""
             SELECT _company_name, COUNT(*) as cnt
             FROM (
-                SELECT 'AQPS' AS _company_name FROM raw_skimmer."AQPS_RouteStop"
-                WHERE "Deleted" = '0' AND "IsSkipped" = '1'
-                UNION ALL
-                SELECT 'JOMO' AS _company_name FROM raw_skimmer."JOMO_RouteStop"
-                WHERE "Deleted" = '0' AND "IsSkipped" = '1'
+                {_union_raw("RouteStop", where='"Deleted" = \'0\' AND "IsSkipped" = \'1\'')}
             ) src
             GROUP BY _company_name
             ORDER BY _company_name
@@ -171,6 +185,47 @@ CHECKS = [
         "compare": "count_by_company",
         "tolerance_pct": 0.0,
         "direction": "warehouse_gte_raw",
+    },
+    {
+        "name": "source_load_vs_raw",
+        "description": "Load fidelity: rows the ETL read from each SQLite extract == rows in the raw layer (per company+table, exact)",
+        "raw_sql": """
+            SELECT DISTINCT ON (company_name, table_name)
+                company_name || ' ' || table_name AS _key,
+                row_count AS cnt
+            FROM public.etl_load_log
+            WHERE status = 'completed'
+              AND table_name IN ('Customer','RouteStop','Payment','Invoice','InvoiceItem')
+            ORDER BY company_name, table_name, extract_date DESC, load_started_at DESC
+        """,
+        "warehouse_sql": f"""
+            SELECT _key, cnt
+            FROM (
+                {_raw_counts_by_table()}
+            ) src
+            ORDER BY _key
+        """,
+        "compare": "count_by_key",
+        "tolerance_pct": 0.0,
+    },
+    {
+        "name": "fact_service_stop_version_inflation",
+        "description": "Multi-version route stops in fact_service_stop (same route_stop_id kept under changed service_stop_id). WARN-level until the dbt dedup fix lands (DL backlog).",
+        "raw_sql": """
+            SELECT _company_name, COUNT(DISTINCT route_stop_id) as cnt
+            FROM public_warehouse.fact_service_stop
+            GROUP BY _company_name
+            ORDER BY _company_name
+        """,
+        "warehouse_sql": """
+            SELECT _company_name, COUNT(*) as cnt
+            FROM public_warehouse.fact_service_stop
+            GROUP BY _company_name
+            ORDER BY _company_name
+        """,
+        "compare": "count_by_company",
+        "tolerance_pct": 0.0,
+        "severity": "warn",
     },
 ]
 
@@ -239,6 +294,7 @@ def run_reconciliation(verbose: bool = False) -> dict:
         "checks": [],
         "passed": 0,
         "failed": 0,
+        "warned": 0,
     }
 
     for check in CHECKS:
@@ -253,6 +309,11 @@ def run_reconciliation(verbose: bool = False) -> dict:
                 direction=check.get("direction", "exact"),
             )
 
+            # warn-severity checks report discrepancies without failing the run
+            # (known conditions awaiting a fix — visible nightly, non-blocking)
+            if status == "fail" and check.get("severity") == "warn":
+                status = "warn"
+
             result = {
                 "name": check["name"],
                 "description": check["description"],
@@ -265,13 +326,16 @@ def run_reconciliation(verbose: bool = False) -> dict:
             if status == "fail":
                 report["failed"] += 1
                 report["status"] = "fail"
+            elif status == "warn":
+                report["warned"] += 1
+                report["passed"] += 1
             else:
                 report["passed"] += 1
 
             report["checks"].append(result)
 
-            marker = "✓" if status == "pass" else "✗"
-            if verbose or status == "fail":
+            marker = "✓" if status == "pass" else ("⚠" if status == "warn" else "✗")
+            if verbose or status in ("fail", "warn"):
                 print(f"  {marker} {check['name']}: {detail}")
                 if verbose:
                     for co in sorted(set(list(raw_results.keys()) + list(wh_results.keys()))):

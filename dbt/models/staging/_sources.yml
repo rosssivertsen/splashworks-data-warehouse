@@ -49,3 +49,25 @@ sources:
       - name: JOMO_RouteSkip
       - name: JOMO_RouteMove
       - name: JOMO_SkippedStopReason
+      # --- CLERMONT ("Splashworks - Clermont", onboarded 2026-07-04) ---
+      - name: CLERMONT_Customer
+      - name: CLERMONT_ServiceLocation
+      - name: CLERMONT_Pool
+      - name: CLERMONT_Account
+      - name: CLERMONT_ServiceStop
+      - name: CLERMONT_ServiceStopEntry
+      - name: CLERMONT_EntryDescription
+      - name: CLERMONT_RouteStop
+      - name: CLERMONT_RouteAssignment
+      - name: CLERMONT_WorkOrder
+      - name: CLERMONT_WorkOrderType
+      - name: CLERMONT_Invoice
+      - name: CLERMONT_InvoiceItem
+      - name: CLERMONT_InvoiceLocation
+      - name: CLERMONT_Product
+      - name: CLERMONT_Payment
+      - name: CLERMONT_CustomerTag
+      - name: CLERMONT_Tag
+      - name: CLERMONT_RouteSkip
+      - name: CLERMONT_RouteMove
+      - name: CLERMONT_SkippedStopReason
