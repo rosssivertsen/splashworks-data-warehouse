@@ -77,6 +77,7 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 | ~~DL-12~~ | ~~`fact_route_move` — schedule disruption tracking, tech reassignment patterns~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 3,510 rows.~~ |
 | DL-13 | `fact_equipment_install` — equipment lifecycle, replacement cycles, parts spend | dbt model | M | Depends on ETL-4 + DL-6. |
 | ~~DL-14~~ | ~~`rpt_active_routes` + `cli/export-active-routes.sh` — CEO-recurring active routes export. Vendor-canonical filter (Glenn/Skimmer 2026-04-22). Observational service-state labels.~~ | ~~dbt + CLI~~ | ~~S~~ | ~~DONE 2026-04-22. Fills Skimmer Route Dashboard export gap (native only supports screenshots).~~ |
+| DL-15 | **`fact_service_stop` version dedup** — multi-version route stops inflate the fact: AQPS +6,763 / CLERMONT +38 / JOMO +214,476 rows (2026-07-06). Two suspected mechanisms: (1) incremental `unique_key` includes `service_stop_id`, so NULL→value flips between extracts keep both versions; (2) possible join fanout to `stg_service_stop` (JOMO averages 3.3 rows per route_stop_id). Any per-stop metric built on raw row counts overcounts. | dbt model | M | Quantified nightly by reconciliation check `fact_service_stop_version_inflation` (WARN, non-blocking). Fix design must respect incremental history — NO `--full-refresh` on prod without a backfill plan. Flip the check to fail-severity once fixed. |
 
 ### App — AI Query Intelligence (The Moat)
 
