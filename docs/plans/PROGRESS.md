@@ -3,17 +3,16 @@
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
 **Branch:** `feature/warehouse-etl`
 **Backlog:** [BACKLOG.md](./BACKLOG.md)
-**Last Updated:** 2026-03-28
+**Last Updated:** 2026-07-09
 
 ---
 
 ## Current Status
 
-**Phase:** Phase 1 + all interstitials + security audit hardening COMPLETE. All deployed.
-**Status:** 8 Docker containers, Cloudflare Access, CSP headers, fail-closed auth, 73 frontend + 66 API unit + 16 E2E tests. Nightly ETL + reconciliation running.
-**Streams:** Data Layer (DL), AI Query (AQ), Enterprise Info Architecture (EIA), Dashboard (DA), Infrastructure (IN)
-**Next:** ETL-4 (equipment tables), ETL-6 (row provenance), SA-M1–M7 (medium security findings), Ripple Phase 2
-**Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase), ripple.splshwrks.com (Ripple)
+**Phase:** Production on Splashworks Hostinger VPS (migrated 2026-06-25). THREE companies (AQPS/JOMO/CLERMONT). Nightly pipeline green with 8 reconciliation checks + failure triage → Slack #alerts.
+**Streams:** Data Layer (DL), AI Query (AQ), Enterprise Info Architecture (EIA), Dashboard (DA), Infrastructure (IN), Ripple (RP), Scrape Triage (SX)
+**Next:** DL-15 (fact_service_stop dedup), DL-16 (BI Invoice convergence), ETL-9 (schema governance), Ripple Phase 2
+**Live:** app/api/bi/ripple.splshwrks.com (prod) · dw-app/dw-api/dw-bi.canyoncreek.co (anonymized staging mirror)
 
 ---
 
@@ -201,3 +200,13 @@
 - **Date columns are TEXT:** No DATE_TRUNC/CURRENT_DATE — use ISO string comparisons
 - **AI hallucination:** Must tell AI "only reference tables in the Available Tables list"
 - **Cloudflare tunnel:** Locally configured (not dashboard-managed); edit `/etc/cloudflared/config.yml`
+
+---
+
+## Session Log — 2026-06/07 highlights (appended 2026-07-09)
+
+- **2026-06-25 (IN-10, PR #19):** VPS migration → Splashworks Hostinger `2.24.202.170`. Counts exact, tunnel on http2, Metabase H2 migrated + volume-backed. Runbook Issues #1–#4 documented.
+- **2026-06-26 (PR #20):** Anonymized daily staging mirror on the old VPS — `dw-*.canyoncreek.co` behind CF Access; self-discovering PII masker, fail-closed leak check, 03:00 UTC cron.
+- **2026-07-04 (PR #21):** CLERMONT ("Splashworks - Clermont") onboarded as third company; nightly pipeline restored (host venv gap = 9 nights of failed dbt); unmapped-extract fallback hardened.
+- **2026-07-06 (PR #21/#22):** Reconciliation extended to 8 checks (source-load fidelity + version-inflation watch → DL-15 finding). Pipeline failure triage shipped: classify → etl_incident_log → Slack #alerts with impact + recommended fix + recovery notifications.
+- **2026-07-06 (PR #23, open):** Backlog groomed — struck done items, added DL-16/17 (BI convergence) + RP- stream rows.
