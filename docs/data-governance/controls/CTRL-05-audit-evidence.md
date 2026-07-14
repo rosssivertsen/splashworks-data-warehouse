@@ -79,14 +79,18 @@ A read-only role `auditor_ro` has `SELECT` on:
 - `public.etl_schema_log`
 - `public.etl_schema_drift`
 - `public.etl_load_log`
-- `public.query_audit_log` (IN-4)
+- `audit.query_audit_log` (IN-4) — relocated from `public` to the isolated `audit`
+  schema on 2026-07-14 (SECURITY_AUDIT_2026-07-14 MEDIUM-1). A read path for this
+  table must be granted explicitly: `GRANT USAGE ON SCHEMA audit` +
+  `GRANT SELECT ON audit.query_audit_log` to the auditor role. It is deliberately
+  NOT readable by the API role (`splashworks_ro`).
 - `public_semantic.*` (read the warehouse)
 
 The auditor connects through Cloudflare Access (IN-7) via the existing `bi.splshwrks.com` path with an auditor-specific policy. Query templates are in `../evidence/schema-log-queries.md`.
 
 ## Relationship to existing audit capability
 
-- **IN-4 `query_audit_log`** (2026-03-26) captures every `/api/query` and `/api/query/raw` call. CTRL-05 extends this with schema-level events.
+- **IN-4 `query_audit_log`** (2026-03-26; relocated to `audit.query_audit_log` 2026-07-14) captures every `/api/query` and `/api/query/raw` call. CTRL-05 extends this with schema-level events.
 - **Cloudflare Access IN-7** (2026-03-26) provides the auth plumbing for `auditor_ro`.
 
 ## Evidence of operation

@@ -7,7 +7,7 @@ from api.config import DATABASE_URL
 logger = logging.getLogger(__name__)
 
 INSERT_SQL = """
-    INSERT INTO public.query_audit_log (
+    INSERT INTO audit.query_audit_log (
         client_ip, cf_access_email, endpoint, question, layer,
         rewriter_confidence, generated_sql, executed_sql, was_repaired,
         status, row_count, duration_ms, error_message

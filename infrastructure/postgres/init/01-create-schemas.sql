@@ -6,6 +6,11 @@ CREATE SCHEMA IF NOT EXISTS semantic;
 CREATE SCHEMA IF NOT EXISTS vectors;
 CREATE SCHEMA IF NOT EXISTS ripple;
 
+-- Audit/incident logs live here, isolated from the read-only query role so the
+-- API can INSERT audit rows but no one can SELECT them back via /api/query/raw.
+-- See docs/SECURITY_AUDIT_2026-07-14.md (MEDIUM-1).
+CREATE SCHEMA IF NOT EXISTS audit;
+
 -- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
