@@ -5,7 +5,10 @@
 #   ./etl/scripts/nightly-pipeline.sh          # Run full pipeline
 #   ./etl/scripts/nightly-pipeline.sh --skip-sync  # Skip rclone (for re-runs)
 #
-# Designed to run via cron on the VPS at 1:15 AM UTC (after sync-extracts.sh at 1:00 AM).
+# Runs via cron at 05:30 UTC — AFTER Skimmer publishes the nightly extract to
+# OneDrive (~04:40 UTC). The old 01:15 schedule ran ~3.5h BEFORE Skimmer's drop,
+# so every run pulled the PREVIOUS day's extract (a chronic ~24h data lag that
+# every green health signal hid). See docs/runbooks/2026-07-14-pipeline-schedule.md.
 # Logs to data/pipeline.log with timestamped entries.
 
 set -euo pipefail
@@ -44,7 +47,20 @@ else
     exit 1
 fi
 
+# Nightly status + statistics report on EVERY run (success OR failure) via EXIT
+# trap — so a mid-pipeline `exit 1` still notifies Ross. report.py computes the
+# real status from pipeline outcome + reconciliation + data freshness.
+REPORT_OUTCOME="failed"
+REPORT_STEP="startup"
+send_report() {
+    local rc=$?
+    (cd "$PROJECT_DIR" && python3 -m etl.report --outcome "$REPORT_OUTCOME" --last-step "$REPORT_STEP" --exit-code "$rc") \
+        2>&1 | tee -a "$LOG_FILE" || log "WARN: nightly report failed"
+}
+trap send_report EXIT
+
 # Step 1: Sync (unless --skip-sync)
+REPORT_STEP="sync"
 if [ "${1:-}" != "--skip-sync" ]; then
     log "Step 1: Syncing extracts from OneDrive..."
     if "$SCRIPT_DIR/sync-extracts.sh" 2>&1 | tee -a "$LOG_FILE"; then
@@ -59,6 +75,7 @@ else
 fi
 
 # Step 2: Python ETL — SQLite to Postgres
+REPORT_STEP="etl"
 log "Step 2: Running ETL (SQLite → Postgres)..."
 cd "$PROJECT_DIR"
 if python3 -m etl.main 2>&1 | tee -a "$LOG_FILE"; then
@@ -73,6 +90,7 @@ else
 fi
 
 # Step 3: dbt run
+REPORT_STEP="dbt"
 log "Step 3: Running dbt..."
 cd "$PROJECT_DIR/dbt"
 if dbt run --profiles-dir . 2>&1 | tee -a "$LOG_FILE"; then
@@ -85,6 +103,7 @@ else
 fi
 
 # Step 4: Reconciliation — compare raw vs warehouse
+REPORT_STEP="reconcile"
 log "Step 4: Running reconciliation checks..."
 cd "$PROJECT_DIR"
 if python3 -m etl.reconcile 2>&1 | tee -a "$LOG_FILE"; then
@@ -96,6 +115,7 @@ else
 fi
 
 # Step 5: Health check
+REPORT_STEP="health"
 log "Step 5: Health check..."
 cd "$PROJECT_DIR"
 HEALTH=$(curl -sf http://localhost:8080/api/health 2>/dev/null || echo '{"status":"unreachable"}')
@@ -107,6 +127,9 @@ else
     log "WARNING: API health check returned: $STATUS"
     triage health 1
 fi
+
+# Reached the end without aborting → mark success for the EXIT-trap report.
+REPORT_OUTCOME="success"
 
 # Record success; sends a "recovered" notification if the previous run failed
 (cd "$PROJECT_DIR" && python3 -m etl.triage --record-success) || true
