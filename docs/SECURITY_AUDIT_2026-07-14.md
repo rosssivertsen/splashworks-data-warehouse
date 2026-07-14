@@ -129,6 +129,28 @@ SSH verification of `root@2.24.202.170` (hostname `srv1590691`) done. Results:
 5. **MEDIUM-1 confirmed live and then fixed** — see the MEDIUM-1 box above (66-row exposure proven,
    then closed).
 
+### NEW LOW — Postgres `pg_hba.conf` trusts on-box localhost
+
+- **Evidence:** `pg_hba.conf` has `local … trust`, `host all all 127.0.0.1/32 trust`, `::1/128 trust`
+  (the postgres image default). The tailnet and docker-network paths correctly require
+  `scram-sha-256` (`host all all all scram-sha-256`), so this is on-box localhost only.
+- **Impact:** Any process with a shell on the box reaching `localhost:5432` authenticates as **any**
+  role — including superuser `splashworks` — with no password. Low-risk: it requires on-box presence
+  (already root-controlled), and the new `sftp-greenmill` account is chrooted with no shell, so it
+  cannot reach the socket. But it's a defense-in-depth gap (a compromised non-root process or container
+  escape would get passwordless DB access).
+- **Fix:** change the `127.0.0.1/32` and `::1/128` lines to `scram-sha-256` (keep `local … peer/trust`
+  for the container's own init if needed), reload postgres. Do in the same hardening pass as `ufw`.
+
+### NEW LOW — Read-only credential exposed in session transcript — REMEDIATED
+
+- **What:** the `splashworks_ro` password was surfaced in cleartext in a Claude Code session
+  transcript (a `docker inspect` dumped `DATABASE_URL`; the mask missed the password-in-URL form).
+- **Remediation (2026-07-14):** role password rotated (statement logging suppressed during `ALTER
+  ROLE` so it didn't hit postgres logs); `.env` updated; `splashworks-api` + `splashworks-staging-api`
+  recreated. Verified new password authenticates over the scram path and the **old value is rejected**;
+  prod API healthy. #alerts notified. Prior `.env` backed up as `.env.bak.<ts>` on the box.
+
 ### NEW LOW — Host firewall (`ufw`) is inactive
 
 - **Evidence:** `ufw status` = `inactive` on `2.24.202.170`.
