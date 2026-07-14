@@ -43,13 +43,13 @@ Greenmill  --SFTP pull (key auth)-->  jail (read-only, chrooted, no shell)
    ssh root@2.24.202.170 'install -o root -g root -m 644 /tmp/greenmill.pub /etc/ssh/sftp-keys/sftp-greenmill && rm /tmp/greenmill.pub'
    ```
 3. Give Greenmill: host `2.24.202.170` (or a dedicated `sftp.splshwrks.com` A record),
-   port `22`, user `sftp-greenmill`, path `extracts/`. Files refresh nightly (~01:20 UTC).
+   port `22`, user `sftp-greenmill`, path `extracts/`. Files refresh nightly (~01:45 UTC).
 
 ## Nightly refresh
 
 Cron on prod publishes the latest extracts into the jail after the sync:
 ```
-20 1 * * * /opt/splashworks/infrastructure/sftp/publish-extracts-to-sftp.sh >> /opt/splashworks/data/sftp-publish.log 2>&1
+45 1 * * * /opt/splashworks/infrastructure/sftp/publish-extracts-to-sftp.sh >> /opt/splashworks/data/sftp-publish.log 2>&1
 ```
 
 ## Outstanding hardening (do before/at go-live)

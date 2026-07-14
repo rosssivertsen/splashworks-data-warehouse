@@ -7,7 +7,7 @@
 # as root:root 0644 so the jailed partner has read-only access.
 #
 # Wire after sync in cron, e.g.:
-#   20 1 * * * /opt/splashworks/infrastructure/sftp/publish-extracts-to-sftp.sh >> /opt/splashworks/data/sftp-publish.log 2>&1
+#   45 1 * * * /opt/splashworks/infrastructure/sftp/publish-extracts-to-sftp.sh >> /opt/splashworks/data/sftp-publish.log 2>&1
 set -euo pipefail
 
 SRC="${EXTRACT_DIR:-/opt/splashworks/data/extracts}"
