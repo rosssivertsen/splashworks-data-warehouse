@@ -56,11 +56,19 @@ The AI-to-SQL path is the deliberate "let users run queries" surface, so its con
 - **Staging serves only anonymized data behind a fail-closed gate** — `anonymize-staging.sql` deterministically masks any PII-named column across `raw_skimmer`/`public_warehouse`/`public_semantic`; `staging-refresh.sh` aborts the refresh if `dim_customer` names come through unmasked, leaving the prior anonymized copy in place. Real prod data is never served on the public staging URLs.
 - **Secret scrubbing before storage and before LLM egress** — `etl/triage.py` strips passwords, connection-string creds, `sk-ant-…` keys, and JWTs from log excerpts before they hit `etl_incident_log` or Anthropic.
 
-### MEDIUM-1 — Read-only role can READ the audit log (cross-user PII/attribution exposure) — FIX STAGED
+### MEDIUM-1 — Read-only role can READ the audit log (cross-user PII/attribution exposure) — FIXED & DEPLOYED
 
-> **Status 2026-07-14:** Fix built on branch `feature/in-audit-log-isolation` (schema-isolation
-> approach). Migration + init parity + code + tests + governance doc updated; deploy runbook at
-> `docs/runbooks/2026-07-14-audit-log-isolation.md`. Not yet deployed — apply to staging then prod.
+> **Status 2026-07-14 (deployed to prod, PR #24):** Schema-isolation fix live on `2.24.202.170`.
+> Verified end-to-end in the running DB:
+> - **Exposure confirmed live before fix:** `splashworks_ro` read 66 rows from `public.query_audit_log`.
+> - **Migration applied:** self-verify `OK` notice fired; **66 rows before → 66 after** (zero data loss).
+> - **Hole closed:** `splashworks_ro` SELECT on `audit.query_audit_log` → `permission denied`;
+>   `public.query_audit_log` no longer exists.
+> - **Audit writes intact:** plain `INSERT` as `splashworks_ro` (the app's exact statement) succeeds;
+>   running API container serves the new `INSERT INTO audit.query_audit_log` code; no audit errors in logs.
+>
+> Note: the app INSERT uses no `RETURNING` clause, so revoking SELECT does not affect it (an
+> `INSERT ... RETURNING` *would* need SELECT). MEDIUM-2 (retention) remains open.
 
 - **Evidence:** `infrastructure/postgres/init/03-create-readonly-user.sql:18` grants `SELECT ON ALL TABLES IN SCHEMA public` to `splashworks_ro`. `query_audit_log` lives in `public` (`02-create-audit-log.sql`). Line 30 only *needed* to grant `INSERT` on that table — the blanket `public` SELECT over-grants read on it.
 - **Impact:** Any authenticated user can `POST /api/query/raw` with `SELECT * FROM query_audit_log` and read **every other user's** `cf_access_email`, `client_ip`, natural-language `question` (routinely contains customer names/addresses), and generated/executed SQL. That's cross-user attribution data plus PII, reachable through the intended query surface.
@@ -96,16 +104,45 @@ The AI-to-SQL path is the deliberate "let users run queries" surface, so its con
 | M-7 | `ripple_rw` CREATE ON DATABASE | Open (LOW) |
 | L-1..L-6 | Header/CSRF/root-container nits | Open (LOW); CF Access + loopback binding mitigate most |
 
-## 7. On-box verification — PENDING (needs SSH key unlock)
+## 7. On-box verification — COMPLETE (2026-07-14)
 
-External + code review is complete. To finish a *thorough* production check, the following need on-box confirmation. SSH to `root@2.24.202.170` uses `~/.ssh/id_ed25519`, which has a passphrase and is not loaded in the agent. **Ross: run `ssh-add ~/.ssh/id_ed25519` in the terminal (e.g. `! ssh-add ~/.ssh/id_ed25519`), then I'll complete these:**
+SSH verification of `root@2.24.202.170` (hostname `srv1590691`) done. Results:
 
-1. Host firewall (`ufw`/iptables) — confirm inbound default-deny; only cloudflared egress expected.
-2. `docker compose ps` — all containers healthy; confirm no stray port publishing to `0.0.0.0`.
-3. Perms/ownership of `/opt/splashworks/.env`, `/root/.slack_webhook`, `/root/.ssh/staging_pull_ed25519` (should be `600`/root).
-4. Actual DB grants live (`\dp query_audit_log`) to confirm MEDIUM-1 in the running DB, not just the init script.
-5. cloudflared version + tunnel config; Postgres `pg_hba.conf` (no `trust`/wide `host` rules).
-6. Whether `SECURITY_AUDIT` MEDIUM-1/2 fixes are already partially applied on the running instance.
+1. **DW services still tunnel-only — GOOD.** `cloudflared` runs as an active systemd service and
+   proxies `app/api/bi/ripple.splshwrks.com` to loopback-bound containers (`127.0.0.1:3001/8080/3000/8082`).
+   These are not published on `0.0.0.0`.
+2. **Host nginx IS public on `0.0.0.0:80/443` — but it serves the *other* app on this shared box**
+   (`app.jomopools.com` / jomo-inventory, `proxy_pass → 127.0.0.1:8000`, Certbot cert), plus a `_`
+   catch-all. There is **no** `app.splshwrks.com` server block in host nginx — DW traffic never
+   traverses it — so hitting the origin IP directly with a spoofed `Host: app.splshwrks.com` lands on
+   the catch-all, not the DW frontend. No Access bypass for this stack. (Governance note: the
+   jomo-inventory public exposure is owned by the `inventory-app` repo, out of scope here.)
+3. **Postgres not publicly exposed — GOOD.** Bound to `127.0.0.1:5432` and the **tailnet** IP
+   `100.124.108.126:5432` (Tailscale, access-controlled) — never `0.0.0.0`.
+4. **Secret file perms — GOOD.** `/opt/splashworks/.env` and `/root/.slack_webhook` are `600 root:root`.
+   (`/root/.ssh/staging_pull_ed25519` correctly absent on prod — it lives on the staging box.)
+5. **MEDIUM-1 confirmed live and then fixed** — see the MEDIUM-1 box above (66-row exposure proven,
+   then closed).
+
+### NEW LOW — Host firewall (`ufw`) is inactive
+
+- **Evidence:** `ufw status` = `inactive` on `2.24.202.170`.
+- **Impact:** Low in practice — the DW services are loopback+tunnel, Postgres is loopback+tailnet, and
+  nothing sensitive binds `0.0.0.0` except the intentionally-public jomo-inventory nginx (22/80/443).
+  But there is no host-level default-deny as defense-in-depth; a future service that accidentally binds
+  `0.0.0.0` would be immediately internet-exposed with nothing behind it.
+- **Fix:** enable `ufw` with default-deny inbound, allowing only 22/80/443 (and rely on Tailscale ACLs
+  for the tailnet Postgres). Schedule in the `feature/in-*` hardening batch. Coordinate with the
+  `inventory-app` owner since the box is shared.
+
+### NEW LOW — `.gitignore` did not cover raw data extracts (now fixed)
+
+- Raw customer databases (`Skimmer Nightly/*.db`, `*.db.gz`), BI workbooks (`*.pbix`, `*.xlsx`), and a
+  meeting recording sat untracked in the working tree but were **not** gitignored — one `git add -A`
+  from being committed to a shared GitHub repo. Fixed in PR #24 with broad ignore patterns.
+  **History scan run 2026-07-14:** `git log --all --diff-filter=A -- '*.db' '*.db.gz' '*.pbix' '*.xlsx'`
+  returned NONE — no database or workbook file was ever committed. No historical exposure; the
+  near-miss was caught before any commit.
 
 ## 8. Recommended actions (priority order)
 
