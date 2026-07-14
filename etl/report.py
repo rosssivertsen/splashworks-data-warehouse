@@ -61,7 +61,8 @@ def gather_stats() -> dict:
                    max(extract_date)::text          AS extract_date,
                    count(*)                          AS tables_loaded,
                    coalesce(sum(row_count), 0)       AS rows_loaded,
-                   bool_and(status = 'success')      AS all_ok,
+                   bool_and(status IN ('completed', 'success')
+                            AND load_completed_at IS NOT NULL) AS all_ok,
                    min(load_started_at)              AS started,
                    max(load_completed_at)            AS completed
             FROM public.etl_load_log, latest
