@@ -7,7 +7,7 @@ recovery tracking). Never just "alerts" — every incident carries:
   - recommended actions (specific commands / runbook pointers)
 
 Outputs, in order of durability:
-  1. Postgres public.etl_incident_log        (queryable audit trail)
+  1. Postgres audit.etl_incident_log         (queryable audit trail)
   2. data/incidents/<incident_id>.json       (survives DB outage)
   3. Slack #alerts via webhook               (SLACK_WEBHOOK_URL env, else
                                               /root/.slack_webhook file)
@@ -258,8 +258,10 @@ def llm_enrichment(step: str, excerpt: str) -> str:
 
 def ensure_incident_table(conn) -> None:
     with conn.cursor() as cur:
+        # Isolated from the read-only API role — see docs/SECURITY_AUDIT_2026-07-14.md.
+        cur.execute("CREATE SCHEMA IF NOT EXISTS audit")
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS public.etl_incident_log (
+            CREATE TABLE IF NOT EXISTS audit.etl_incident_log (
                 id SERIAL PRIMARY KEY,
                 incident_id TEXT NOT NULL,
                 occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -285,7 +287,7 @@ def write_db(incident: dict) -> bool:
         ensure_incident_table(conn)
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO public.etl_incident_log
+                """INSERT INTO audit.etl_incident_log
                    (incident_id, step, exit_code, severity, error_class, impact,
                     recommended_actions, log_excerpt, llm_enrichment, notified)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",

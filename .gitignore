@@ -65,6 +65,26 @@ test-databases/*.sqlite3
 data/
 work/
 
+# Raw customer data — NEVER commit. Broad patterns so a stray `git add -A`
+# cannot capture Skimmer extracts, BI workbooks, or recordings regardless of
+# folder. See docs/SECURITY_AUDIT_2026-07-14.md. Add a `!path/file` negation
+# below only for a specific file you intentionally want tracked.
+Skimmer Nightly/
+*.db
+*.db.gz
+*.sqlite
+*.sqlite3
+*.pbix
+*.pbip
+*.xlsb
+*.xlsx
+*.xls
+*.mp4
+*.msg
+*.zip
+!test-databases/*.sql
+!infrastructure/**/*.sql
+
 # Local Netlify folder
 .netlify
 

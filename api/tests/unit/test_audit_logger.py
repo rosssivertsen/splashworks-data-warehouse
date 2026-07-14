@@ -34,7 +34,7 @@ class TestLogQueryAudit:
         sql_arg = mock_cur.execute.call_args[0][0]
         params = mock_cur.execute.call_args[0][1]
 
-        assert "INSERT INTO public.query_audit_log" in sql_arg
+        assert "INSERT INTO audit.query_audit_log" in sql_arg
         assert "%s" in sql_arg  # parameterized, not f-string
         assert params[0] == "1.2.3.4"
         assert params[1] == "ross@splashworks.com"
