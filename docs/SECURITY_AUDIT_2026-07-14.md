@@ -74,11 +74,16 @@ The AI-to-SQL path is the deliberate "let users run queries" surface, so its con
 - **Impact:** Any authenticated user can `POST /api/query/raw` with `SELECT * FROM query_audit_log` and read **every other user's** `cf_access_email`, `client_ip`, natural-language `question` (routinely contains customer names/addresses), and generated/executed SQL. That's cross-user attribution data plus PII, reachable through the intended query surface.
 - **Fix (recommended):** Move `query_audit_log` (and `etl_incident_log`) into a dedicated `audit` schema the RO role has no `USAGE` on; grant `splashworks_ro` only `INSERT` + sequence usage on the log table. Alternatively, keep the table in `public` but `REVOKE SELECT ON public.query_audit_log FROM splashworks_ro;` after the blanket grant. The schema move is cleaner and also protects future audit tables.
 
-### MEDIUM-2 — Audit log retains PII-bearing questions indefinitely
+### MEDIUM-2 — Audit log retains PII-bearing questions indefinitely — FIXED (retention job)
 
 - **Evidence:** `query_audit_log` stores the raw NL `question` + `cf_access_email` + `client_ip` with no TTL (`02-create-audit-log.sql`, `api/services/audit_logger.py`).
-- **Impact:** A growing store of "who asked what about which customer," in a table currently over-readable (MEDIUM-1). Even after MEDIUM-1 is fixed, indefinite retention of PII-bearing queries is a confidentiality/минimization concern.
-- **Fix:** Add a retention policy — e.g., a nightly `DELETE FROM query_audit_log WHERE created_at < now() - interval '90 days'` (tune to whatever the audit requirement actually is), or partition by month and drop old partitions. Decide the retention window with the data-governance question in mind.
+- **Impact:** A growing store of "who asked what about which customer." Even after MEDIUM-1, indefinite retention of PII-bearing queries is a confidentiality/minimization concern.
+- **Policy chosen — redact PII, keep the audit trail (two tiers):** the liability and the value live in different columns. The free-text (`question`, `generated_sql`, `executed_sql`, `error_message`; `log_excerpt`/`llm_enrichment` on the incident log) carries customer PII; the metadata (`requested_at`, `cf_access_email`, `client_ip`, `endpoint`, `status`, `duration_ms`, `row_count`) *is* the audit trail. So:
+  1. **After 90 days** — `NULL` the free-text PII columns, keep the metadata row (forensic window long enough to investigate a late-discovered incident; short enough for minimization).
+  2. **After 365 days** — hard-delete the row. A firm cap.
+
+  This lets the governance answer be: "customer data in query logs is held at most 90 days." Storage is not the driver (66 rows); PII minimization is.
+- **Implementation:** `infrastructure/postgres/maintenance/audit-retention.sql` (idempotent, transactional, NOTICE-reports counts) run nightly by `etl/scripts/audit-retention.sh` via cron `30 2 * * *` on prod AND the staging box — decoupled from the ETL pipeline so it runs regardless of ETL health.
 
 ## 5. Container / infra posture — VERIFIED GOOD
 
