@@ -198,7 +198,12 @@ def send_email_resend(subject: str, text: str, html: str, cfg: dict) -> str:
     req = urllib.request.Request(
         "https://api.resend.com/emails", data=payload,
         headers={"Authorization": f"Bearer {cfg['RESEND_API_KEY']}",
-                 "Content-Type": "application/json"},
+                 "Content-Type": "application/json",
+                 # Resend's API is behind Cloudflare, which blocks urllib's default
+                 # "Python-urllib/3.x" UA with HTTP 403 / error 1010. Verified: the
+                 # identical request succeeds with any normal UA and fails with that
+                 # one. Do not remove this header.
+                 "User-Agent": "splashworks-dw-report/1.0"},
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
