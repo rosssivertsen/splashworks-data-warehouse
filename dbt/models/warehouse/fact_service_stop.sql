@@ -3,11 +3,18 @@
     unique_key=['route_stop_id', 'service_stop_id', '_company_name']
 ) }}
 
+-- service_stop_id is COALESCEd to route_stop_id for unmatched route stops (the
+-- LEFT JOIN below yields NULL when a stop has no service record). This is
+-- load-bearing: a NULL in the incremental unique_key never matches on merge, so
+-- dbt re-INSERTED every unmatched row on EVERY nightly run — JOMO had grown to
+-- 3.5x its true size (DL-15). route_stop_id is unique per date, so coalescing to
+-- it gives each unmatched stop a stable, non-null key. Nothing downstream reads
+-- fact_service_stop.service_stop_id by name, so this is semantically safe.
 select
     rs._company_name,
     rs.company_id,
     rs.route_stop_id,
-    ss.service_stop_id,
+    coalesce(ss.service_stop_id, rs.route_stop_id) as service_stop_id,
     rs.service_location_id,
     sl.customer_id,
     ss.pool_id,
