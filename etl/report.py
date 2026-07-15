@@ -43,7 +43,8 @@ def _load_mail_env() -> dict:
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 cfg[k.strip()] = v.strip().strip('"').strip("'")
-    for k in ("MAIL_TO", "MAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"):
+    for k in ("MAIL_TO", "MAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_USER",
+              "SMTP_PASS", "SLACK_MENTION"):
         if os.environ.get(k):
             cfg[k] = os.environ[k]
     return cfg
@@ -209,13 +210,18 @@ def send_email(subject: str, text: str, html: str, cfg: dict) -> str:
         return f"email: FAILED ({e})"
 
 
-def send_slack(subject: str, text: str) -> str:
+def send_slack(subject: str, text: str, mention: str = "") -> str:
+    """Post the report. `mention` (e.g. "<@UEKC16A5T>") makes it a real Slack
+    mention — a bare webhook post does NOT notify channel members whose channel
+    prefs are 'mentions only', which is why the report can land correctly and
+    still go unnoticed."""
     url = os.environ.get("SLACK_WEBHOOK_URL")
     if not url and Path(SLACK_WEBHOOK_FILE).is_file():
         url = Path(SLACK_WEBHOOK_FILE).read_text().strip()
     if not url:
         return "slack: skipped (no webhook)"
-    payload = json.dumps({"text": f"*{subject}*\n```{text}```"}).encode()
+    prefix = f"{mention} " if mention else ""
+    payload = json.dumps({"text": f"{prefix}*{subject}*\n```{text}```"}).encode()
     try:
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
         urllib.request.urlopen(req, timeout=15)
@@ -247,7 +253,7 @@ def main() -> None:
 
     cfg = _load_mail_env()
     print(send_email(subject, text, html, cfg))
-    print(send_slack(subject, text))
+    print(send_slack(subject, text, cfg.get("SLACK_MENTION", "")))
 
 
 if __name__ == "__main__":
