@@ -209,11 +209,13 @@ CHECKS = [
         "tolerance_pct": 0.0,
     },
     {
-        "name": "fact_service_stop_version_inflation",
-        "description": "Multi-version route stops in fact_service_stop (same route_stop_id kept under changed service_stop_id). WARN-level until the dbt dedup fix lands (DL backlog).",
+        "name": "fact_service_stop_duplicate_rows",
+        "description": "Duplicate rows in fact_service_stop: total rows vs distinct grain (route_stop_id, service_stop_id, _company_name). Should be ZERO after DL-15. A non-zero delta means the incremental merge is re-appending — NOT fan-out, which is already in the grain.",
         "raw_sql": """
-            SELECT _company_name, COUNT(DISTINCT route_stop_id) as cnt
-            FROM public_warehouse.fact_service_stop
+            SELECT _company_name, COUNT(*) as cnt FROM (
+                SELECT DISTINCT _company_name, route_stop_id, service_stop_id
+                FROM public_warehouse.fact_service_stop
+            ) g
             GROUP BY _company_name
             ORDER BY _company_name
         """,
