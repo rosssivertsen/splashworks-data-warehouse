@@ -19,6 +19,7 @@ import json
 import os
 import smtplib
 import ssl
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
@@ -44,7 +45,7 @@ def _load_mail_env() -> dict:
                 k, v = line.split("=", 1)
                 cfg[k.strip()] = v.strip().strip('"').strip("'")
     for k in ("MAIL_TO", "MAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_USER",
-              "SMTP_PASS", "SLACK_MENTION"):
+              "SMTP_PASS", "SLACK_MENTION", "RESEND_API_KEY"):
         if os.environ.get(k):
             cfg[k] = os.environ[k]
     return cfg
@@ -182,7 +183,38 @@ def render(status: str, outcome: str, last_step: str, exit_code: int, stats: dic
     return subject, text, html
 
 
+def send_email_resend(subject: str, text: str, html: str, cfg: dict) -> str:
+    """Send via Resend's HTTP API. Chosen over M365 SMTP because both tenants have
+    SmtpClientAuthentication disabled (Microsoft's default), and enabling it would
+    mean re-opening legacy basic auth just to send a stats email. This report
+    carries no customer PII — only row counts, company names, and check results."""
+    payload = json.dumps({
+        "from": cfg.get("MAIL_FROM", "onboarding@resend.dev"),
+        "to": [cfg["MAIL_TO"]],
+        "subject": subject,
+        "text": text,
+        "html": html,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.resend.com/emails", data=payload,
+        headers={"Authorization": f"Bearer {cfg['RESEND_API_KEY']}",
+                 "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            r.read()
+        return f"email: sent via Resend to {cfg['MAIL_TO']}"
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors="replace")[:300]
+        return f"email: FAILED (Resend HTTP {e.code}: {detail})"
+    except Exception as e:
+        return f"email: FAILED (Resend: {e})"
+
+
 def send_email(subject: str, text: str, html: str, cfg: dict) -> str:
+    # Resend takes precedence when configured; SMTP remains as a fallback path.
+    if cfg.get("RESEND_API_KEY") and cfg.get("MAIL_TO"):
+        return send_email_resend(subject, text, html, cfg)
     required = ("MAIL_TO", "MAIL_FROM", "SMTP_HOST", "SMTP_PORT")
     if not all(cfg.get(k) for k in required):
         return "email: skipped (no mail config)"
