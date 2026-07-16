@@ -15,6 +15,7 @@ Usage:
   python3 -m etl.report --outcome success|failed --last-step <step> --exit-code N
 """
 import argparse
+import glob
 import json
 import os
 import smtplib
@@ -32,6 +33,7 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 RECON_PATH = PROJECT_DIR / "data" / "reconciliation.json"
 MAIL_ENV_PATH = os.environ.get("MAIL_CONFIG", "/root/.mail_env")
 SLACK_WEBHOOK_FILE = "/root/.slack_webhook"
+SFTP_MANIFEST_GLOB = "/srv/sftp/*/extracts/MANIFEST.txt"
 
 
 def _load_mail_env() -> dict:
@@ -92,6 +94,35 @@ def gather_stats() -> dict:
     return stats
 
 
+def gather_delivery(companies: list) -> dict:
+    """Read each partner SFTP jail's MANIFEST.txt to confirm what was published:
+    filename, sha256, size, source date — plus the row count for that company
+    (from ingestion) so the report proves both delivery AND the data behind it.
+    Returns {"accounts": [...], "files": [...], "published": bool}."""
+    rows_by_company = {c["company"]: c["rows"] for c in companies}
+    manifests = sorted(glob.glob(SFTP_MANIFEST_GLOB))
+    accounts = sorted(os.path.basename(os.path.dirname(os.path.dirname(m))) for m in manifests)
+    if not manifests:
+        return {"accounts": [], "files": [], "published": False}
+    # All jails publish an identical file set (per entitlements), so parse one.
+    files, published = [], None
+    for line in Path(manifests[0]).read_text().splitlines():
+        line = line.strip()
+        if line.startswith("# published:"):
+            published = line.split(":", 1)[1].strip()
+        elif line and not line.startswith("#"):
+            parts = line.split()
+            if len(parts) >= 4:
+                fname, sha, size, mtime = parts[0], parts[1], parts[2], parts[3]
+                company = fname.replace(".db.gz", "")
+                files.append({
+                    "file": fname, "sha256": sha, "bytes": int(size),
+                    "source_mtime": mtime, "rows": rows_by_company.get(company),
+                })
+    return {"accounts": accounts, "files": files, "published_at": published,
+            "published": bool(files)}
+
+
 def decide_status(outcome: str, stats: dict) -> str:
     """Worst of pipeline outcome, reconciliation, and freshness."""
     if outcome != "success":
@@ -142,6 +173,18 @@ def render(status: str, outcome: str, last_step: str, exit_code: int, stats: dic
             lines.append(f"  {c['status'].upper()}: {c['name']} — {c.get('detail', '')[:200]}")
     else:
         lines.append("Reconciliation: (no report found)")
+    # Partner delivery (SFTP)
+    delivery = stats.get("delivery") or {}
+    lines.append("")
+    if delivery.get("published"):
+        accts = ", ".join(delivery.get("accounts", [])) or "—"
+        lines.append(f"Partner delivery (SFTP) — published {delivery.get('published_at','?')} to: {accts}")
+        for f in delivery["files"]:
+            rows = f"{f['rows']:,} rows" if f.get("rows") is not None else "rows n/a"
+            mb = f["bytes"] / 1_000_000
+            lines.append(f"  {f['file']:16} {mb:7.1f} MB  {rows:>14}  sha256 {f['sha256'][:16]}…")
+    else:
+        lines.append("Partner delivery (SFTP): nothing published (no jail manifest found)")
     text = "\n".join(lines)
 
     # Minimal HTML (inline styles; renders in any client)
@@ -167,6 +210,25 @@ def render(status: str, outcome: str, last_step: str, exit_code: int, stats: dic
                   f"<p>Freshness OK: extract date {fr['newest_extract']}.</p>")
     fail_html = (f"<p style='color:#cf222e'>Pipeline FAILED at step '<b>{last_step}</b>' (exit {exit_code}).</p>"
                  if status == "FAILED" and outcome != "success" else "")
+    # Partner delivery (SFTP) HTML
+    delivery = stats.get("delivery") or {}
+    if delivery.get("published"):
+        drows = "".join(
+            f"<tr><td><code>{f['file']}</code></td><td align='right'>{f['bytes']/1_000_000:.1f} MB</td>"
+            f"<td align='right'>{f['rows']:,}</td><td><code>{f['sha256']}</code></td>"
+            f"<td>{f['source_mtime']}</td></tr>"
+            for f in delivery["files"] if f.get("rows") is not None
+        )
+        delivery_html = (
+            f"<h3>Partner delivery (SFTP)</h3>"
+            f"<p>Published <b>{delivery.get('published_at','?')}</b> to: "
+            f"{', '.join('<code>%s</code>' % a for a in delivery.get('accounts', [])) or '—'}</p>"
+            f"<table cellpadding='6' style='border-collapse:collapse' border='1'>"
+            f"<tr style='background:#f6f8fa'><th>File</th><th>Size</th><th>Rows</th><th>SHA-256</th><th>Extract date</th></tr>"
+            f"{drows}</table>"
+        )
+    else:
+        delivery_html = "<h3>Partner delivery (SFTP)</h3><p>Nothing published (no jail manifest found).</p>"
     html = f"""<html><body style="font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#24292f">
       <h2 style="color:{color}">{emoji} Nightly ingestion: {status}</h2>
       <p>Run date (UTC): <b>{fr['today']}</b></p>
@@ -178,6 +240,7 @@ def render(status: str, outcome: str, last_step: str, exit_code: int, stats: dic
         <tr style="font-weight:bold"><td colspan="3">TOTAL</td><td align="right">{total_rows:,}</td><td></td></tr>
       </table>
       {recon_html}
+      {delivery_html}
       <p style="color:#57606a;font-size:12px">Splashworks Data Warehouse · automated nightly report</p>
     </body></html>"""
     return subject, text, html
@@ -282,6 +345,11 @@ def main() -> None:
                  "freshness": {"today": datetime.now(timezone.utc).date().isoformat(),
                                "newest_extract": None, "stale": False},
                  "_gather_error": str(e)}
+
+    try:
+        stats["delivery"] = gather_delivery(stats.get("companies", []))
+    except Exception as e:
+        stats["delivery"] = {"published": False, "accounts": [], "files": [], "_error": str(e)}
 
     status = decide_status(args.outcome, stats)
     subject, text, html = render(status, args.outcome, args.last_step, args.exit_code, stats)

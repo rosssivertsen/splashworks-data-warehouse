@@ -128,6 +128,19 @@ else
     triage health 1
 fi
 
+# Step 6: publish fresh extracts to partner SFTP jails. Done HERE (not a separate
+# cron) so the nightly report's EXIT trap reflects today's delivery. A publish
+# failure warns but does not abort — the data is already ingested.
+REPORT_STEP="sftp-publish"
+log "Step 6: Publishing extracts to partner SFTP jails..."
+if "$PROJECT_DIR/infrastructure/sftp/publish-extracts-to-sftp.sh" 2>&1 | tee -a "$LOG_FILE"; then
+    log "Step 6: SFTP publish complete"
+else
+    rc=$?
+    log "WARNING: SFTP publish failed (exit $rc)"
+    triage sftp_publish "$rc"
+fi
+
 # Reached the end without aborting → mark success for the EXIT-trap report.
 REPORT_OUTCOME="success"
 
