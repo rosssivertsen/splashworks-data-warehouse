@@ -1,7 +1,7 @@
 # Splashworks Data Warehouse — Backlog
 
 **Project:** Splashworks Enterprise Data Platform
-**Last Updated:** 2026-03-26
+**Last Updated:** 2026-07-17
 
 ---
 
@@ -77,7 +77,7 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 | ~~DL-12~~ | ~~`fact_route_move` — schedule disruption tracking, tech reassignment patterns~~ | ~~dbt model~~ | ~~S~~ | ~~DONE 2026-03-18. 3,510 rows.~~ |
 | DL-13 | `fact_equipment_install` — equipment lifecycle, replacement cycles, parts spend | dbt model | M | Depends on ETL-4 + DL-6. |
 | ~~DL-14~~ | ~~`rpt_active_routes` + `cli/export-active-routes.sh` — CEO-recurring active routes export. Vendor-canonical filter (Glenn/Skimmer 2026-04-22). Observational service-state labels.~~ | ~~dbt + CLI~~ | ~~S~~ | ~~DONE 2026-04-22. Fills Skimmer Route Dashboard export gap (native only supports screenshots).~~ |
-| DL-15 | **`fact_service_stop` version dedup** — multi-version route stops inflate the fact: AQPS +6,763 / CLERMONT +38 / JOMO +214,476 rows (2026-07-06). Two suspected mechanisms: (1) incremental `unique_key` includes `service_stop_id`, so NULL→value flips between extracts keep both versions; (2) possible join fanout to `stg_service_stop` (JOMO averages 3.3 rows per route_stop_id). Any per-stop metric built on raw row counts overcounts. | dbt model | M | Quantified nightly by reconciliation check `fact_service_stop_version_inflation` (WARN, non-blocking). Fix design must respect incremental history — NO `--full-refresh` on prod without a backfill plan. Flip the check to fail-severity once fixed. |
+| ~~DL-15~~ | ~~**`fact_service_stop` duplicate-row bug** — NULL `service_stop_id` in the incremental unique_key never matched on merge, so unmatched route stops re-appended every night (JOMO 335,804 vs 99,739 real, 3.5x).~~ | ~~dbt model~~ | ~~M~~ | ~~**DONE 2026-07-15 (PR #29).** Fix: `coalesce(service_stop_id, route_stop_id)` (unique per date). One-time in-place dedup migration (~240k rows, NOT --full-refresh — preserves aged-out history). Reconcile check rewritten `version_inflation`→`fact_service_stop_duplicate_rows` (old one miscounted legit fan-out); now 0 dupes, 8/8 pass. rpt_service_history 377,708→140,871.~~ |
 
 ### App — AI Query Intelligence (The Moat)
 
@@ -118,6 +118,22 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 | ~~IN-7~~ | ~~**Ripple CF Access auth middleware**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. CloudflareAccessMiddleware added, JWT forwarded in Nginx.~~ |
 | ~~IN-8~~ | ~~**Use CF-Connecting-IP for audit logging**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-03-26. Prefers CF-Connecting-IP over spoofable X-Forwarded-For.~~ |
 | ~~IN-10~~ | ~~**VPS migration** — move all production services from 76.13.29.44 (KVM-2, personal Hostinger) to 2.24.202.170 (KVM-4, splashworks Hostinger)~~ | ~~Migration~~ | ~~L~~ | ~~**DONE 2026-06-25.** Cutover complete — warehouse + all 8 services live on `2.24.202.170` (tailnet `100.124.108.126`), counts matched source exactly, tunnel stable on `--protocol http2`, Power BI repointed, Metabase H2 migrated + volume-backed. Source stopped + retained (rollback). Runbook Cutover Log: `docs/runbooks/2026-05-vps-migration.md`. **Tail:** day-1 ETL verify, source decommission decision.~~ |
+
+### Infrastructure — Security, Partner Delivery & Observability (2026-07)
+
+Shipped 2026-07-14 → 07-17 (see `docs/SECURITY_AUDIT_2026-07-14.md` + `docs/runbooks/2026-07-1*`).
+
+| ID | Item | Category | Effort | Notes |
+|----|------|----------|--------|-------|
+| ~~IN-11~~ | ~~**Audit-log isolation (SECURITY_AUDIT MEDIUM-1)**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-07-14 (PR #24). `query_audit_log`+`etl_incident_log` moved `public`→`audit` schema; RO API role can INSERT but not SELECT (closed cross-user PII read via /api/query/raw). Deployed prod+staging.~~ |
+| ~~IN-12~~ | ~~**Audit-log PII retention (MEDIUM-2)**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-07-14 (PR #25). Redact PII free-text @90d, delete rows @365d; nightly cron. Keeps metadata (the audit trail), sheds the liability.~~ |
+| ~~IN-13~~ | ~~**Greenmill SFTP delivery**~~ | ~~Infra~~ | ~~M~~ | ~~DONE 2026-07-14→17 (PRs #26/#28/#30-31). Chrooted, key-only, shell-less accounts (`sftp-greenmill` + `-ci` for their GitHub Actions), fail-closed per-jail entitlements, nightly publish w/ checksummed manifest, per-login Slack access alerts. Replaced Sam's Entra app-registration ask. Runbook `2026-07-14-greenmill-sftp.md`.~~ |
+| ~~IN-14~~ | ~~**Nightly ingestion report + fix chronic 24h data lag**~~ | ~~ETL/Infra~~ | ~~M~~ | ~~DONE 2026-07-14 (PR #27). Pipeline ran 01:15 UTC but Skimmer publishes ~04:40 → every green run pulled yesterday's data. Cron → 05:30. EXIT-trap report (status+stats+**freshness guard**) via email (Resend) + Slack.~~ |
+| ~~IN-15~~ | ~~**Status dashboard (hosted + email)**~~ | ~~Infra~~ | ~~M~~ | ~~DONE 2026-07-17 (PR #31). `etl/status_page.py` renders the whole pipeline (stages, reconciliation, delivery) from live state → email body (Outlook-safe table build) + hosted page (nginx behind CF Access). Prod + personal box. Reusable across clients.~~ |
+| ~~IN-16~~ | ~~**Rotate `splashworks_ro` credential**~~ | ~~Security~~ | ~~S~~ | ~~DONE 2026-07-14. Rotated (was exposed in a session transcript); verified old value rejected on the scram path.~~ |
+| IN-17 | **Enable `ufw` + tighten `pg_hba` localhost trust** | Security | S | SECURITY_AUDIT_2026-07-14 LOWs. ufw inactive on the shared box; pg_hba `trust`s localhost. Coordinate with the jomo-inventory owner (shared host). Add Greenmill source-IP allowlist if they provide static egress IPs. |
+| IN-18 | **Expose `status.splshwrks.com`** (Cloudflare dashboard) | Infra | S | Add tunnel public hostname → `localhost:8090` + Access app attaching the existing policy. Container + generated page already live. Runbook `2026-07-17-status-dashboard.md`. |
+| IN-19 | **Extract nightly-DW tooling to `enterprise-templates`** (CCE + other clients) | IP/Tooling | M | `reconcile.py` + `report.py` + `status_page.py` are client-agnostic; lift `COMPANY_MAP`/`COMPANY_ORDER`/`CHECK_LABELS`/check-list to config, scaffold as a `data-warehouse-nightly` module. |
 
 ### Security Audit Findings (2026-03-28) — Open
 
@@ -231,6 +247,15 @@ One-off scrapes remain acceptable. This log exists so each scrape is **conscious
 | ~~SA-H2~~ | Content-Security-Policy + Permissions-Policy on all nginx configs | 2026-03-28 |
 | ~~SA-H3~~ | Ripple middleware ordering — auth before CORS on request path | 2026-03-28 |
 | ~~SA-L1~~ | Permissions-Policy header added (camera, mic, geo, payment disabled) | 2026-03-28 |
+| ~~ETL-CLERMONT~~ | Onboard CLERMONT (3rd Skimmer company) + fix post-migration pipeline | 2026-07-04 |
+| ~~ETL-TRIAGE~~ | Pipeline failure triage — classify, log, Slack #alerts with impact + fix | 2026-07-06 |
+| ~~IN-11~~ | Audit-log isolation → `audit` schema (MEDIUM-1) | 2026-07-14 |
+| ~~IN-12~~ | Audit-log PII retention (redact @90d, delete @365d) (MEDIUM-2) | 2026-07-14 |
+| ~~IN-16~~ | Rotate exposed `splashworks_ro` credential | 2026-07-14 |
+| ~~IN-14~~ | Nightly ingestion report + fix chronic 24h data-lag (cron → 05:30 UTC) | 2026-07-14 |
+| ~~DL-15~~ | fact_service_stop duplicate-row fix (NULL incremental key) — ~240k dup rows removed | 2026-07-15 |
+| ~~IN-13~~ | Greenmill chrooted SFTP delivery + per-jail entitlements + access alerts | 2026-07-14→17 |
+| ~~IN-15~~ | Status dashboard — hosted (CF Access) + Outlook-safe email report | 2026-07-17 |
 
 ---
 
