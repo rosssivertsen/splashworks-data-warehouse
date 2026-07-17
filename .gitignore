@@ -116,3 +116,11 @@ deliverables/
 # Stray screenshots from browser automation
 *.png
 !docs/**/*.png
+
+# Secrets / keys — NEVER commit. Broad patterns so a stray `git add -A` cannot
+# capture private keys or one-off partner-comms drafts left in the working tree.
+*_key
+*.pem
+id_ed25519*
+id_rsa*
+docs/greenmill*
