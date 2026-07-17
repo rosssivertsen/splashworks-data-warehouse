@@ -110,6 +110,18 @@ services:
       - ripple-api
     restart: unless-stopped
 
+  # Static status dashboard — the nightly pipeline writes data/status/index.html;
+  # this serves it read-only for the Cloudflare tunnel (status.splshwrks.com,
+  # behind Cloudflare Access). No app logic, no DB — just the generated HTML.
+  status:
+    image: nginx:alpine
+    container_name: splashworks-status
+    ports:
+      - "127.0.0.1:8090:80"
+    volumes:
+      - ./data/status:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
 volumes:
   pg_data:
   metabase_data:
