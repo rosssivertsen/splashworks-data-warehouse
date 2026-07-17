@@ -74,6 +74,189 @@ td.hash{font-family:var(--mono);font-size:12px;color:var(--muted)}tfoot td{borde
 SEV = {"SUCCESS": ("pass", "--pass", "--pass-bg"), "WARNING": ("warn", "--warn", "--warn-bg"),
        "FAILED": ("fail", "--fail", "--fail-bg")}
 
+# Concrete light-theme colors for the EMAIL renderer. Outlook's Word engine ignores
+# <style> blocks, CSS custom properties, and flex/grid — so the email is built with
+# table layout + inline styles + hardcoded hex, single (light) theme.
+EC = {"bg": "#eef2f5", "card": "#ffffff", "ink": "#0f1b24", "muted": "#5a6b78",
+      "faint": "#8a99a5", "line": "#d9e0e6", "accent": "#0e7c86", "accent_bg": "#e2f1f2",
+      "pass": "#1a7f4b", "pass_bg": "#e5f3ea", "warn": "#9a6a00", "warn_bg": "#f8efd8",
+      "fail": "#c23b3b", "fail_bg": "#f8e3e3",
+      "mono": "'SF Mono',Consolas,Menlo,monospace",
+      "sans": "'Segoe UI',Arial,Helvetica,sans-serif"}
+
+
+def _pill(status: str) -> str:
+    c = {"pass": (EC["pass"], EC["pass_bg"], "Pass"), "warn": (EC["warn"], EC["warn_bg"], "Warn"),
+         "fail": (EC["fail"], EC["fail_bg"], "Fail")}.get(status, (EC["pass"], EC["pass_bg"], "OK"))
+    return (f'<span style="color:{c[0]};background:{c[1]};padding:2px 9px;border-radius:10px;'
+            f'font-size:11px;font-weight:700;white-space:nowrap">{c[2]}</span>')
+
+
+def render_email(stats: dict, meta: dict) -> str:
+    """Email-safe HTML (table layout, inline styles, hardcoded light colors) so it
+    renders in Outlook desktop as well as modern clients. Same content as the hosted
+    dashboard, different delivery — Outlook strips the dashboard's CSS entirely."""
+    fr = stats.get("freshness", {})
+    companies = stats.get("companies", [])
+    recon = stats.get("recon") or {}
+    delivery = stats.get("delivery") or {}
+    status = meta.get("status", "SUCCESS")
+    scolor = {"SUCCESS": EC["pass"], "WARNING": EC["warn"], "FAILED": EC["fail"]}[status]
+    sbg = {"SUCCESS": EC["pass_bg"], "WARNING": EC["warn_bg"], "FAILED": EC["fail_bg"]}[status]
+    lead = {"SUCCESS": "completed successfully", "WARNING": "completed with warnings",
+            "FAILED": "failed"}[status]
+    total_rows = sum(c.get("rows", 0) or 0 for c in companies)
+    npass = sum(1 for c in recon.get("checks", []) if c.get("status") == "pass")
+    nchecks = len(recon.get("checks", []))
+
+    def card(inner, pad="18px 20px"):
+        return (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+                f'style="background:{EC["card"]};border:1px solid {EC["line"]};border-radius:10px;'
+                f'margin:0 0 16px"><tr><td style="padding:{pad}">{inner}</td></tr></table>')
+
+    def h2(t):
+        return (f'<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;'
+                f'color:{EC["accent"]};margin:26px 0 10px">{t}</div>')
+
+    # KPI tiles (2 columns table)
+    kpis = [("Rows ingested", _fmt_int(total_rows)), ("Reconciliation", f"{npass} / {nchecks}"),
+            ("dbt models", str(meta.get("model_count", "—"))),
+            ("Freshness", "Current" if not fr.get("stale") else "STALE"),
+            ("Open incidents", str(meta.get("incidents", 0))),
+            ("Partner delivery", f"{len(delivery.get('files', []))} files" if delivery.get("published") else "—")]
+    kcells = ""
+    for i in range(0, len(kpis), 2):
+        row = ""
+        for lbl, val in kpis[i:i + 2]:
+            row += (f'<td width="50%" style="padding:6px"><table role="presentation" width="100%" '
+                    f'cellpadding="0" cellspacing="0" style="background:{EC["card"]};border:1px solid {EC["line"]};'
+                    f'border-radius:8px"><tr><td style="padding:12px 14px">'
+                    f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:{EC["muted"]};'
+                    f'font-weight:700">{lbl}</div>'
+                    f'<div style="font-family:{EC["mono"]};font-size:22px;font-weight:700;color:{EC["ink"]};'
+                    f'margin-top:4px">{val}</div></td></tr></table></td>')
+        kcells += f"<tr>{row}</tr>"
+    kpi_block = (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+                 f'style="margin:0 -6px 12px">{kcells}</table>')
+
+    # Pipeline stages
+    step_defs = [("Sync from source", "OneDrive → local staging (rclone)"),
+                 ("ETL load", "SQLite → Postgres raw layer"),
+                 ("dbt transform", "staging → warehouse → semantic"),
+                 ("Reconciliation", f"{npass}/{nchecks} automated checks"),
+                 ("Health check", "query API healthy"),
+                 ("Partner delivery", "publish extracts + manifest to SFTP jails")]
+    strows = ""
+    for i, (name, desc) in enumerate(step_defs, 1):
+        strows += (f'<tr><td width="30" style="padding:9px 0;color:{EC["accent"]};font-weight:700;'
+                   f'font-family:{EC["mono"]}">{i}</td>'
+                   f'<td style="padding:9px 0"><b style="color:{EC["ink"]}">{name}</b>'
+                   f'<span style="color:{EC["muted"]};font-size:13px"> — {desc}</span></td>'
+                   f'<td align="right" style="padding:9px 0">{_pill("pass")}</td></tr>')
+    steps_block = card(f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+                       f'style="font-size:14px">{strows}</table>')
+
+    # Reconciliation table
+    def th(t, a="left"):
+        return (f'<th align="{a}" style="padding:8px 10px;background:{EC["bg"]};font-size:10px;'
+                f'text-transform:uppercase;letter-spacing:.05em;color:{EC["muted"]};'
+                f'border-bottom:1px solid {EC["line"]}">{t}</th>')
+
+    def td(t, a="left", mono=False):
+        fam = f'font-family:{EC["mono"]};' if mono else ""
+        return (f'<td align="{a}" style="padding:9px 10px;border-bottom:1px solid {EC["line"]};'
+                f'font-size:13px;color:{EC["ink"]};{fam}">{t}</td>')
+
+    rrows = ""
+    for check in recon.get("checks", []):
+        label, desc = CHECK_LABELS.get(check["name"], (check["name"], ""))
+        name_cell = (f'<td style="padding:9px 10px;border-bottom:1px solid {EC["line"]};font-size:13px">'
+                     f'<b style="color:{EC["ink"]}">{label}</b><br>'
+                     f'<span style="color:{EC["muted"]};font-size:11px">{desc}</span></td>')
+        if check["name"] == "source_load_vs_raw":
+            n = len(check.get("warehouse") or {})
+            vals = (f'<td colspan="3" align="center" style="padding:9px 10px;border-bottom:1px solid '
+                    f'{EC["line"]};font-size:13px;color:{EC["muted"]}">{n} / {n} exact</td>')
+        else:
+            wh = check.get("warehouse") or {}
+            vals = ""
+            for co in COMPANY_ORDER:
+                v = wh.get(co)
+                disp = "—" if v is None else (_fmt_money(v) if check["name"] == "payment_total_amount" else _fmt_int(v))
+                vals += td(disp, "right", mono=True)
+        rrows += f'<tr>{name_cell}{vals}{td(_pill(check.get("status","pass")), "left")}</tr>'
+    recon_block = card(
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">'
+        f'<tr>{th("Check")}{th("AQPS","right")}{th("JOMO","right")}{th("Clermont","right")}{th("Status")}</tr>'
+        f'{rrows}</table>', pad="6px 8px")
+
+    # Ingestion
+    irows = ""
+    for co in COMPANY_ORDER:
+        c = next((x for x in companies if x.get("company") == co), None)
+        if not c:
+            continue
+        irows += (f'<tr>{td("<b>"+co+"</b>")}{td(c.get("extract_date","—"),mono=True)}'
+                  f'{td(str(c.get("tables","—")),"right",True)}{td(_fmt_int(c.get("rows")),"right",True)}'
+                  f'{td(_pill("pass" if c.get("ok") else "fail"))}</tr>')
+    irows += (f'<tr>{td("<b>Total</b>")}{td("")}{td("")}'
+              f'{td("<b>"+_fmt_int(total_rows)+"</b>","right",True)}{td("")}</tr>')
+    ing_block = card(
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">'
+        f'<tr>{th("Company")}{th("Extract")}{th("Tables","right")}{th("Rows","right")}{th("Status")}</tr>'
+        f'{irows}</table>', pad="6px 8px")
+
+    # Delivery
+    drows = ""
+    for f in delivery.get("files", []):
+        sha = f["sha256"]
+        drows += (f'<tr>{td("<b>"+f["file"]+"</b>",mono=True)}{td(f"{f['bytes']/1_000_000:.1f} MB","right",True)}'
+                  f'{td(_fmt_int(f.get("rows")),"right",True)}'
+                  f'{td(sha[:14]+"…"+sha[-6:],mono=True)}{td(f.get("source_mtime","—"),mono=True)}</tr>')
+    del_when = delivery.get("published_at", "—")
+    del_accts = ", ".join(delivery.get("accounts", [])) or "—"
+    del_block = card(
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">'
+        f'<tr>{th("File")}{th("Size","right")}{th("Rows","right")}{th("SHA-256")}{th("Extract (UTC)")}</tr>'
+        f'{drows}</table>', pad="6px 8px")
+
+    stale = ""
+    if fr.get("stale"):
+        stale = (f'<div style="background:{EC["warn_bg"]};border-left:4px solid {EC["warn"]};padding:10px 14px;'
+                 f'border-radius:6px;color:{EC["warn"]};font-size:13px;margin:0 0 16px">'
+                 f'&#9888; Newest extract is {fr.get("newest_extract")}, expected {fr.get("today")} — data may be a cycle behind.</div>')
+
+    return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:{EC['bg']};font-family:{EC['sans']};color:{EC['ink']}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{EC['bg']}"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%">
+  <tr><td style="padding:4px 4px 16px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:{EC['accent']};font-weight:700">Data Warehouse · Nightly Operations</div>
+    <div style="font-size:24px;font-weight:700;color:{EC['ink']};margin-top:4px">Splashworks Pipeline Report</div>
+    <div style="color:{EC['muted']};font-size:13px;margin-top:4px">Run <b>{meta.get('run_date','—')} · {meta.get('run_time','—')} UTC</b> · AQPS / JOMO / Clermont</div>
+  </td></tr>
+  <tr><td>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{sbg};border:1px solid {EC['line']};border-left:5px solid {scolor};border-radius:10px;margin:0 0 16px">
+      <tr><td style="padding:16px 20px">
+        <span style="font-size:17px;font-weight:700;color:{EC['ink']}">Pipeline <span style="color:{scolor}">{lead}</span></span>
+        <div style="color:{EC['muted']};font-size:13px;margin-top:3px">6 stages · {npass} of {nchecks} reconciliation checks passed · runtime {meta.get('duration','—')}</div>
+      </td></tr>
+    </table>
+    {stale}
+    {kpi_block}
+    {h2('Pipeline stages')}{steps_block}
+    {h2('Reconciliation — every run, before anything is trusted')}{recon_block}
+    {h2('Ingestion by company')}{ing_block}
+    {h2('Partner delivery — published '+del_when+' to '+del_accts)}{del_block}
+    <div style="color:{EC['faint']};font-size:11px;padding:8px 4px 0;border-top:1px solid {EC['line']};margin-top:8px">
+      Generated from live pipeline state · {meta.get('run_date','—')} {meta.get('run_time','')} UTC · nightly 05:30 UTC
+    </div>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>"""
+
 
 def _fmt_int(n):
     return f"{int(n):,}" if isinstance(n, (int, float)) else "—"

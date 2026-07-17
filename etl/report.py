@@ -398,11 +398,18 @@ def main() -> None:
     # artifact all come from one render.
     meta = gather_run_meta(PIPELINE_LOG)
     meta.update(status=status, model_count=stats.get("model_count"), incidents=stats.get("incidents", 0))
+    # Two renderings: rich CSS for the hosted page (browser), email-safe table
+    # HTML for the email body (Outlook strips the rich CSS entirely).
     try:
         dashboard_html = status_page.render(stats, meta, PIPELINE_LOG)
     except Exception as e:
-        dashboard_html = _simple_html  # fall back to the simple email HTML
+        dashboard_html = _simple_html
         print(f"dashboard render failed, using simple HTML: {e}")
+    try:
+        email_html = status_page.render_email(stats, meta)
+    except Exception as e:
+        email_html = _simple_html
+        print(f"email render failed, using simple HTML: {e}")
 
     if args.html_out:
         try:
@@ -414,7 +421,7 @@ def main() -> None:
             print(f"html: FAILED ({e})")
 
     cfg = _load_mail_env()
-    print(send_email(subject, text, dashboard_html, cfg))
+    print(send_email(subject, text, email_html, cfg))
     print(send_slack(subject, text, cfg.get("SLACK_MENTION", "")))
 
 
