@@ -29,7 +29,10 @@ from pathlib import Path
 
 import psycopg2
 
+from etl import status_page
+
 PROJECT_DIR = Path(__file__).resolve().parent.parent
+PIPELINE_LOG = str(PROJECT_DIR / "data" / "pipeline.log")
 RECON_PATH = PROJECT_DIR / "data" / "reconciliation.json"
 MAIL_ENV_PATH = os.environ.get("MAIL_CONFIG", "/root/.mail_env")
 SLACK_WEBHOOK_FILE = "/root/.slack_webhook"
@@ -80,6 +83,18 @@ def gather_stats() -> dict:
                 "rows": int(row[3]), "ok": row[4],
                 "started": row[5], "completed": row[6],
             })
+        # dbt model count (tables + views across the dbt schemas) and open incidents.
+        try:
+            cur.execute("""SELECT count(*) FROM information_schema.tables
+                           WHERE table_schema IN ('public_staging','public_warehouse','public_semantic')""")
+            stats["model_count"] = cur.fetchone()[0]
+        except Exception:
+            stats["model_count"] = None
+        try:
+            cur.execute("SELECT count(*) FROM audit.etl_incident_log WHERE resolved_at IS NULL")
+            stats["incidents"] = cur.fetchone()[0]
+        except Exception:
+            stats["incidents"] = 0
     # Freshness: newest extract_date vs today (UTC).
     today = datetime.now(timezone.utc).date().isoformat()
     dates = [c["extract_date"] for c in stats["companies"] if c["extract_date"]]
@@ -330,11 +345,34 @@ def send_slack(subject: str, text: str, mention: str = "") -> str:
         return f"slack: FAILED ({e})"
 
 
+def gather_run_meta(log_path: str) -> dict:
+    """Parse the last pipeline run's start/end from pipeline.log → run_date,
+    run_time (start HH:MM), and human duration. Best-effort with safe fallbacks."""
+    from datetime import datetime as _dt
+    meta = {"run_date": datetime.now(timezone.utc).date().isoformat(), "run_time": "", "duration": "—"}
+    try:
+        text = Path(log_path).read_text()
+        starts = re.findall(r"(\d{4}-\d\d-\d\d)T(\d\d:\d\d:\d\d)Z\s+=== Pipeline starting ===", text)
+        ends = re.findall(r"\d{4}-\d\d-\d\dT(\d\d:\d\d:\d\d)Z\s+=== Pipeline complete ===", text)
+        if starts:
+            date, st = starts[-1]
+            meta["run_date"], meta["run_time"] = date, st[:5]
+            if ends:
+                t0 = _dt.strptime(st, "%H:%M:%S")
+                t1 = _dt.strptime(ends[-1], "%H:%M:%S")
+                secs = int((t1 - t0).total_seconds()) % 86400
+                meta["duration"] = f"{secs // 60} min {secs % 60:02d} s" if secs >= 60 else f"{secs} s"
+    except Exception:
+        pass
+    return meta
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--outcome", default="success", choices=["success", "failed"])
     ap.add_argument("--last-step", default="")
     ap.add_argument("--exit-code", type=int, default=0)
+    ap.add_argument("--html-out", default="", help="also write the dashboard HTML to this path (hosted status page)")
     args = ap.parse_args()
 
     try:
@@ -352,12 +390,31 @@ def main() -> None:
         stats["delivery"] = {"published": False, "accounts": [], "files": [], "_error": str(e)}
 
     status = decide_status(args.outcome, stats)
-    subject, text, html = render(status, args.outcome, args.last_step, args.exit_code, stats)
+    subject, text, _simple_html = render(status, args.outcome, args.last_step, args.exit_code, stats)
     if stats.get("_gather_error"):
         text += f"\n\n(note: stats gathering error: {stats['_gather_error']})"
 
+    # Rich dashboard — the email body, the hosted status page, and a forwardable
+    # artifact all come from one render.
+    meta = gather_run_meta(PIPELINE_LOG)
+    meta.update(status=status, model_count=stats.get("model_count"), incidents=stats.get("incidents", 0))
+    try:
+        dashboard_html = status_page.render(stats, meta, PIPELINE_LOG)
+    except Exception as e:
+        dashboard_html = _simple_html  # fall back to the simple email HTML
+        print(f"dashboard render failed, using simple HTML: {e}")
+
+    if args.html_out:
+        try:
+            out = Path(args.html_out)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(dashboard_html)
+            print(f"html: wrote {args.html_out}")
+        except Exception as e:
+            print(f"html: FAILED ({e})")
+
     cfg = _load_mail_env()
-    print(send_email(subject, text, html, cfg))
+    print(send_email(subject, text, dashboard_html, cfg))
     print(send_slack(subject, text, cfg.get("SLACK_MENTION", "")))
 
 

@@ -54,7 +54,8 @@ REPORT_OUTCOME="failed"
 REPORT_STEP="startup"
 send_report() {
     local rc=$?
-    (cd "$PROJECT_DIR" && python3 -m etl.report --outcome "$REPORT_OUTCOME" --last-step "$REPORT_STEP" --exit-code "$rc") \
+    (cd "$PROJECT_DIR" && python3 -m etl.report --outcome "$REPORT_OUTCOME" --last-step "$REPORT_STEP" \
+        --exit-code "$rc" --html-out "$PROJECT_DIR/data/status/index.html") \
         2>&1 | tee -a "$LOG_FILE" || log "WARN: nightly report failed"
 }
 trap send_report EXIT
