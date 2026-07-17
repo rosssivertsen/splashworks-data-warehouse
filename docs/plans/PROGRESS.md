@@ -1,19 +1,20 @@
 # Splashworks Data Warehouse MVP — Progress Tracker
 
 **Design Doc:** [2026-03-07-data-warehouse-mvp-design.md](./2026-03-07-data-warehouse-mvp-design.md)
-**Branch:** `feature/warehouse-etl`
+**Branch:** `main` (prod tracks main; one branch per work stream)
 **Backlog:** [BACKLOG.md](./BACKLOG.md)
-**Last Updated:** 2026-03-28
+**Last Updated:** 2026-07-17
 
 ---
 
 ## Current Status
 
-**Phase:** Phase 1 + all interstitials + security audit hardening COMPLETE. All deployed.
-**Status:** 8 Docker containers, Cloudflare Access, CSP headers, fail-closed auth, 73 frontend + 66 API unit + 16 E2E tests. Nightly ETL + reconciliation running.
+**Phase:** Production-steady. Nightly pipeline green end-to-end; 3 companies (AQPS/JOMO/CLERMONT); partner data delivery live.
+**Status (2026-07-17 run):** sync → ETL → dbt (55 models) → reconciliation (8/8) → health → SFTP publish → report, in ~3 min at 05:30 UTC. 1.18M rows/night. 10 containers on prod `2.24.202.170` (+ anonymized staging mirror on `76.13.29.44`).
+**Recent (2026-07-14→17):** audit-log isolation + PII retention (MEDIUM-1/2), RO credential rotation, Greenmill chrooted SFTP delivery (+ CI account, per-jail entitlements, access alerts), fixed chronic 24h data-lag (cron 01:15→05:30), DL-15 fact dedup (~240k dup rows removed), nightly ingestion report + status dashboard (hosted + Outlook-safe email).
 **Streams:** Data Layer (DL), AI Query (AQ), Enterprise Info Architecture (EIA), Dashboard (DA), Infrastructure (IN)
-**Next:** ETL-4 (equipment tables), ETL-6 (row provenance), SA-M1–M7 (medium security findings), Ripple Phase 2
-**Live:** app.splshwrks.com (frontend), api.splshwrks.com (API), bi.splshwrks.com (Metabase), ripple.splshwrks.com (Ripple)
+**Next open:** IN-17 (ufw + pg_hba hardening), IN-18 (expose status.splshwrks.com), IN-19 (extract nightly-DW tooling to enterprise-templates for CCE), ETL-9 (schema governance), DL-6/ETL-4 (equipment), Ripple Phase 2.
+**Live:** app / api / bi / ripple.splshwrks.com; partner SFTP `sftp-greenmill(-ci)@2.24.202.170`.
 
 ---
 
