@@ -135,6 +135,7 @@ Shipped 2026-07-14 → 07-17 (see `docs/SECURITY_AUDIT_2026-07-14.md` + `docs/ru
 | IN-17 | **Enable `ufw` + tighten `pg_hba` localhost trust** | Security | S | SECURITY_AUDIT_2026-07-14 LOWs. ufw inactive on the shared box; pg_hba `trust`s localhost. Coordinate with the jomo-inventory owner (shared host). Add Greenmill source-IP allowlist if they provide static egress IPs. |
 | IN-18 | **Expose `status.splshwrks.com`** (Cloudflare dashboard) | Infra | S | Add tunnel public hostname → `localhost:8090` + Access app attaching the existing policy. Container + generated page already live. Runbook `2026-07-17-status-dashboard.md`. |
 | IN-19 | **Extract nightly-DW tooling to `enterprise-templates`** (CCE + other clients) | IP/Tooling | M | `reconcile.py` + `report.py` + `status_page.py` are client-agnostic; lift `COMPANY_MAP`/`COMPANY_ORDER`/`CHECK_LABELS`/check-list to config, scaffold as a `data-warehouse-nightly` module. |
+| IN-21 | **Migrate agent secret access to Bitwarden Secrets Manager (`bws`)** | Security/Tooling | M | Target state ("C"): machine account + `BWS_ACCESS_TOKEN`, no master password ever on disk. Interim ("B", set up 2026-07-17): personal-vault API-key login (`~/.bw-creds`, `bw-session` helper) + manual unlock per session. Move the Skimmer/DB/webhook secrets into Secrets Manager so scripts pull via `bws` instead of `.env`/plaintext. Retires `skimmer-api-keys.txt`. |
 
 ### Security Audit Findings (2026-03-28) — Open
 
