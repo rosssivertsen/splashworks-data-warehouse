@@ -30,8 +30,13 @@ from pathlib import Path
 import psycopg2
 
 from etl import status_page
+from etl.config import COMPANY_MAP
+from etl.config import EXTRACT_DIR as _CFG_EXTRACT_DIR
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
+# config's EXTRACT_DIR honours the env var the pipeline exports; fall back to the
+# in-repo path so the report still works when run by hand without that env set.
+EXTRACT_DIR = _CFG_EXTRACT_DIR if _CFG_EXTRACT_DIR.is_dir() else PROJECT_DIR / "data" / "extracts"
 PIPELINE_LOG = str(PROJECT_DIR / "data" / "pipeline.log")
 RECON_PATH = PROJECT_DIR / "data" / "reconciliation.json"
 MAIL_ENV_PATH = os.environ.get("MAIL_CONFIG", "/root/.mail_env")
@@ -54,6 +59,44 @@ def _load_mail_env() -> dict:
         if os.environ.get(k):
             cfg[k] = os.environ[k]
     return cfg
+
+
+def gather_source_delivery() -> list:
+    """Per-company delivery status read from the extract files themselves.
+
+    rclone preserves the remote mtime, so a file's mtime IS Skimmer's publish
+    time. Returns one row per company in COMPANY_MAP (so a company whose file
+    never arrived shows up as missing rather than silently vanishing).
+    """
+    today = datetime.now(timezone.utc).date()
+    now = datetime.now(timezone.utc)
+    rows = []
+    for guid, company in sorted(COMPANY_MAP.items(), key=lambda kv: kv[1]):
+        path = EXTRACT_DIR / f"{guid}.db.gz"
+        row = {"company": company, "file": path.name, "present": path.is_file(),
+               "published_at": None, "age_hours": None, "bytes": None, "current": False}
+        if row["present"]:
+            mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+            row["published_at"] = mtime.strftime("%Y-%m-%d %H:%M UTC")
+            row["age_hours"] = round((now - mtime).total_seconds() / 3600, 1)
+            row["bytes"] = path.stat().st_size
+            row["current"] = mtime.date() == today
+        rows.append(row)
+    return rows
+
+
+def _freshness_from_source(source: list) -> dict:
+    """Stale if ANY company's extract is missing or not published today."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    problems = [r["company"] for r in source if not r["current"]]
+    dates = [r["published_at"][:10] for r in source if r["published_at"]]
+    return {
+        "today": today,
+        "newest_extract": max(dates) if dates else None,
+        "oldest_extract": min(dates) if dates else None,
+        "stale": bool(problems),
+        "stale_companies": problems,
+    }
 
 
 def gather_stats() -> dict:
@@ -95,11 +138,19 @@ def gather_stats() -> dict:
             stats["incidents"] = cur.fetchone()[0]
         except Exception:
             stats["incidents"] = 0
-    # Freshness: newest extract_date vs today (UTC).
-    today = datetime.now(timezone.utc).date().isoformat()
-    dates = [c["extract_date"] for c in stats["companies"] if c["extract_date"]]
-    newest = max(dates) if dates else None
-    stats["freshness"] = {"today": today, "newest_extract": newest, "stale": bool(newest and newest < today)}
+    # Freshness: derived from the SOURCE FILES, per company.
+    #
+    # Do NOT use etl_load_log.extract_date — that column is `date.today()` at ETL
+    # time (etl/main.py, etl/load.py), i.e. the day we RAN, never the day Skimmer
+    # PUBLISHED. Comparing it to today is tautological: it can only fire when the
+    # pipeline didn't run at all, so it could never detect a delivery failure —
+    # the exact scenario the guard exists for.
+    #
+    # The real signal is each extract file's mtime, which rclone preserves from
+    # OneDrive == Skimmer's publish time. Checked PER COMPANY: a max() across
+    # companies hides a single-company delivery failure behind its healthy siblings.
+    stats["source"] = gather_source_delivery()
+    stats["freshness"] = _freshness_from_source(stats["source"])
     # Reconciliation
     if RECON_PATH.is_file():
         try:
@@ -166,9 +217,19 @@ def render(status: str, outcome: str, last_step: str, exit_code: int, stats: dic
         lines.append("")
     # Freshness
     if fr["stale"]:
-        lines.append(f"⚠ STALE DATA: newest extract is {fr['newest_extract']}, expected {fr['today']}.")
+        who = ", ".join(fr.get("stale_companies") or [])
+        lines.append(f"⚠ SOURCE DELIVERY PROBLEM — not published today ({fr['today']}): {who}")
     else:
-        lines.append(f"Freshness OK: extract date {fr['newest_extract']}.")
+        lines.append(f"Source delivery OK: all companies published {fr['newest_extract']}.")
+    # Per-company source delivery — the authoritative "did Skimmer deliver" view.
+    for r in (stats.get("source") or []):
+        if not r["present"]:
+            lines.append(f"  {r['company']:9} MISSING — no extract file ({r['file']})")
+        else:
+            flag = "ok" if r["current"] else "STALE"
+            mb = (r["bytes"] or 0) / 1_000_000
+            lines.append(f"  {r['company']:9} published {r['published_at']}  "
+                         f"({r['age_hours']}h ago, {mb:.1f} MB)  [{flag}]")
     lines.append("")
     # Per-company ingestion
     lines.append("Ingestion by company:")
