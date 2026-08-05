@@ -103,6 +103,33 @@ Partner-supplied filenames are stripped of quotes/backslashes/control chars befo
 Slack JSON payload. The run window advances **only after successful processing**, so a mid-run
 failure retries rather than silently dropping audit events.
 
+## Checksum convention for uploads (tell the partner)
+
+Upload a **sidecar checksum** beside each payload and the nightly report verifies it
+automatically — no out-of-band hash exchange, and it scales to unattended nightly runs:
+
+```
+gov-backup-20260805.tar.gz
+gov-backup-20260805.tar.gz.sha256     # preferred; .sha512 and .md5 also accepted
+```
+
+Sidecar content may be a bare hex digest or standard coreutils format
+(`<hex>  <filename>`, i.e. `sha256sum file > file.sha256`).
+
+The report then shows one of: **VERIFIED** · **MISMATCH** (forces the file to FAIL) ·
+**NONE** (no sidecar — integrity tested, identity *not* proven) · **UNREADABLE** / **ERROR**.
+
+**Why this and not just `gzip -t`:** the archive test proves the file *decompresses*. It does
+not prove it is the file the partner meant to send — a payload corrupted before compression,
+or an entirely different archive, passes `gzip -t` cleanly. Only the checksum proves identity.
+Verified in test: a valid gzip with a wrong sidecar reports `gzip integrity OK` **and**
+`sha256 MISMATCH → FAIL`.
+
+MD5 is honoured for tooling compatibility but is collision-broken. SHA-256 is preferred and
+matches what we publish outbound in `MANIFEST.txt`.
+
+Sidecar files are excluded from the payload listing — they are reported against the file they sign.
+
 ## Disk risk — read before raising any limit
 
 `/srv` is **on the root filesystem alongside Postgres** (`/dev/sda1`, 193G, 31% used at

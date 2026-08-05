@@ -16,6 +16,7 @@ Usage:
 """
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
@@ -291,6 +292,49 @@ def gather_partner_activity(hours: int = 24) -> dict:
     return out
 
 
+CHECKSUM_EXTS = (".sha256", ".sha512", ".md5")
+
+
+def _digest(path: Path, algo: str, chunk: int = 1 << 20) -> str:
+    h = hashlib.new(algo)
+    with path.open("rb") as fh:
+        for block in iter(lambda: fh.read(chunk), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _verify_checksum(path: Path) -> dict:
+    """Compare a partner upload against a sidecar checksum file, if supplied.
+
+    Convention: `<file>.sha256` (preferred), `.sha512`, or `.md5` sitting beside
+    the payload. Accepts either a bare hex digest or standard `<hex>  <name>`
+    coreutils format.
+
+    This is the only check that proves IDENTITY. `gzip -t` proves the archive
+    decompresses; a file corrupted before compression, or an entirely different
+    file, passes it cleanly. MD5 is honoured for compatibility but is
+    collision-broken — SHA-256 matches what we publish outbound in MANIFEST.txt.
+    """
+    for ext in CHECKSUM_EXTS:
+        side = path.with_name(path.name + ext)
+        if not side.is_file():
+            continue
+        algo = ext.lstrip(".")
+        try:
+            raw = side.read_text(errors="replace").strip().split()
+            expected = next((t.lower() for t in raw if re.fullmatch(r"[0-9a-fA-F]{32,128}", t)), None)
+            if not expected:
+                return {"state": "UNREADABLE", "algo": algo, "detail": "no hex digest in sidecar"}
+            actual = _digest(path, algo)
+            if actual == expected:
+                return {"state": "VERIFIED", "algo": algo, "detail": f"{algo} matches sidecar"}
+            return {"state": "MISMATCH", "algo": algo,
+                    "detail": f"{algo} MISMATCH — expected {expected[:16]}…, got {actual[:16]}…"}
+        except Exception as e:
+            return {"state": "ERROR", "algo": algo, "detail": f"checksum error: {e}"[:140]}
+    return {"state": "NONE", "algo": None, "detail": "no checksum supplied"}
+
+
 def _qc_incoming(path: Path) -> dict:
     """Non-destructive integrity check on one partner-uploaded file.
 
@@ -300,9 +344,13 @@ def _qc_incoming(path: Path) -> dict:
     """
     now = datetime.now(timezone.utc).timestamp()
     st = path.stat()
+    # `checksum` is initialised here, not only on the success path: the early
+    # returns below (zero-byte, still-uploading) would otherwise omit the key and
+    # KeyError in any renderer that reads it.
     rec = {"file": path.name, "bytes": st.st_size,
            "mtime": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(timespec="seconds"),
-           "age_min": round((now - st.st_mtime) / 60, 1), "qc": "OK", "note": ""}
+           "age_min": round((now - st.st_mtime) / 60, 1), "qc": "OK", "note": "",
+           "checksum": "NOT-CHECKED"}
     if st.st_size == 0:
         rec.update(qc="FAIL", note="zero bytes")
         return rec
@@ -328,6 +376,15 @@ def _qc_incoming(path: Path) -> dict:
         rec.update(qc="UNKNOWN", note="test tool not installed")
     except Exception as e:
         rec.update(qc="UNKNOWN", note=f"integrity test error: {e}"[:140])
+
+    # Identity check. Decisive when a sidecar is supplied — a MISMATCH means the
+    # bytes that landed are not the bytes the partner intended to send, even if
+    # the archive decompresses perfectly.
+    ck = _verify_checksum(path)
+    rec["checksum"] = ck["state"]
+    rec["note"] = (rec["note"] + " · " + ck["detail"]).strip(" ·")
+    if ck["state"] == "MISMATCH":
+        rec["qc"] = "FAIL"
     return rec
 
 
@@ -344,8 +401,11 @@ def inspect_dropoffs(glob_pat: str = SFTP_DROPOFF_GLOB) -> list:
         files = []
         try:
             for f in sorted(Path(d).iterdir()):
-                if f.is_file() and not f.name.startswith("."):
-                    files.append(_qc_incoming(f))
+                if not f.is_file() or f.name.startswith("."):
+                    continue
+                if f.name.endswith(CHECKSUM_EXTS):
+                    continue      # sidecar — reported against the payload it signs
+                files.append(_qc_incoming(f))
         except Exception as e:
             results.append({"account": acct, "path": d, "files": [], "error": str(e)[:160]})
             continue
@@ -485,9 +545,15 @@ def render(status: str, outcome: str, last_step: str, exit_code: int, stats: dic
             lines.append(f"Drop-off {d['account']}: ERROR {d['error']}")
             continue
         files, nfail = d.get("files", []), len(d.get("failed", []))
+        nver = sum(1 for f in files if f.get("checksum") == "VERIFIED")
+        nnone = sum(1 for f in files if f.get("checksum") == "NONE")
         lines.append(f"Drop-off {d['account']} ({d['path']}): {len(files)} file(s), "
                      f"{d.get('total_bytes', 0) / 1_000_000:.1f} MB"
-                     + (f"  ⚠ {nfail} FAILED integrity" if nfail else ""))
+                     f"  [checksum: {nver} verified, {nnone} unverified]"
+                     + (f"  ⚠ {nfail} FAILED" if nfail else ""))
+        if nnone:
+            lines.append(f"    note: {nnone} file(s) arrived without a sidecar checksum — "
+                         "integrity tested, identity NOT proven.")
         for f in files:
             lines.append(f"    [{f['qc']:7}] {f['file']:34} {f['bytes'] / 1_000_000:8.1f} MB  "
                          f"{f['mtime']}  ({f['age_min']}m ago)  {f['note']}")
