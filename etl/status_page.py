@@ -10,8 +10,20 @@ customer PII and internal activity). Do not add serving-layer usage here.
 """
 from __future__ import annotations
 
+import html
 import re
 from pathlib import Path
+
+
+def esc(v) -> str:
+    """HTML-escape an untrusted value before it enters a report body.
+
+    Required for anything partner- or log-derived: drop-off filenames are chosen
+    by an external party with write access, and log `detail` strings embed those
+    same names. `td()` does NOT escape — several callers pass intentional markup —
+    so escaping is the caller's job at each untrusted interpolation.
+    """
+    return html.escape(str(v), quote=True)
 
 # Friendly labels + per-company display for reconciliation.json check names.
 CHECK_LABELS = {
@@ -241,9 +253,9 @@ def render_email(stats: dict, meta: dict) -> str:
         for e in evs:
             col = DIRCOL.get(e["kind"], EC["muted"])
             size = "%.1f MB" % (e["bytes"] / 1_000_000) if e.get("bytes") else "—"
-            kind_cell = '<b style="color:%s">%s</b>' % (col, e["kind"])
-            arows += ("<tr>" + td(e["ts"], mono=True) + td(e["user"], mono=True)
-                      + td(kind_cell) + td(e["detail"], mono=True)
+            kind_cell = '<b style="color:%s">%s</b>' % (col, esc(e["kind"]))
+            arows += ("<tr>" + td(esc(e["ts"]), mono=True) + td(esc(e["user"]), mono=True)
+                      + td(kind_cell) + td(esc(e["detail"]), mono=True)
                       + td(size, "right", True) + "</tr>")
         if not arows:
             arows = "<tr>" + td("—") + td("no SFTP activity in window") + td("") + td("") + td("") + "</tr>"
@@ -268,9 +280,9 @@ def render_email(stats: dict, meta: dict) -> str:
         if fails:
             frows = ""
             for f in fails[:15]:
-                frows += ("<tr>" + td(f["ts"], mono=True) + td(f["user"], mono=True)
-                          + td('<b style="color:%s">%s</b>' % (EC["fail"], f["kind"]))
-                          + td(f["detail"], mono=True) + "</tr>")
+                frows += ("<tr>" + td(esc(f["ts"]), mono=True) + td(esc(f["user"]), mono=True)
+                          + td('<b style="color:%s">%s</b>' % (EC["fail"], esc(f["kind"])))
+                          + td(esc(f["detail"]), mono=True) + "</tr>")
             warn += ('<div style="color:%s;font-size:12px;font-weight:700;padding:10px 2px 4px">'
                      'Failures (%d)</div>' % (EC["fail"], len(fails))
                      + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
@@ -294,21 +306,24 @@ def render_email(stats: dict, meta: dict) -> str:
         prows = ""
         for d in drop:
             if d.get("error"):
-                prows += ("<tr>" + td(d["account"], mono=True)
-                          + td("ERROR: " + d["error"]) + td("") + td("") + td("") + "</tr>")
+                prows += ("<tr>" + td(esc(d["account"]), mono=True)
+                          + td("ERROR: " + esc(d["error"])) + td("") + td("") + td("") + "</tr>")
                 continue
             if not d.get("files"):
-                prows += ("<tr>" + td(d["account"], mono=True)
+                prows += ("<tr>" + td(esc(d["account"]), mono=True)
                           + td('<span style="color:%s">empty — no partner uploads present</span>'
                               % EC["muted"]) + td("") + td("") + td("") + "</tr>")
             for f in d["files"]:
                 qcol = {"OK": EC["pass"], "FAIL": EC["fail"],
                         "PENDING": EC["warn"]}.get(f["qc"], EC["muted"])
-                prows += ("<tr>" + td(d["account"], mono=True)
-                          + td("<b>%s</b>" % f["file"], mono=True)
+                # f["file"] and f["note"] are partner-controlled (note embeds the
+                # filename via gzip stderr) — escape both.
+                prows += ("<tr>" + td(esc(d["account"]), mono=True)
+                          + td("<b>%s</b>" % esc(f["file"]), mono=True)
                           + td("%.1f MB" % (f["bytes"] / 1_000_000), "right", True)
-                          + td(f["mtime"], mono=True)
-                          + td('<b style="color:%s">%s</b> %s' % (qcol, f["qc"], f["note"]))
+                          + td(esc(f["mtime"]), mono=True)
+                          + td('<b style="color:%s">%s</b> %s'
+                               % (qcol, esc(f["qc"]), esc(f["note"])))
                           + "</tr>")
         drop_block = card(
             '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
