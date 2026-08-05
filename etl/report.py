@@ -18,8 +18,10 @@ import argparse
 import glob
 import json
 import os
+import re
 import smtplib
 import ssl
+import subprocess
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -42,6 +44,7 @@ RECON_PATH = PROJECT_DIR / "data" / "reconciliation.json"
 MAIL_ENV_PATH = os.environ.get("MAIL_CONFIG", "/root/.mail_env")
 SLACK_WEBHOOK_FILE = "/root/.slack_webhook"
 SFTP_MANIFEST_GLOB = "/srv/sftp/*/extracts/MANIFEST.txt"
+SFTP_DROPOFF_GLOB = "/srv/sftp/*/incoming"
 
 
 def _load_mail_env() -> dict:
@@ -189,6 +192,172 @@ def gather_delivery(companies: list) -> dict:
             "published": bool(files)}
 
 
+def gather_partner_activity(hours: int = 24) -> dict:
+    """What partners actually DID in the jails, read from the systemd journal.
+
+    `gather_delivery` proves what we *published*. This proves what was actually
+    *collected* — and, since 2026-08-05, what was *uploaded* into a partner's
+    write-scoped drop-off. The two together close the loop: a silent partner-side
+    failure looks identical to success if you only report your own publishing.
+
+    Requires `ForceCommand internal-sftp -l INFO` in the sshd Match block (set by
+    infrastructure/sftp/setup-sftp-user.sh). Without it, logins still appear but
+    every transfer count reads zero — so a zero here means "check -l INFO is on"
+    before it means "the partner did nothing".
+
+    Never raises: a reporting section must not be able to fail the report.
+    """
+    out = {"available": False, "window_hours": hours, "accounts": {},
+           "any_pickup": False, "events": [], "failures": [], "dropoff": []}
+    # Filesystem view FIRST — it must survive a journal outage, because the two
+    # views exist precisely to cross-check each other.
+    try:
+        out["dropoff"] = inspect_dropoffs()
+    except Exception as e:
+        out["dropoff"] = [{"account": "?", "path": SFTP_DROPOFF_GLOB, "files": [],
+                           "error": str(e)[:160]}]
+    try:
+        proc = subprocess.run(
+            ["journalctl", "-t", "sshd", "-t", "internal-sftp",
+             "--since", f"-{hours}h", "-o", "short-iso", "--no-pager"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if proc.returncode != 0:
+            return out
+    except Exception:
+        return out                      # not on the VPS, or no journal access
+    out["available"] = True
+
+    def acct(name: str) -> dict:
+        return out["accounts"].setdefault(name, {
+            "logins": 0, "ips": set(), "last_login": None,
+            "dl_files": 0, "dl_bytes": 0, "uploads": [], "deletes": [],
+        })
+
+    pid_user: dict[str, str] = {}
+
+    def ev(ts, user, kind, detail, nbytes=None):
+        out["events"].append({"ts": ts, "user": user, "kind": kind,
+                              "detail": detail, "bytes": nbytes})
+
+    for ln in proc.stdout.splitlines():
+        ts = ln.split()[0] if ln.split() else "—"
+        m = re.search(r"Accepted publickey for (sftp-[\w.-]+) from ([\d.a-fA-F:]+)", ln)
+        if m:
+            a = acct(m.group(1))
+            a["logins"] += 1
+            a["ips"].add(m.group(2))
+            a["last_login"] = ts
+            ev(ts, m.group(1), "LOGIN", f"from {m.group(2)}")
+            continue
+        m = re.search(r"internal-sftp\[(\d+)\].*session opened for local user (sftp-[\w.-]+)", ln)
+        if m:
+            pid_user[m.group(1)] = m.group(2)
+            continue
+        m = re.search(r'internal-sftp\[(\d+)\]: close "([^"]*)" bytes read (\d+) written (\d+)', ln)
+        if m:
+            user = pid_user.get(m.group(1), "unknown")
+            a = acct(user)
+            path, read_b, wrote = m.group(2), int(m.group(3)), int(m.group(4))
+            if wrote > 0:
+                a["uploads"].append({"path": path, "bytes": wrote, "ts": ts})
+                ev(ts, user, "IN", path, wrote)          # partner -> us
+            elif read_b > 0:
+                a["dl_files"] += 1
+                a["dl_bytes"] += read_b
+                ev(ts, user, "OUT", path, read_b)        # us -> partner
+            continue
+        m = re.search(r'internal-sftp\[(\d+)\]: remove name "([^"]*)"', ln)
+        if m:
+            user = pid_user.get(m.group(1), "unknown")
+            acct(user)["deletes"].append({"path": m.group(2), "ts": ts})
+            ev(ts, user, "DELETE", m.group(2))
+
+        # ---- failures: auth rejections and refused/aborted transfers ----
+        m = re.search(r"Failed publickey for (sftp-[\w.-]+) from ([\d.a-fA-F:]+)", ln)
+        if m:
+            out["failures"].append({"ts": ts, "user": m.group(1), "kind": "AUTH",
+                                    "detail": f"rejected key from {m.group(2)}"})
+            continue
+        m = re.search(r"internal-sftp\[(\d+)\]:.*?(Permission denied|No such file|failed:.*)$", ln)
+        if m:
+            out["failures"].append({"ts": ts, "user": pid_user.get(m.group(1), "unknown"),
+                                    "kind": "XFER", "detail": m.group(2)[:160]})
+
+    for a in out["accounts"].values():
+        a["ips"] = sorted(a["ips"])     # sets are not JSON-serialisable
+    out["any_pickup"] = any(a["dl_files"] > 0 for a in out["accounts"].values())
+    out["dropoff"] = inspect_dropoffs()
+    return out
+
+
+def _qc_incoming(path: Path) -> dict:
+    """Non-destructive integrity check on one partner-uploaded file.
+
+    A log line saying bytes were written proves a transfer *happened*, not that
+    the payload is usable — a truncated or aborted upload still closes cleanly.
+    This is the second opinion: does the file actually decompress?
+    """
+    now = datetime.now(timezone.utc).timestamp()
+    st = path.stat()
+    rec = {"file": path.name, "bytes": st.st_size,
+           "mtime": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(timespec="seconds"),
+           "age_min": round((now - st.st_mtime) / 60, 1), "qc": "OK", "note": ""}
+    if st.st_size == 0:
+        rec.update(qc="FAIL", note="zero bytes")
+        return rec
+    if rec["age_min"] < 2:
+        rec.update(qc="PENDING", note="modified <2 min ago — may still be uploading")
+        return rec
+    name = path.name.lower()
+    try:
+        if name.endswith((".gz", ".tgz")):
+            p = subprocess.run(["gzip", "-t", str(path)], capture_output=True, timeout=180)
+            if p.returncode != 0:
+                rec.update(qc="FAIL", note="gzip integrity FAILED: "
+                           + p.stderr.decode(errors="replace").strip()[:120])
+            else:
+                rec["note"] = "gzip integrity OK"
+        elif name.endswith(".zip"):
+            p = subprocess.run(["unzip", "-t", str(path)], capture_output=True, timeout=180)
+            rec.update(**({"qc": "FAIL", "note": "zip integrity FAILED"} if p.returncode
+                          else {"note": "zip integrity OK"}))
+        else:
+            rec["note"] = "no integrity test for this type"
+    except FileNotFoundError:
+        rec.update(qc="UNKNOWN", note="test tool not installed")
+    except Exception as e:
+        rec.update(qc="UNKNOWN", note=f"integrity test error: {e}"[:140])
+    return rec
+
+
+def inspect_dropoffs(glob_pat: str = SFTP_DROPOFF_GLOB) -> list:
+    """List and QC what is ACTUALLY sitting in each partner drop-off.
+
+    Deliberately independent of the journal: if transfer logging regresses (or
+    `-l INFO` is dropped from the sshd Match block) the log-derived view silently
+    reads zero, while this still sees the files. Two sources, one truth.
+    """
+    results = []
+    for d in sorted(glob.glob(glob_pat)):
+        acct = os.path.basename(os.path.dirname(d))
+        files = []
+        try:
+            for f in sorted(Path(d).iterdir()):
+                if f.is_file() and not f.name.startswith("."):
+                    files.append(_qc_incoming(f))
+        except Exception as e:
+            results.append({"account": acct, "path": d, "files": [], "error": str(e)[:160]})
+            continue
+        results.append({
+            "account": acct, "path": d, "files": files,
+            "total_bytes": sum(f["bytes"] for f in files),
+            "failed": [f for f in files if f["qc"] == "FAIL"],
+            "newest": max((f["mtime"] for f in files), default=None),
+        })
+    return results
+
+
 def decide_status(outcome: str, stats: dict) -> str:
     """Worst of pipeline outcome, reconciliation, and freshness."""
     if outcome != "success":
@@ -261,6 +430,69 @@ def render(status: str, outcome: str, last_step: str, exit_code: int, stats: dic
             lines.append(f"  {f['file']:16} {mb:7.1f} MB  {rows:>14}  sha256 {f['sha256'][:16]}…")
     else:
         lines.append("Partner delivery (SFTP): nothing published (no jail manifest found)")
+
+    # Partner ACTIVITY — itemised, with timestamps and direction. Delivery above
+    # says what we published; this says what actually moved, and which way.
+    act = stats.get("partner_activity") or {}
+    lines.append("")
+    if not act.get("available"):
+        lines.append("Partner activity (SFTP): unavailable (systemd journal not readable here)")
+    else:
+        win, evs = act.get("window_hours", 24), act.get("events", [])
+        n_out = sum(1 for e in evs if e["kind"] == "OUT")
+        b_out = sum(e["bytes"] or 0 for e in evs if e["kind"] == "OUT")
+        n_in = sum(1 for e in evs if e["kind"] == "IN")
+        b_in = sum(e["bytes"] or 0 for e in evs if e["kind"] == "IN")
+        n_log = sum(1 for e in evs if e["kind"] == "LOGIN")
+        n_del = sum(1 for e in evs if e["kind"] == "DELETE")
+        lines.append(f"Partner activity (SFTP, last {win}h) — {len(evs)} event(s):")
+        if evs:
+            lines.append(f"  {'TIMESTAMP':26} {'ACCOUNT':20} {'DIR':6} DETAIL")
+            for e in evs:
+                sz = f"  ({e['bytes'] / 1_000_000:.1f} MB)" if e.get("bytes") else ""
+                lines.append(f"  {e['ts']:26} {e['user']:20} {e['kind']:6} {e['detail']}{sz}")
+        else:
+            lines.append("  (no SFTP activity recorded in this window)")
+        lines.append(
+            f"  Totals: OUT {n_out} file(s) / {b_out / 1_000_000:.1f} MB"
+            f" · IN {n_in} file(s) / {b_in / 1_000_000:.1f} MB"
+            f" · {n_log} login(s) · {n_del} delete(s)"
+        )
+        if not act.get("any_pickup"):
+            lines.append("  ⚠ Nothing collected in this window — extracts published but not pulled.")
+        if n_log and not (n_out or n_in):
+            lines.append("  ⚠ Logins recorded but ZERO transfer events — verify "
+                         "`ForceCommand internal-sftp -l INFO` is still active before "
+                         "concluding the partner transferred nothing.")
+        fails = act.get("failures", [])
+        if fails:
+            lines.append(f"  FAILURES ({len(fails)}):")
+            for f in fails[:15]:
+                lines.append(f"    {f['ts']:26} {f['user']:20} {f['kind']:6} {f['detail']}")
+            if len(fails) > 15:
+                lines.append(f"    … and {len(fails) - 15} more")
+        else:
+            lines.append("  Failures: none recorded")
+
+    # Drop-off contents + integrity QC. Filesystem truth, deliberately independent
+    # of the journal — if transfer logging regresses, this still sees the files.
+    drop = act.get("dropoff") or []
+    lines.append("")
+    if not drop:
+        lines.append("Partner drop-off: none configured")
+    for d in drop:
+        if d.get("error"):
+            lines.append(f"Drop-off {d['account']}: ERROR {d['error']}")
+            continue
+        files, nfail = d.get("files", []), len(d.get("failed", []))
+        lines.append(f"Drop-off {d['account']} ({d['path']}): {len(files)} file(s), "
+                     f"{d.get('total_bytes', 0) / 1_000_000:.1f} MB"
+                     + (f"  ⚠ {nfail} FAILED integrity" if nfail else ""))
+        for f in files:
+            lines.append(f"    [{f['qc']:7}] {f['file']:34} {f['bytes'] / 1_000_000:8.1f} MB  "
+                         f"{f['mtime']}  ({f['age_min']}m ago)  {f['note']}")
+        if not files:
+            lines.append("    (empty — no partner uploads present)")
     text = "\n".join(lines)
 
     # Minimal HTML (inline styles; renders in any client)
@@ -449,6 +681,12 @@ def main() -> None:
         stats["delivery"] = gather_delivery(stats.get("companies", []))
     except Exception as e:
         stats["delivery"] = {"published": False, "accounts": [], "files": [], "_error": str(e)}
+
+    try:
+        stats["partner_activity"] = gather_partner_activity()
+    except Exception as e:
+        stats["partner_activity"] = {"available": False, "accounts": {}, "events": [],
+                                     "any_pickup": False, "_error": str(e)}
 
     status = decide_status(args.outcome, stats)
     subject, text, _simple_html = render(status, args.outcome, args.last_step, args.exit_code, stats)

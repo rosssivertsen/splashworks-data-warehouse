@@ -220,6 +220,103 @@ def render_email(stats: dict, meta: dict) -> str:
         f'<tr>{th("File")}{th("Size","right")}{th("Rows","right")}{th("SHA-256")}{th("Extract (UTC)")}</tr>'
         f'{drows}</table>', pad="6px 8px")
 
+    # Partner ACTIVITY — delivery says what we published; this says what actually
+    # moved and which way. IN = partner uploaded to their drop-off, OUT = pulled.
+    act = stats.get("partner_activity") or {}
+    act_head = "Partner activity — last 24h"
+    if not act.get("available"):
+        act_block = card('<div style="color:%s;font-size:13px">systemd journal not readable '
+                         'from this host — partner activity unavailable.</div>' % EC["muted"])
+    else:
+        evs = act.get("events", [])
+        n_out = sum(1 for e in evs if e["kind"] == "OUT")
+        b_out = sum(e["bytes"] or 0 for e in evs if e["kind"] == "OUT")
+        n_in = sum(1 for e in evs if e["kind"] == "IN")
+        b_in = sum(e["bytes"] or 0 for e in evs if e["kind"] == "IN")
+        n_log = sum(1 for e in evs if e["kind"] == "LOGIN")
+        n_del = sum(1 for e in evs if e["kind"] == "DELETE")
+        act_head = "Partner activity — last %sh · %s event(s)" % (act.get("window_hours", 24), len(evs))
+        DIRCOL = {"IN": "#1a7f37", "OUT": "#0969da", "DELETE": "#9a6700", "LOGIN": EC["muted"]}
+        arows = ""
+        for e in evs:
+            col = DIRCOL.get(e["kind"], EC["muted"])
+            size = "%.1f MB" % (e["bytes"] / 1_000_000) if e.get("bytes") else "—"
+            kind_cell = '<b style="color:%s">%s</b>' % (col, e["kind"])
+            arows += ("<tr>" + td(e["ts"], mono=True) + td(e["user"], mono=True)
+                      + td(kind_cell) + td(e["detail"], mono=True)
+                      + td(size, "right", True) + "</tr>")
+        if not arows:
+            arows = "<tr>" + td("—") + td("no SFTP activity in window") + td("") + td("") + td("") + "</tr>"
+        totals = ('<div style="color:%s;font-size:12px;padding:8px 2px 0">'
+                  'OUT <b>%d</b> file(s) / <b>%.1f MB</b> &nbsp;·&nbsp; '
+                  'IN <b>%d</b> file(s) / <b>%.1f MB</b> &nbsp;·&nbsp; '
+                  '%d login(s) &nbsp;·&nbsp; %d delete(s)</div>'
+                  % (EC["muted"], n_out, b_out / 1_000_000, n_in, b_in / 1_000_000, n_log, n_del))
+        warn = ""
+        if not act.get("any_pickup"):
+            warn += ('<div style="background:%s;border-left:4px solid %s;padding:8px 12px;'
+                     'border-radius:6px;color:%s;font-size:12px;margin-top:8px">&#9888; Nothing '
+                     'collected in this window — extracts published but not pulled.</div>'
+                     % (EC["warn_bg"], EC["warn"], EC["warn"]))
+        if n_log and not (n_out or n_in):
+            warn += ('<div style="background:%s;border-left:4px solid %s;padding:8px 12px;'
+                     'border-radius:6px;color:%s;font-size:12px;margin-top:8px">&#9888; Logins but '
+                     'ZERO transfer events — verify <code>internal-sftp -l INFO</code> is active '
+                     'before concluding nothing transferred.</div>'
+                     % (EC["warn_bg"], EC["warn"], EC["warn"]))
+        fails = act.get("failures", [])
+        if fails:
+            frows = ""
+            for f in fails[:15]:
+                frows += ("<tr>" + td(f["ts"], mono=True) + td(f["user"], mono=True)
+                          + td('<b style="color:%s">%s</b>' % (EC["fail"], f["kind"]))
+                          + td(f["detail"], mono=True) + "</tr>")
+            warn += ('<div style="color:%s;font-size:12px;font-weight:700;padding:10px 2px 4px">'
+                     'Failures (%d)</div>' % (EC["fail"], len(fails))
+                     + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+                       'style="border-collapse:collapse">' + frows + "</table>")
+        else:
+            warn += ('<div style="color:%s;font-size:12px;padding:8px 2px 0">'
+                     'No transfer or auth failures recorded.</div>' % EC["muted"])
+        act_block = card(
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+            'style="border-collapse:collapse">'
+            + "<tr>" + th("Timestamp (UTC)") + th("Account") + th("Dir")
+            + th("File / detail") + th("Size", "right") + "</tr>"
+            + arows + "</table>" + totals + warn, pad="6px 8px")
+
+    # Drop-off contents + integrity QC — filesystem view, journal-independent.
+    drop = act.get("dropoff") or []
+    if not drop:
+        drop_block = card('<div style="color:%s;font-size:13px">No drop-off directories '
+                          'configured.</div>' % EC["muted"])
+    else:
+        prows = ""
+        for d in drop:
+            if d.get("error"):
+                prows += ("<tr>" + td(d["account"], mono=True)
+                          + td("ERROR: " + d["error"]) + td("") + td("") + td("") + "</tr>")
+                continue
+            if not d.get("files"):
+                prows += ("<tr>" + td(d["account"], mono=True)
+                          + td('<span style="color:%s">empty — no partner uploads present</span>'
+                              % EC["muted"]) + td("") + td("") + td("") + "</tr>")
+            for f in d["files"]:
+                qcol = {"OK": EC["pass"], "FAIL": EC["fail"],
+                        "PENDING": EC["warn"]}.get(f["qc"], EC["muted"])
+                prows += ("<tr>" + td(d["account"], mono=True)
+                          + td("<b>%s</b>" % f["file"], mono=True)
+                          + td("%.1f MB" % (f["bytes"] / 1_000_000), "right", True)
+                          + td(f["mtime"], mono=True)
+                          + td('<b style="color:%s">%s</b> %s' % (qcol, f["qc"], f["note"]))
+                          + "</tr>")
+        drop_block = card(
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+            'style="border-collapse:collapse">'
+            + "<tr>" + th("Account") + th("File") + th("Size", "right")
+            + th("Modified (UTC)") + th("Integrity") + "</tr>"
+            + prows + "</table>", pad="6px 8px")
+
     stale = ""
     if fr.get("stale"):
         stale = (f'<div style="background:{EC["warn_bg"]};border-left:4px solid {EC["warn"]};padding:10px 14px;'
@@ -249,6 +346,8 @@ def render_email(stats: dict, meta: dict) -> str:
     {h2('Reconciliation — every run, before anything is trusted')}{recon_block}
     {h2('Ingestion by company')}{ing_block}
     {h2('Partner delivery — published '+del_when+' to '+del_accts)}{del_block}
+    {h2(act_head)}{act_block}
+    {h2('Partner drop-off — incoming files + integrity check')}{drop_block}
     <div style="color:{EC['faint']};font-size:11px;padding:8px 4px 0;border-top:1px solid {EC['line']};margin-top:8px">
       Generated from live pipeline state · {meta.get('run_date','—')} {meta.get('run_time','')} UTC · nightly 05:30 UTC
     </div>
