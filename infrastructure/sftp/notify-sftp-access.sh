@@ -57,6 +57,49 @@ human() {  # $1 = bytes
     }'
 }
 
+# ---------------------------------------------------- durable audit trail (DB)
+# Slack and the journal both forget (Slack by plan retention, the journal by
+# MaxRetentionSec). audit.file_transfer_log is the evidence-grade record of what
+# customer data left to a partner. Buffered and flushed once at the end so a
+# single psql invocation covers the whole window.
+#
+# NEVER fatal: an audit-DB outage must not stop Slack alerting or cause the run
+# window to stall. Failures are logged and the SQL is kept for the next run.
+AUDIT_SQL="$(mktemp)"
+AUDIT_ROWS=0
+PENDING_DIR="$STATE_DIR/pending"; mkdir -p "$PENDING_DIR"
+
+sq() { printf '%s' "$1" | sed "s/'/''/g"; }   # SQL single-quote escape
+
+audit_row() {  # ts user direction path bytes pid
+    local ts="$1" user="$2" dir="$3" path="$4" bytes="$5" pid="$6"
+    printf "INSERT INTO audit.file_transfer_log (occurred_at,account,direction,path,bytes,source_ip,session_pid) VALUES ('%s','%s','%s','%s',%s,%s,%s) ON CONFLICT ON CONSTRAINT uq_file_transfer_event DO NOTHING;\n" \
+        "$(sq "$ts")" "$(sq "$user")" "$dir" "$(sq "$path")" \
+        "${bytes:-NULL}" "$( [ -n "${SESSION_IP[$pid]:-}" ] && echo "'$(sq "${SESSION_IP[$pid]}")'" || echo NULL )" \
+        "${pid:-NULL}" >> "$AUDIT_SQL"
+    AUDIT_ROWS=$((AUDIT_ROWS + 1))
+}
+
+audit_flush() {
+    [ "$AUDIT_ROWS" -gt 0 ] || { rm -f "$AUDIT_SQL"; return 0; }
+    # NOTE: the psql call sits directly in `if`, NOT followed by a `$?` test.
+    # Under `set -e -o pipefail` a failing pipeline aborts the script instantly,
+    # so a `$?` check would never run — an audit-DB outage would have killed
+    # Slack alerting and stalled the window. In `if`, errexit is suppressed.
+    # Replays any SQL a previous run couldn't deliver, then this run's rows.
+    if cat "$PENDING_DIR"/*.sql "$AUDIT_SQL" 2>/dev/null \
+         | docker exec -i splashworks-postgres psql -U splashworks -d splashworks \
+             -q -v ON_ERROR_STOP=1 >/dev/null 2>&1; then
+        rm -f "$PENDING_DIR"/*.sql 2>/dev/null || true
+        rm -f "$AUDIT_SQL"
+        echo "$(date -u +%FT%TZ) audit: ${AUDIT_ROWS} row(s) written to audit.file_transfer_log"
+    else
+        mv "$AUDIT_SQL" "$PENDING_DIR/$(date -u +%Y%m%dT%H%M%SZ).sql" 2>/dev/null || true
+        echo "$(date -u +%FT%TZ) WARN: audit DB write failed — SQL queued for retry in $PENDING_DIR"
+    fi
+    return 0
+}
+
 # ---------------------------------------------------------------- 1. logins
 LOGINS="$(printf '%s\n' "$NEW" | grep -E "Accepted (publickey|password) for ${USER_PREFIX}" || true)"
 if [ -n "$LOGINS" ]; then
@@ -74,11 +117,16 @@ fi
 # Map internal-sftp pid -> username from its own session-open line, so a
 # transfer can be attributed. Degrades to "unknown" rather than failing.
 declare -A PIDUSER=()
+declare -A SESSION_IP=()
+# The session-open line carries BOTH the user and the source IP, e.g.
+#   internal-sftp[51124]: session opened for local user sftp-greenmill-ci from [76.203.44.12]
 while IFS= read -r line; do
     [ -n "$line" ] || continue
     p="$(printf '%s' "$line" | grep -oE 'internal-sftp\[[0-9]+\]' | grep -oE '[0-9]+' || true)"
     u="$(printf '%s' "$line" | grep -oE "local user ${USER_PREFIX}[a-z0-9_.-]+" | awk '{print $3}' || true)"
+    ip="$(printf '%s' "$line" | sed -nE 's/.*from \[([0-9a-fA-F:.]+)\].*/\1/p')"
     [ -n "$p" ] && [ -n "$u" ] && PIDUSER["$p"]="$u"
+    [ -n "$p" ] && [ -n "$ip" ] && SESSION_IP["$p"]="$ip"
 done <<< "$(printf '%s\n' "$NEW" | grep -E 'internal-sftp\[[0-9]+\].*session opened for local user' || true)"
 
 whois_pid() { local p="$1"; printf '%s' "${PIDUSER[$p]:-unknown}"; }
@@ -86,6 +134,7 @@ whois_pid() { local p="$1"; printf '%s' "${PIDUSER[$p]:-unknown}"; }
 dl_count=0; dl_bytes=0
 while IFS= read -r line; do
     [ -n "$line" ] || continue
+    ts="$(printf '%s' "$line" | awk '{print $1}')"
     pid="$(printf '%s' "$line" | grep -oE 'internal-sftp\[[0-9]+\]' | grep -oE '[0-9]+' || true)"
     path="$(printf '%s' "$line" | sed -nE 's/.*close "([^"]*)".*/\1/p')"
     wrote="$(printf '%s' "$line" | sed -nE 's/.*written ([0-9]+).*/\1/p')"
@@ -95,9 +144,14 @@ while IFS= read -r line; do
 
     if [ "${wrote:-0}" -gt 0 ]; then
         # WRITE CONFIRMED — a file landed in the jail. This is the audit event.
+        audit_row "$ts" "$user" upload "$path" "$wrote" "$pid"
         post ":inbox_tray: *SFTP UPLOAD CONFIRMED* - \`${user}\` wrote \`${path}\` ($(human "${wrote}")) into the jail"
         echo "$(date -u +%FT%TZ) UPLOAD: ${user} ${path} ${wrote} bytes"
     elif [ "${read_b:-0}" -gt 0 ]; then
+        # Slack gets a per-run summary (avoid flooding), but the audit table gets
+        # EVERY file individually — "4 files pulled" is not an audit trail.
+        audit_row "$ts" "$user" download "$path" "$read_b" "$pid"
+        echo "$(date -u +%FT%TZ) DOWNLOAD: ${user} ${path} ${read_b} bytes"
         dl_count=$((dl_count + 1)); dl_bytes=$((dl_bytes + read_b))
     fi
 done <<< "$(printf '%s\n' "$NEW" | grep -E 'internal-sftp\[[0-9]+\]: close ' || true)"
@@ -110,12 +164,17 @@ fi
 # deletes (partners prune their own drop-off retention)
 while IFS= read -r line; do
     [ -n "$line" ] || continue
+    ts="$(printf '%s' "$line" | awk '{print $1}')"
     pid="$(printf '%s' "$line" | grep -oE 'internal-sftp\[[0-9]+\]' | grep -oE '[0-9]+' || true)"
     path="$(printf '%s' "$line" | sed -nE 's/.*remove name "([^"]*)".*/\1/p')"
     [ -n "$path" ] || continue
+    audit_row "$ts" "$(whois_pid "${pid:-0}")" delete "$path" "" "$pid"
     post ":wastebasket: *SFTP delete* - \`$(whois_pid "${pid:-0}")\` removed \`${path}\`"
     echo "$(date -u +%FT%TZ) DELETE: ${path}"
 done <<< "$(printf '%s\n' "$NEW" | grep -E 'internal-sftp\[[0-9]+\]: remove name ' || true)"
+
+# Persist the window's events before the window advances. Non-fatal by design.
+audit_flush
 
 # ------------------------------------------------------- 3. disk/size guard
 # /srv shares the root filesystem with Postgres here, so an unbounded writer is
