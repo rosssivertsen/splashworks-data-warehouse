@@ -1,72 +1,192 @@
-# Runbook: Greenmill SFTP extract delivery
+# Runbook: Greenmill SFTP — extract delivery + backup drop-off
 
-**What:** A hardened, chrooted, SFTP-only account (`sftp-greenmill`) on the prod box
-(`2.24.202.170`) that lets Greenmill Capital (the PE investment partner; entitlement
-confirmed by Ross 2026-07-14 — they are ownership/board, Sam Leibovitz is board chair)
-**pull** the nightly Skimmer extracts. Replaces Sam's original ask for an Entra app
-registration into M365 — no inbound M365 credential, Splashworks stays the control point.
+**What:** Hardened, chrooted, SFTP-only accounts on prod (`2.24.202.170` /
+`srv1590691.hstgr.cloud`) that let Greenmill Capital (PE investment partner; entitlement
+confirmed by Ross 2026-07-14 — ownership/board, Sam Leibovitz is board chair) **pull** the
+nightly Skimmer extracts and — since 2026-08-05 — **push** their nightly governance backup
+into a write-scoped drop-off. Replaces Sam's original ask for an Entra app registration into
+M365; no inbound M365 credential, Splashworks stays the control point.
+
+> **Status changed 2026-08-05.** Earlier revisions of this runbook said the account was
+> **INERT**. That is no longer true and was stale for ~3 weeks. Both accounts are live.
+
+## Accounts (there are TWO — the second was undocumented until 2026-08-05)
+
+| Account | uid | Key comment | Role | Drop-off |
+|---|---|---|---|---|
+| `sftp-greenmill` | 999 | `greenmill-splashworks-sftp` | pull-only; **no logins on record** | none |
+| `sftp-greenmill-ci` | 997 | `greenmill-ci-splashworks-sftp` | **the account actually in use** | `incoming/` |
+
+`sftp-greenmill-ci` runs twice daily (~06:20 and ~07:30 UTC) from **rotating Microsoft Azure
+egress IPs** — 19 logins Jul 26–Aug 5, 19 distinct source IPs, zero repeats. Consistent with
+hosted CI runners.
+
+**Consequence: source-IP allowlisting is not viable** as written in the old hardening list.
+Greenmill would need a static egress / NAT gateway first. Do not plan on it otherwise.
+
+**Open question (Ross):** the 2026-07-14 entitlement was confirmed for Greenmill as
+ownership/board. Whether that covers an *automated CI pipeline* pulling nightly has not been
+explicitly confirmed. Also unconfirmed: who created `-ci` on 2026-07-15 (5h after the main jail).
 
 ## Architecture
 
 ```
 Skimmer → OneDrive → nightly rclone sync → /opt/splashworks/data/extracts/ (GUID names)
-                                          → publish-extracts-to-sftp.sh (friendly names + manifest)
-                                          → /srv/sftp/sftp-greenmill/extracts/  [the jail]
-Greenmill  --SFTP pull (key auth)-->  jail (read-only, chrooted, no shell)
+                                         → publish-extracts-to-sftp.sh (friendly names + manifest)
+                                         → /srv/sftp/<account>/extracts/   [read-only, root:root 0644]
+Greenmill --SFTP pull (key auth)--> extracts/   (read)
+Greenmill --SFTP push (key auth)--> incoming/   (write + delete, sftp-greenmill-ci ONLY)
 ```
 
-## What was provisioned (IaC in `infrastructure/sftp/`)
+### Jail layout and why each mode is what it is
 
-- `setup-sftp-user.sh` — creates group `sftponly`, user `sftp-greenmill` (system acct,
-  `/usr/sbin/nologin`, password locked, key-only), the root-owned jail
-  `/srv/sftp/sftp-greenmill` + `extracts/`, the out-of-jail key file
-  `/etc/ssh/sftp-keys/sftp-greenmill`, and an sshd `Match Group sftponly` block
-  (ChrootDirectory + ForceCommand internal-sftp + no forwarding). Reload gated on `sshd -t`.
-- `publish-extracts-to-sftp.sh` — copies the GUID-named extracts into the jail as
-  friendly names (`AQPS.db.gz` / `JOMO.db.gz` / `CLERMONT.db.gz`) + a checksummed
-  `MANIFEST.txt`. Root-owned `0644` (partner has read only).
-
-## Security properties (verified 2026-07-14 with a throwaway key, since removed)
-
-- Shell denied: `ssh sftp-greenmill@host 'cmd'` → "This service allows sftp connections only."
-- Jailed: session lands in `/` = jail root; `ls` shows only `extracts`; `cd /etc` → no such
-  file; host filesystem (incl. Postgres socket, `/opt/splashworks`) unreachable.
-- Read-only download works; files intact (gzip valid); manifest exposes sha256 + sizes.
-- Account is currently **INERT** — key file empty, auth denied — until Greenmill's key is added.
-
-## To activate for Greenmill
-
-1. Get Greenmill's SSH **public** key from Sam (out-of-band; verify via a known channel).
-2. Install it:
-   ```bash
-   scp greenmill.pub root@2.24.202.170:/tmp/greenmill.pub
-   ssh root@2.24.202.170 'install -o root -g root -m 644 /tmp/greenmill.pub /etc/ssh/sftp-keys/sftp-greenmill && rm /tmp/greenmill.pub'
-   ```
-3. Give Greenmill: host `2.24.202.170` (or a dedicated `sftp.splshwrks.com` A record),
-   port `22`, user `sftp-greenmill`, path `extracts/`. Files refresh nightly at ~06:00 UTC (tell partners to pull 06:15 UTC or later).
-
-## Nightly refresh
-
-Cron on prod publishes the latest extracts into the jail after the sync:
 ```
-0 6 * * * /opt/splashworks/infrastructure/sftp/publish-extracts-to-sftp.sh >> /opt/splashworks/data/sftp-publish.log 2>&1
+/srv/sftp/sftp-greenmill-ci/        root:root        0755   chroot root — MUST stay root-owned
+├── extracts/                       root:root        0755   we publish here; partner reads only
+│   └── *.db.gz, MANIFEST.txt       root:root        0644
+└── incoming/          sftp-greenmill-ci:sftponly    0750   the ONLY writable path in the jail
 ```
 
-## Outstanding hardening (do before/at go-live)
+OpenSSH refuses to chroot into a directory that is not root-owned and non-writable, so write
+access can never be granted at the jail root. Scoping it to one subdir also keeps published
+extracts tamper-proof — a partner cannot alter what we delivered to them.
 
-- **`ufw` + source-IP allowlist.** ufw is currently inactive on this shared box (also
-  serves jomo-inventory on 80/443). Enable default-deny inbound allowing 22/80/443, and —
-  if Greenmill has static egress IPs — restrict port 22 (or a dedicated SFTP port) to those
-  IPs. Coordinate with the inventory-app owner. (SECURITY_AUDIT_2026-07-14 LOW.)
-- **Consider moving off the prod warehouse box.** The jail contains the blast radius, but a
-  dedicated/staging host would remove the SFTP listener from the PII/Postgres host entirely.
-- **Data-sharing basis** documented for the audit trail (entitlement confirmed; record the
-  DPA/agreement reference when available).
+## ⚠️ The chroot path trap
+
+The client is chrooted, so **the server-side path will not work if you give it to a partner**:
+
+| | Path |
+|---|---|
+| What Sam's client uses | `extracts/` and `incoming/` (jail root appears as `/`) |
+| Real path on disk | `/srv/sftp/sftp-greenmill-ci/extracts/`, `.../incoming/` |
+
+Handing over `/srv/sftp/...` produces a "no such file" / permission-shaped error that looks
+like a broken account.
+
+## Connection details to give a partner
+
+```
+Host      2.24.202.170   (srv1590691.hstgr.cloud)
+Port      22
+User      sftp-greenmill-ci
+Auth      SSH public key ONLY — partner sends us their PUBLIC key.
+          NEVER generate and transmit a private key on their behalf.
+Download  extracts/     (read-only; refreshed nightly ~06:00 UTC — pull 06:15+)
+Upload    incoming/     (write + delete; partner manages their own retention)
+```
+
+Host key fingerprints (for pinning — send via a channel separate from the hostname):
+```
+ED25519  SHA256:hLPH3APVWvDACDO7uPMrXMS+AL5zEt4Lzq0Ghrz1GAc
+RSA      SHA256:Gr2HpD5eKkPiJ6wwydCzjmyqupnuXGXwdxuPuyR6rI0
+```
+
+## Logging (reworked 2026-08-05)
+
+Previously **logins only** — we knew someone connected but had no record of what they took.
+Now two layers:
+
+1. **Connection** — sshd journals every `Accepted publickey`. Always on.
+2. **Transfer** — `ForceCommand internal-sftp -l INFO` in the `Match Group sftponly` block
+   emits per-file `open` / `close` / `remove` records with filenames and byte counts.
+   **Without `-l INFO` there is no transfer record at all.**
+
+`notify-sftp-access.sh` (cron `*/5`) reads both from the journal and posts to Slack:
+
+- `:inbound_ping:` login — user + source IP
+- `:inbox_tray:` **UPLOAD CONFIRMED** — user + path + size, per file (the write confirmation)
+- `:outbox_tray:` download — summarised per run (count + total bytes) to avoid flooding
+- `:wastebasket:` delete — partner pruning their own drop-off
+- `:rotating_light:` / `:warning:` — root filesystem ≥85%, or a drop-off ≥2048 MB
+
+Partner-supplied filenames are stripped of quotes/backslashes/control chars before entering the
+Slack JSON payload. The run window advances **only after successful processing**, so a mid-run
+failure retries rather than silently dropping audit events.
+
+## Checksum convention for uploads (tell the partner)
+
+Upload a **sidecar checksum** beside each payload and the nightly report verifies it
+automatically — no out-of-band hash exchange, and it scales to unattended nightly runs:
+
+```
+gov-backup-20260805.tar.gz
+gov-backup-20260805.tar.gz.sha256     # preferred; .sha512 and .md5 also accepted
+```
+
+Sidecar content may be a bare hex digest or standard coreutils format
+(`<hex>  <filename>`, i.e. `sha256sum file > file.sha256`).
+
+The report then shows one of: **VERIFIED** · **MISMATCH** (forces the file to FAIL) ·
+**NONE** (no sidecar — integrity tested, identity *not* proven) · **UNREADABLE** / **ERROR**.
+
+**Why this and not just `gzip -t`:** the archive test proves the file *decompresses*. It does
+not prove it is the file the partner meant to send — a payload corrupted before compression,
+or an entirely different archive, passes `gzip -t` cleanly. Only the checksum proves identity.
+Verified in test: a valid gzip with a wrong sidecar reports `gzip integrity OK` **and**
+`sha256 MISMATCH → FAIL`.
+
+MD5 is honoured for tooling compatibility but is collision-broken. SHA-256 is preferred and
+matches what we publish outbound in `MANIFEST.txt`.
+
+Sidecar files are excluded from the payload listing — they are reported against the file they sign.
+
+## Disk risk — read before raising any limit
+
+`/srv` is **on the root filesystem alongside Postgres** (`/dev/sda1`, 193G, 31% used at
+2026-08-05). An unbounded external writer is therefore an *availability* risk to the warehouse,
+not just a storage nuisance. The guard **alerts only and never auto-deletes** partner data —
+pruning someone else's backups is a destructive action requiring explicit approval.
+
+If volume grows, the durable fix is a size-capped loopback mount for `incoming/`, not a bigger
+threshold.
+
+## Provisioning (IaC in `infrastructure/sftp/`)
+
+```bash
+# pull-only partner (default)
+./setup-sftp-user.sh sftp-<partner> /path/to/partner.pub
+
+# partner that also uploads
+DROPOFF_DIR=incoming ./setup-sftp-user.sh sftp-<partner> /path/to/partner.pub
+```
+
+Idempotent. The sshd managed block is **rebuilt in place when its content changes**, so
+re-running actually applies config updates (it previously only appended if absent, which is why
+`-l INFO` could not be rolled out by re-running). Reload is gated on `sshd -t`.
+
+**Note — `publish-extracts-to-sftp.sh` fans out via `JAIL_GLOB=/srv/sftp/*/extracts`.** Creating
+a jail directory silently grants that account the full nightly extract set. Convenient for
+onboarding; it also means **no approval step sits between "directory exists" and "partner has
+all customer data."** Treat jail creation as the entitlement decision.
+
+## Verification status (2026-08-05)
+
+Verified:
+- `ForceCommand internal-sftp -l INFO` present; `sshd -t` passed; ssh reloaded.
+- Jail root and `extracts/` remain `root:root` — chroot requirement intact, extracts read-only.
+- `incoming/` writable by `sftp-greenmill-ci`; create **and delete** confirmed via `sudo -u`.
+- `sftp-greenmill` (other account) unchanged — no drop-off, still pull-only.
+- Greenmill's installed public key **unmodified** (md5 `b33352fb…` before and after).
+- `notify-sftp-access.sh` runs clean on prod (exit 0, bash 5.2).
+
+**Not yet verified end-to-end:** an actual authenticated SFTP upload emitting an
+`internal-sftp … close … written N` record and a resulting Slack post. This needs either a
+real transfer from Greenmill or a throwaway test key installed by Ross. The first real pull
+(~06:20 UTC) will confirm the download half.
 
 ## Revoke
 
 ```bash
-ssh root@2.24.202.170 'usermod -L sftp-greenmill; : > /etc/ssh/sftp-keys/sftp-greenmill'
-# or fully: userdel sftp-greenmill; rm -rf /srv/sftp/sftp-greenmill /etc/ssh/sftp-keys/sftp-greenmill
-# then remove the Match block from /etc/ssh/sshd_config, `sshd -t`, `systemctl reload ssh`
+# freeze one account
+ssh root@2.24.202.170 'usermod -L sftp-greenmill-ci; : > /etc/ssh/sftp-keys/sftp-greenmill-ci'
+
+# remove write access only (keep pull working)
+ssh root@2.24.202.170 'chown root:root /srv/sftp/sftp-greenmill-ci/incoming'
+
+# full removal
+# userdel sftp-greenmill-ci; rm -rf /srv/sftp/sftp-greenmill-ci /etc/ssh/sftp-keys/sftp-greenmill-ci
+# then drop the managed block from /etc/ssh/sshd_config, `sshd -t`, `systemctl reload ssh`
 ```
+
+Config backups from every run: `/etc/ssh/sshd_config.bak.<UTC timestamp>` plus
+`/root/sshd_config.pre-dropoff.<UTC timestamp>`.
