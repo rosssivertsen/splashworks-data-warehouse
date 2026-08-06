@@ -218,7 +218,9 @@ if [ "$(cat "$DISK_STATE" 2>/dev/null || echo none)" != "$TODAY" ]; then
         [ -d "$d" ] || continue
         for sub in "$d"*/; do
             [ -d "$sub" ] || continue
-            case "$sub" in *extracts/) continue;; esac    # we publish those
+            # extracts/ is NOT skipped: it is temporarily partner-writable, so an
+            # unbounded writer there must alert too. Our own payload is ~140 MB,
+            # far under the threshold, so this raises no false alarms.
             mb="$(du -sm "$sub" 2>/dev/null | awk '{print $1}')"
             if [ -n "$mb" ] && [ "$mb" -ge "$DROPOFF_WARN_MB" ]; then
                 post ":warning: *SFTP drop-off large* - ${sub} is ${mb} MB (threshold ${DROPOFF_WARN_MB} MB). Check partner retention/pruning."

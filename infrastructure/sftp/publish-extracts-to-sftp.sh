@@ -86,8 +86,16 @@ for dest in "${JAILS[@]}"; do
     rm -f "$manifest"
 
     # Remove any extract in this jail the account is no longer entitled to.
+    # ONLY files we ourselves publish are eligible for removal — i.e. names that
+    # appear in COMPANY_MAP. While extracts/ is temporarily partner-writable, a
+    # blind `*.db.gz` sweep would silently delete a partner upload that merely
+    # happened to end in .db.gz. Never delete what we did not put there.
     for f in "${dest}"/*.db.gz; do
+        [ -e "$f" ] || continue
         fname="$(basename "$f" .db.gz)"
+        ours=0
+        for known in "${MAP[@]}"; do [ "$fname" = "$known" ] && ours=1; done
+        [ "$ours" -eq 1 ] || continue          # partner-supplied file: leave it alone
         case " $allowed " in
             *" $fname "*) ;;
             *) rm -f "$f"; echo "$(date -u +%FT%TZ) removed ${fname}.db.gz from ${account} (not entitled)" >&2 ;;
