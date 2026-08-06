@@ -87,7 +87,11 @@ audit_flush() {
     # so a `$?` check would never run — an audit-DB outage would have killed
     # Slack alerting and stalled the window. In `if`, errexit is suppressed.
     # Replays any SQL a previous run couldn't deliver, then this run's rows.
-    if cat "$PENDING_DIR"/*.sql "$AUDIT_SQL" 2>/dev/null \
+    # nullglob matters: with `pipefail`, an unmatched `*.sql` glob makes `cat`
+    # exit non-zero and fails the pipeline EVEN WHEN psql succeeded — which
+    # reported a false "write failed" and queued a pointless retry on every run.
+    shopt -s nullglob; local pending=("$PENDING_DIR"/*.sql); shopt -u nullglob
+    if cat "${pending[@]}" "$AUDIT_SQL" 2>/dev/null \
          | docker exec -i splashworks-postgres psql -U splashworks -d splashworks \
              -q -v ON_ERROR_STOP=1 >/dev/null 2>&1; then
         rm -f "$PENDING_DIR"/*.sql 2>/dev/null || true
