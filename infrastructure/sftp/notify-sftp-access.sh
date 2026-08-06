@@ -133,6 +133,26 @@ while IFS= read -r line; do
     [ -n "$p" ] && [ -n "$ip" ] && SESSION_IP["$p"]="$ip"
 done <<< "$(printf '%s\n' "$NEW" | grep -E 'internal-sftp\[[0-9]+\].*session opened for local user' || true)"
 
+# A transfer can land in a LATER window than its session-open line (a long GET, or
+# a close record that crosses the 5-min boundary). When that happens the in-window
+# pid map has no entry and the event would be recorded as `unknown` — an audit row
+# saying a file left with no idea who took it. Resolve such pids from the journal,
+# scoped to the newest session-open for that pid AT OR BEFORE the event, so a
+# reused pid can never be attributed to the wrong session.
+resolve_pid() {  # $1=pid  $2=event timestamp (ISO)
+    local p="$1" ts="$2" line u ip
+    { [ -z "$p" ] || [ -n "${PIDUSER[$p]:-}" ]; } && return 0
+    line="$(journalctl -t internal-sftp --since '48 hours ago' --until "$ts" \
+              -o short-iso --no-pager 2>/dev/null \
+            | grep -E "internal-sftp\[$p\]: session opened for local user" | tail -1 || true)"
+    [ -n "$line" ] || return 0
+    u="$(printf '%s' "$line" | grep -oE "local user ${USER_PREFIX}[a-z0-9_.-]+" | awk '{print $3}' || true)"
+    ip="$(printf '%s' "$line" | sed -nE 's/.*from \[([0-9a-fA-F:.]+)\].*/\1/p')"
+    [ -n "$u" ]  && PIDUSER["$p"]="$u"
+    [ -n "$ip" ] && SESSION_IP["$p"]="$ip"
+    return 0
+}
+
 whois_pid() { local p="$1"; printf '%s' "${PIDUSER[$p]:-unknown}"; }
 
 dl_count=0; dl_bytes=0
@@ -144,6 +164,7 @@ while IFS= read -r line; do
     wrote="$(printf '%s' "$line" | sed -nE 's/.*written ([0-9]+).*/\1/p')"
     read_b="$(printf '%s' "$line" | sed -nE 's/.*bytes read ([0-9]+).*/\1/p')"
     [ -n "$path" ] || continue
+    resolve_pid "${pid:-}" "$ts"
     user="$(whois_pid "${pid:-0}")"
 
     if [ "${wrote:-0}" -gt 0 ]; then
@@ -172,6 +193,7 @@ while IFS= read -r line; do
     pid="$(printf '%s' "$line" | grep -oE 'internal-sftp\[[0-9]+\]' | grep -oE '[0-9]+' || true)"
     path="$(printf '%s' "$line" | sed -nE 's/.*remove name "([^"]*)".*/\1/p')"
     [ -n "$path" ] || continue
+    resolve_pid "${pid:-}" "$ts"
     audit_row "$ts" "$(whois_pid "${pid:-0}")" delete "$path" "" "$pid"
     post ":wastebasket: *SFTP delete* - \`$(whois_pid "${pid:-0}")\` removed \`${path}\`"
     echo "$(date -u +%FT%TZ) DELETE: ${path}"
