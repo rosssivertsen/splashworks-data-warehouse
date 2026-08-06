@@ -190,3 +190,45 @@ ssh root@2.24.202.170 'chown root:root /srv/sftp/sftp-greenmill-ci/incoming'
 
 Config backups from every run: `/etc/ssh/sshd_config.bak.<UTC timestamp>` plus
 `/root/sshd_config.pre-dropoff.<UTC timestamp>`.
+
+---
+
+## ⏳ TEMPORARY: partner-writable `extracts/` (opened 2026-08-06 — REVERT WHEN DONE)
+
+**Why:** Sam may have been attempting uploads that failed silently (before today
+there was no transfer logging at all, so a failed PUT left no trace). This is
+capture-once insurance: let an attempt land, alert on it, confirm with Sam that he
+has everything, then close it again.
+
+**What changed**
+
+| | Before | Now (temporary) |
+|---|---|---|
+| `<jail>/extracts` | `root:root 0755` — read-only | `<account>:sftponly 0750` — **partner can write and delete** |
+| `sftp-greenmill/incoming` | did not exist | created (Sam's account previously had **no** writable path at all) |
+| publish cleanup | swept all `*.db.gz` not entitled | removes **only** names in `COMPANY_MAP` — never deletes a partner upload |
+| size guard | skipped `extracts/` | covers it, so an unbounded writer alerts |
+
+**What this costs while open:** published extracts are no longer tamper-proof. The
+partner can overwrite or delete `MANIFEST.txt` and the `.db.gz` files, so
+"we delivered exactly these bytes" stops being provable by either side. That is
+the reason this is time-boxed rather than permanent. `audit.file_transfer_log`
+still records every write, so tampering would at least be *visible* after the fact.
+
+**Revert (run once Sam confirms he has the files):**
+
+```bash
+ssh root@2.24.202.170 '
+for u in sftp-greenmill sftp-greenmill-ci; do
+  chown root:root /srv/sftp/$u/extracts && chmod 755 /srv/sftp/$u/extracts
+done
+stat -c "%n %U:%G %a" /srv/sftp/*/extracts     # expect root:root 755
+'
+```
+Leave `incoming/` in place — that is the correct permanent home for partner uploads.
+Nightly publish restores `MANIFEST.txt` and the extracts regardless, so reverting
+cannot lose delivered data.
+
+**Verified 2026-08-06** by making it fire: a partner-key PUT into `extracts/`
+landed, alerted (`UPLOAD CONFIRMED`), and produced an `audit.file_transfer_log`
+row with direction `upload`.
