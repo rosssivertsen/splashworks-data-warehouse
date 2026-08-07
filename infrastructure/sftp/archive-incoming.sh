@@ -28,8 +28,9 @@
 # drops multi-GB files daily, switch the skip test to size+mtime and re-verify on a
 # weekly sweep instead — do NOT simply drop the verification.
 #
-# Cron (after the 06:00 publish, before the report reads state):
-#   30 6 * * * /opt/splashworks/infrastructure/sftp/archive-incoming.sh >> /opt/splashworks/data/sftp-archive.log 2>&1
+# Cron — 00:30 UTC, shortly after Greenmill's ~23:56 UTC push and well before the
+# 05:30 pipeline, so the nightly report reads an already-archived state:
+#   30 0 * * * /opt/splashworks/infrastructure/sftp/archive-incoming.sh >> /opt/splashworks/data/sftp-archive.log 2>&1
 set -euo pipefail
 shopt -s nullglob
 
