@@ -12,10 +12,21 @@
 # left in place and reported — we do not quietly preserve bytes we cannot vouch
 # for, because a corrupt archive that looks authoritative is worse than none.
 #
+# THIS SCRIPT NEVER DELETES FROM THE DROP-OFF. It copies. Greenmill retains their
+# uploads in `incoming/` in perpetuity and sweeps them by hand (Ross, 2026-08-06),
+# so draining the directory would destroy the partner's own working set. Our copy
+# is an ADDITIONAL guarantee, not a relocation.
+#
 # Idempotent: a payload already archived with a matching sha256 is skipped, so
 # this is safe to run on a schedule. A DIFFERENT payload arriving under a name
 # already archived is never overwritten — it lands beside it with a .conflict
 # suffix and is reported loudly.
+#
+# SCALE BREAKPOINT: because nothing is ever removed, every run re-hashes every
+# retained file (source, plus the archived copy on the skip path). At ~1.4 MB/day
+# that is a second or two after a year and not worth optimising. If a partner ever
+# drops multi-GB files daily, switch the skip test to size+mtime and re-verify on a
+# weekly sweep instead — do NOT simply drop the verification.
 #
 # Cron (after the 06:00 publish, before the report reads state):
 #   30 6 * * * /opt/splashworks/infrastructure/sftp/archive-incoming.sh >> /opt/splashworks/data/sftp-archive.log 2>&1

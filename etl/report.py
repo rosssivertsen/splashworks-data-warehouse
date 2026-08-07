@@ -46,6 +46,10 @@ MAIL_ENV_PATH = os.environ.get("MAIL_CONFIG", "/root/.mail_env")
 SLACK_WEBHOOK_FILE = "/root/.slack_webhook"
 SFTP_MANIFEST_GLOB = "/srv/sftp/*/extracts/MANIFEST.txt"
 SFTP_DROPOFF_GLOB = "/srv/sftp/*/incoming"
+# Partners retain their uploads in `incoming/` indefinitely and sweep by hand, so
+# the drop-off listing would grow without bound in every nightly email. Cap the
+# per-account listing — failures are exempt and always listed in full.
+DROPOFF_LIST_LIMIT = 8
 
 
 def _load_mail_env() -> dict:
@@ -645,13 +649,24 @@ def render(status: str, outcome: str, last_step: str, exit_code: int, stats: dic
         if nnone:
             lines.append(f"    note: {nnone} file(s) arrived without a sidecar checksum — "
                          "integrity tested, identity NOT proven.")
-        for f in files:
+        # Partner drop-offs are retained in perpetuity (Greenmill sweeps manually),
+        # so this list grows without bound. Show the newest few — but NEVER let the
+        # cap hide a failure: problems are listed in full, and any elision says so.
+        shown = [f for f in files if f["qc"] == "FAIL"]
+        healthy = [f for f in files if f["qc"] != "FAIL"]
+        healthy.sort(key=lambda f: f["mtime"], reverse=True)
+        shown += healthy[:DROPOFF_LIST_LIMIT]
+        hidden = len(healthy) - len(healthy[:DROPOFF_LIST_LIMIT])
+        for f in shown:
             lines.append(f"    [{f['qc']:7}] {f['file']:44} {f['bytes'] / 1_000_000:8.1f} MB  "
                          f"{f['mtime']}  ({f['age_min']}m ago)  {f['note']}")
             if f.get("declared_rows") is not None:
                 lines.append(f"              contents: {f['declared_rows']:,} rows across "
                              f"{f.get('declared_tables') or '?'} tables, "
                              f"created {f.get('created_utc') or '-'}")
+        if hidden:
+            lines.append(f"    … {hidden} older file(s) not listed (all passing; "
+                         f"newest {DROPOFF_LIST_LIMIT} shown). Failures are never elided.")
         if not files:
             lines.append("    (empty — no partner uploads present)")
     text = "\n".join(lines)
