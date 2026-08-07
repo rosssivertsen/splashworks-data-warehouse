@@ -193,7 +193,21 @@ Config backups from every run: `/etc/ssh/sshd_config.bak.<UTC timestamp>` plus
 
 ---
 
-## ⏳ TEMPORARY: partner-writable `extracts/` (opened 2026-08-06 — REVERT WHEN DONE)
+## ✅ CLOSED: partner-writable `extracts/` (opened and reverted 2026-08-06)
+
+**Outcome: the escape hatch was never needed.** Greenmill's uploader used
+`incoming/` correctly on its first run (2026-08-06 23:56 UTC), delivering
+`governance_backup_20260806.json.gz` + its `.manifest.json` sidecar. Nothing was
+ever written to `extracts/` except our own verification test, so reverting cost
+nothing. Write access to `extracts/` was removed the same day — see
+"Revert" below, which has been executed.
+
+The section is kept rather than deleted because the *pattern* recurs: when a
+partner's uploads are failing silently, opening a writable path for one capture
+is a reasonable time-boxed move, and this records both how to do it and how to
+close it.
+
+### History (as it stood while open)
 
 **Why:** Sam may have been attempting uploads that failed silently (before today
 there was no transfer logging at all, so a failed PUT left no trace). This is
@@ -232,3 +246,42 @@ cannot lose delivered data.
 **Verified 2026-08-06** by making it fire: a partner-key PUT into `extracts/`
 landed, alerted (`UPLOAD CONFIRMED`), and produced an `audit.file_transfer_log`
 row with direction `upload`.
+
+---
+
+## Incoming file integrity — the JSON manifest convention
+
+Greenmill's uploader ships a sidecar per payload:
+
+```
+incoming/governance_backup_YYYYMMDD.json.gz          <- payload
+incoming/governance_backup_YYYYMMDD.manifest.json    <- sidecar
+```
+
+The sidecar carries `file`, `sha256`, `bytes`, `created_utc`, `total_rows`, and a
+per-table `row_counts` map. `etl/report.py` verifies **both** the digest and the
+declared byte count on every run, and the nightly report states the result.
+
+Three states worth knowing:
+
+| Report shows | Meaning |
+|---|---|
+| `ck=VERIFIED` | sha256 **and** size match the sidecar — the bytes are the sender's bytes |
+| `ck=MISSING` | a manifest declares a payload that never landed — **partial upload**, not "no delivery" |
+| `ck=MISMATCH` | bytes differ from what was declared (truncation or corruption) |
+
+The size check runs before hashing, so a truncated multi-GB upload fails fast.
+
+**The `file` field is partner-controlled input.** It is constrained to a bare
+basename in the same directory; a value containing a path separator is rejected
+outright rather than sanitised, in both `report.py` and `archive-incoming.sh`.
+
+### Archiving — why a file in `incoming/` is not yet a backup
+
+`incoming/` is partner-writable by design, so anything sitting there can be
+overwritten or deleted by the partner. `infrastructure/sftp/archive-incoming.sh`
+copies **verified** payloads to `/opt/splashworks/data/partner-incoming/<account>/`
+as `root:root 0640`, outside the jail. Unverified files are left in place and
+reported — we do not preserve bytes we cannot vouch for. Re-running is a no-op for
+payloads already archived; a same-name-different-bytes payload is saved alongside
+with a `.conflict.<ts>` suffix rather than overwriting the existing copy.

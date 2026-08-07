@@ -293,6 +293,10 @@ def gather_partner_activity(hours: int = 24) -> dict:
 
 
 CHECKSUM_EXTS = (".sha256", ".sha512", ".md5")
+# Greenmill's uploader writes a JSON sidecar per payload rather than the coreutils
+# `<file>.sha256` convention: governance_backup_YYYYMMDD.manifest.json, carrying
+# {"file", "sha256", "bytes", "created_utc", "total_rows", "row_counts"}.
+MANIFEST_SUFFIX = ".manifest.json"
 
 
 def _digest(path: Path, algo: str, chunk: int = 1 << 20) -> str:
@@ -303,18 +307,82 @@ def _digest(path: Path, algo: str, chunk: int = 1 << 20) -> str:
     return h.hexdigest()
 
 
-def _verify_checksum(path: Path) -> dict:
-    """Compare a partner upload against a sidecar checksum file, if supplied.
+def _load_json_manifests(dirpath: Path) -> dict:
+    """Index every `*.manifest.json` in a drop-off by the payload it describes.
 
-    Convention: `<file>.sha256` (preferred), `.sha512`, or `.md5` sitting beside
-    the payload. Accepts either a bare hex digest or standard `<hex>  <name>`
-    coreutils format.
+    Returns {payload_filename: {...manifest fields..., "_src": manifest name}}.
+
+    SECURITY: the `file` field is partner-controlled text. It is constrained to a
+    bare filename in THIS directory — a value like `../../etc/cron.d/x` must never
+    be able to steer a checksum check (or, later, an archive copy) outside the
+    jail. Anything containing a separator is rejected rather than sanitised, so a
+    malformed manifest is visible as an error instead of silently retargeted.
+    """
+    out = {}
+    for m in sorted(dirpath.glob("*" + MANIFEST_SUFFIX)):
+        rec = {"_src": m.name, "_error": None}
+        try:
+            data = json.loads(m.read_text(errors="replace"))
+            if not isinstance(data, dict):
+                raise ValueError("manifest is not a JSON object")
+            payload = str(data.get("file") or "").strip()
+            # Fall back to the filename convention when `file` is absent:
+            # foo.manifest.json describes foo.<something>.
+            if not payload:
+                raise ValueError("manifest has no 'file' field")
+            if payload != os.path.basename(payload) or payload in (".", ".."):
+                raise ValueError(f"unsafe 'file' value: {payload[:60]!r}")
+            rec.update(data)
+            rec["file"] = payload
+            out[payload] = rec
+        except Exception as e:
+            # Keyed by manifest name so an unparseable sidecar still surfaces in
+            # the report rather than vanishing.
+            rec["_error"] = f"unreadable manifest: {e}"[:160]
+            out[f"{m.name}!unparseable"] = rec
+    return out
+
+
+def _verify_checksum(path: Path, manifest: dict | None = None) -> dict:
+    """Compare a partner upload against the checksum its sender published.
+
+    Two accepted forms:
+      1. JSON sidecar `<name>.manifest.json` carrying `sha256` (+ optional
+         `bytes`) — what Greenmill's uploader emits. Preferred when present.
+      2. coreutils convention `<file>.sha256` / `.sha512` / `.md5`, holding either
+         a bare hex digest or `<hex>  <name>`.
 
     This is the only check that proves IDENTITY. `gzip -t` proves the archive
     decompresses; a file corrupted before compression, or an entirely different
     file, passes it cleanly. MD5 is honoured for compatibility but is
     collision-broken — SHA-256 matches what we publish outbound in MANIFEST.txt.
+
+    A declared byte count is checked too, and a mismatch is fatal on its own: it
+    catches a truncated upload immediately, without hashing 1.4 GB to learn the
+    same thing.
     """
+    if manifest and not manifest.get("_error"):
+        expected = str(manifest.get("sha256") or "").strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", expected):
+            return {"state": "UNREADABLE", "algo": "sha256",
+                    "detail": f"no valid sha256 in {manifest['_src']}"}
+        declared = manifest.get("bytes")
+        actual_bytes = path.stat().st_size
+        if isinstance(declared, int) and declared != actual_bytes:
+            return {"state": "MISMATCH", "algo": "sha256",
+                    "detail": f"SIZE MISMATCH vs {manifest['_src']} — "
+                              f"declared {declared:,} B, got {actual_bytes:,} B (truncated upload?)"}
+        try:
+            actual = _digest(path, "sha256")
+        except Exception as e:
+            return {"state": "ERROR", "algo": "sha256", "detail": f"checksum error: {e}"[:140]}
+        if actual == expected:
+            return {"state": "VERIFIED", "algo": "sha256",
+                    "detail": f"sha256 + size match {manifest['_src']}"}
+        return {"state": "MISMATCH", "algo": "sha256",
+                "detail": f"sha256 MISMATCH vs {manifest['_src']} — "
+                          f"expected {expected[:16]}…, got {actual[:16]}…"}
+
     for ext in CHECKSUM_EXTS:
         side = path.with_name(path.name + ext)
         if not side.is_file():
@@ -335,7 +403,7 @@ def _verify_checksum(path: Path) -> dict:
     return {"state": "NONE", "algo": None, "detail": "no checksum supplied"}
 
 
-def _qc_incoming(path: Path) -> dict:
+def _qc_incoming(path: Path, manifest: dict | None = None) -> dict:
     """Non-destructive integrity check on one partner-uploaded file.
 
     A log line saying bytes were written proves a transfer *happened*, not that
@@ -380,11 +448,17 @@ def _qc_incoming(path: Path) -> dict:
     # Identity check. Decisive when a sidecar is supplied — a MISMATCH means the
     # bytes that landed are not the bytes the partner intended to send, even if
     # the archive decompresses perfectly.
-    ck = _verify_checksum(path)
+    ck = _verify_checksum(path, manifest)
     rec["checksum"] = ck["state"]
     rec["note"] = (rec["note"] + " · " + ck["detail"]).strip(" ·")
     if ck["state"] == "MISMATCH":
         rec["qc"] = "FAIL"
+    # Row counts the sender declared — carried through so the report can state
+    # what the payload is meant to contain, not merely that it hashed correctly.
+    if manifest and not manifest.get("_error"):
+        rec["declared_rows"] = manifest.get("total_rows")
+        rec["declared_tables"] = len(manifest.get("row_counts") or {}) or None
+        rec["created_utc"] = manifest.get("created_utc")
     return rec
 
 
@@ -400,12 +474,27 @@ def inspect_dropoffs(glob_pat: str = SFTP_DROPOFF_GLOB) -> list:
         acct = os.path.basename(os.path.dirname(d))
         files = []
         try:
+            manifests = _load_json_manifests(Path(d))
+            seen = set()
             for f in sorted(Path(d).iterdir()):
                 if not f.is_file() or f.name.startswith("."):
                     continue
-                if f.name.endswith(CHECKSUM_EXTS):
+                if f.name.endswith(CHECKSUM_EXTS) or f.name.endswith(MANIFEST_SUFFIX):
                     continue      # sidecar — reported against the payload it signs
-                files.append(_qc_incoming(f))
+                seen.add(f.name)
+                files.append(_qc_incoming(f, manifests.get(f.name)))
+            # A manifest whose payload never landed is a PARTIAL DELIVERY, and the
+            # only way to tell one apart from "the partner never ran tonight".
+            # Without this it reads as a silent, clean nothing.
+            for key, m in manifests.items():
+                if m.get("_error"):
+                    files.append({"file": m["_src"], "bytes": 0, "mtime": "-", "age_min": 0,
+                                  "qc": "FAIL", "checksum": "UNREADABLE", "note": m["_error"]})
+                elif m["file"] not in seen:
+                    files.append({"file": m["file"], "bytes": 0, "mtime": "-", "age_min": 0,
+                                  "qc": "FAIL", "checksum": "MISSING",
+                                  "note": f"declared by {m['_src']} but NOT PRESENT — "
+                                          "partial or failed upload"})
         except Exception as e:
             results.append({"account": acct, "path": d, "files": [], "error": str(e)[:160]})
             continue
@@ -413,7 +502,7 @@ def inspect_dropoffs(glob_pat: str = SFTP_DROPOFF_GLOB) -> list:
             "account": acct, "path": d, "files": files,
             "total_bytes": sum(f["bytes"] for f in files),
             "failed": [f for f in files if f["qc"] == "FAIL"],
-            "newest": max((f["mtime"] for f in files), default=None),
+            "newest": max((f["mtime"] for f in files if f["mtime"] != "-"), default=None),
         })
     return results
 
@@ -547,16 +636,22 @@ def render(status: str, outcome: str, last_step: str, exit_code: int, stats: dic
         files, nfail = d.get("files", []), len(d.get("failed", []))
         nver = sum(1 for f in files if f.get("checksum") == "VERIFIED")
         nnone = sum(1 for f in files if f.get("checksum") == "NONE")
+        nmiss = sum(1 for f in files if f.get("checksum") == "MISSING")
         lines.append(f"Drop-off {d['account']} ({d['path']}): {len(files)} file(s), "
                      f"{d.get('total_bytes', 0) / 1_000_000:.1f} MB"
                      f"  [checksum: {nver} verified, {nnone} unverified]"
+                     + (f", {nmiss} DECLARED-BUT-ABSENT" if nmiss else "")
                      + (f"  ⚠ {nfail} FAILED" if nfail else ""))
         if nnone:
             lines.append(f"    note: {nnone} file(s) arrived without a sidecar checksum — "
                          "integrity tested, identity NOT proven.")
         for f in files:
-            lines.append(f"    [{f['qc']:7}] {f['file']:34} {f['bytes'] / 1_000_000:8.1f} MB  "
+            lines.append(f"    [{f['qc']:7}] {f['file']:44} {f['bytes'] / 1_000_000:8.1f} MB  "
                          f"{f['mtime']}  ({f['age_min']}m ago)  {f['note']}")
+            if f.get("declared_rows") is not None:
+                lines.append(f"              contents: {f['declared_rows']:,} rows across "
+                             f"{f.get('declared_tables') or '?'} tables, "
+                             f"created {f.get('created_utc') or '-'}")
         if not files:
             lines.append("    (empty — no partner uploads present)")
     text = "\n".join(lines)
