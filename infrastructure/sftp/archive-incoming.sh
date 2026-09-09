@@ -93,6 +93,21 @@ except Exception:
             failed=$((failed + 1)); continue
         fi
 
+        # A payload already filed ANYWHERE under this account's archive — including a
+        # history subfolder someone created by hand to keep the top level readable —
+        # counts as archived. Without this, filing old files into a subfolder makes the
+        # next run re-copy every one of them from the jail (Greenmill retains their
+        # uploads in perpetuity and sweeps by hand), silently undoing the tidy-up and
+        # leaving two copies of each. The check is by CONTENT, not name: a same-named
+        # file whose bytes differ is not a match and still takes the conflict path below.
+        # Failure direction is deliberate — this can only ever cause MORE skipping, never
+        # an unwanted copy, so a bug here loses a backup we already hold rather than
+        # duplicating or overwriting one.
+        if find "$dest" -type f -name "$payload_name" -exec sha256sum {} + 2>/dev/null \
+             | cut -d" " -f1 | grep -qx "$got"; then
+            skipped=$((skipped + 1)); continue
+        fi
+
         target="${dest}/${payload_name}"
         if [ -f "$target" ]; then
             if [ "$(sha256sum "$target" | cut -d' ' -f1)" = "$got" ]; then
