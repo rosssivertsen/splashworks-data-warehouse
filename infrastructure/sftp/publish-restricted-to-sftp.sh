@@ -43,6 +43,23 @@ ENTITLEMENTS=(
     "sftp-greenmill-ci|sftp-bbsi"
 )
 
+# COLUMN PROJECTION — deny by default.
+#
+# Ross and Sam agreed 2026-09-16 that Greenmill receives only employee NAME and LABOR
+# RATE; SSN fragments, DOB, gender, home address, phone and email are expunged. BBSI were
+# asked to change the export at source, which is the right fix — but a promise upstream is
+# not a control downstream. This allowlist enforces the same limit at our boundary, so a
+# regression in BBSI's export, a column appearing silently, or a different report landing
+# in the drop-off cannot widen what Greenmill receives.
+#
+# Deny-by-default matters here. An allowlist that misses a column publishes less than
+# intended and someone complains; a denylist that misses a column publishes PII and nobody
+# notices. Only the first failure is recoverable.
+#
+# Fail-closed: a CSV projecting to zero columns or zero rows is NOT published and the run
+# reports a failure — an empty file would look like a successful delivery.
+PROJECT_COLUMNS="${PROJECT_COLUMNS:-^(employee[ _-]*(last|first)[ _-]*name|employee[ _-]*middle[ _-]*init(ial)?|(labor|pay|hourly|bill)[ _-]*rate|rate)$}"
+
 ts() { date -u +%FT%TZ; }
 published=0; skipped=0; failed=0
 
@@ -67,6 +84,8 @@ for pair in "${ENTITLEMENTS[@]}"; do
         echo "# Splashworks — restricted partner data republished from ${source_acct}"
         echo "# published: $(ts)"
         echo "# Files carry employee PII. Handle under your own data-protection controls."
+        echo "# Column-projected: name and labor rate only. Identifying fields are"
+        echo "# removed at our boundary before publication (agreed Ross/Sam 2026-09-16)."
         echo "# file  sha256  bytes  received_utc  verified"
     } > "$manifest"
 
@@ -97,15 +116,61 @@ except Exception:
         recv="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("source_mtime_utc",""))' "$receipt")"
         ver="$(python3 -c 'import json,sys;print(str(json.load(open(sys.argv[1])).get("verified",False)).lower())' "$receipt")"
 
+        # Build what we will actually hand over. For a CSV that means projecting to the
+        # allowed columns FIRST, so the published artifact never contains a field the
+        # recipient is not entitled to — not even momentarily on disk.
+        payload="$srcf"; projected=""
+        case "$stored" in
+          *.csv|*.CSV)
+            payload="$(mktemp)"
+            if ! python3 - "$srcf" "$payload" "$PROJECT_COLUMNS" <<'PYEOF'
+import csv, re, sys
+src, out, pattern = sys.argv[1], sys.argv[2], sys.argv[3]
+rx = re.compile(pattern, re.I)
+with open(src, newline="", encoding="utf-8-sig") as fh:
+    rd = csv.DictReader(fh)
+    cols = [c for c in (rd.fieldnames or []) if rx.match((c or "").strip())]
+    if not cols:
+        print("no columns survived the allowlist", file=sys.stderr); sys.exit(3)
+    rows = list(rd)
+if not rows:
+    print("source had zero data rows", file=sys.stderr); sys.exit(4)
+with open(out, "w", newline="", encoding="utf-8") as fh:
+    w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
+    w.writeheader()
+    for r in rows:
+        w.writerow({c: r.get(c, "") for c in cols})
+print(",".join(cols))
+PYEOF
+            then
+                echo "$(ts) FAIL ${recipient}: ${stored} — column projection refused (nothing publishable after the allowlist). NOT published." >&2
+                rm -f "$payload"; failed=$((failed + 1)); continue
+            fi
+            projected="$(python3 - "$srcf" "$payload" "$PROJECT_COLUMNS" <<'PYEOF'
+import csv, re, sys
+rx = re.compile(sys.argv[3], re.I)
+with open(sys.argv[1], newline="", encoding="utf-8-sig") as fh:
+    fn = csv.DictReader(fh).fieldnames or []
+kept = [c for c in fn if rx.match((c or "").strip())]
+print(f"{len(kept)} of {len(fn)} columns: " + ", ".join(kept))
+PYEOF
+)"
+            sum="$(sha256sum "$payload" | cut -d' ' -f1)"
+            bytes="$(stat -c %s "$payload")"
+            echo "$(ts) projected ${stored} -> ${projected}"
+            ;;
+        esac
+
         target="${dest}/${stored}"
         if [ -f "$target" ] && [ "$(sha256sum "$target" | cut -d' ' -f1)" = "$sum" ]; then
             skipped=$((skipped + 1))
         else
-            install -o root -g root -m 644 "$srcf" "${target}.part"
+            install -o root -g root -m 644 "$payload" "${target}.part"
             mv -f "${target}.part" "$target"     # atomic — the partner never sees a partial file
-            echo "$(ts) published ${recipient}/${stored} (${bytes} bytes, sha256 ${sum:0:16}…, verified=${ver})"
+            echo "$(ts) published ${recipient}/${stored} (${bytes} bytes, sha256 ${sum:0:16}…, verified=${ver}${projected:+, PROJECTED})"
             published=$((published + 1))
         fi
+        [ "$payload" = "$srcf" ] || rm -f "$payload"
         printf '%s  %s  %s  %s  %s\n' "$stored" "$sum" "$bytes" "$recv" "$ver" >> "$manifest"
         n=$((n + 1))
     done
