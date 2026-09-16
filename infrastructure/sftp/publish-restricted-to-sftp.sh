@@ -129,12 +129,32 @@ src, out, pattern = sys.argv[1], sys.argv[2], sys.argv[3]
 rx = re.compile(pattern, re.I)
 with open(src, newline="", encoding="utf-8-sig") as fh:
     rd = csv.DictReader(fh)
-    cols = [c for c in (rd.fieldnames or []) if rx.match((c or "").strip())]
+    cols = [c for c in (rd.fieldnames or []) if rx.fullmatch((c or "").strip())]
     if not cols:
         print("no columns survived the allowlist", file=sys.stderr); sys.exit(3)
     rows = list(rd)
 if not rows:
     print("source had zero data rows", file=sys.stderr); sys.exit(4)
+# The allowlist filters column NAMES. It cannot see what is IN a column, so a sender who
+# renames a field — or puts an identifier in a permitted one — would slip past it. Scan the
+# values we are about to publish and refuse on anything shaped like an identifier. Cheap,
+# and it converts a name-based control into a name-and-content one.
+IDENTIFIERS = [
+    (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),          "full SSN"),
+    (re.compile(r"[#*xX]{3}-[#*xX]{2}-\d{4}"),        "masked SSN"),
+    (re.compile(r"\b\d{1,2}/\d{1,2}/(19|20)\d{2}\b"), "date of birth"),
+    (re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b"),     "email address"),
+    (re.compile(r"\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b"), "phone number"),
+]
+for r in rows:
+    for c in cols:
+        v = str(r.get(c, "") or "")
+        for rx_id, label in IDENTIFIERS:
+            if rx_id.search(v):
+                print(f"{label} found in permitted column {c!r} — refusing to publish",
+                      file=sys.stderr)
+                sys.exit(5)
+
 with open(out, "w", newline="", encoding="utf-8") as fh:
     w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
     w.writeheader()
@@ -151,7 +171,7 @@ import csv, re, sys
 rx = re.compile(sys.argv[3], re.I)
 with open(sys.argv[1], newline="", encoding="utf-8-sig") as fh:
     fn = csv.DictReader(fh).fieldnames or []
-kept = [c for c in fn if rx.match((c or "").strip())]
+kept = [c for c in fn if rx.fullmatch((c or "").strip())]
 print(f"{len(kept)} of {len(fn)} columns: " + ", ".join(kept))
 PYEOF
 )"
