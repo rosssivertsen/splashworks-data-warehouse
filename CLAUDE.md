@@ -8,7 +8,8 @@ This file provides guidance to Claude Code when working in this repository.
 **Repo:** `rosssivertsen/splashworks-data-warehouse`
 **Purpose:** AI-powered natural language → SQL query tool over a Postgres data warehouse built from nightly Skimmer database extracts
 **Stack:** React + TypeScript (Vite, Tailwind CSS), FastAPI (Python), Postgres 16 + pgvector, dbt, Docker Compose, Cloudflare Tunnels
-**Hosting:** Hostinger VPS (76.13.29.44), Ubuntu 24.04
+**Hosting:** Hostinger VPS **`2.24.202.170`** (srv1590691, Splashworks Hostinger account), Ubuntu 24.04.
+**Staging:** `76.13.29.44` (srv1317522, personal account) — anonymized nightly mirror, `staging-refresh.sh` 03:00 UTC.
 
 ## Commands
 
@@ -68,7 +69,7 @@ etl/scripts/nightly-pipeline.sh         # Full pipeline: sync → ETL → dbt �
 
 ## Live Endpoints
 
-This repo's stack (currently on `76.13.29.44`, migration to `2.24.202.170` in flight):
+This repo's stack runs on **`2.24.202.170`** — the migration completed **2026-06-25**:
 
 | URL | Service |
 |-----|---------|
@@ -76,7 +77,7 @@ This repo's stack (currently on `76.13.29.44`, migration to `2.24.202.170` in fl
 | `api.splshwrks.com` | FastAPI backend |
 | `bi.splshwrks.com` | Metabase BI |
 
-Related — owned by the [`inventory-app` repo](../inventory-app/AGENTS.md#3-environments), runs on the Splashworks Hostinger VPS `2.24.202.170` (separate from this stack):
+Related — owned by the [`inventory-app` repo](../inventory-app/AGENTS.md#3-environments). It runs on **the same box**, `2.24.202.170` — a separate application stack, not a separate server. That matters for any host-level change (ufw, sshd, reboots): it affects JOMO's production inventory app too.
 
 | URL | Service |
 |-----|---------|
@@ -184,8 +185,11 @@ sqlite3 data/AQPS.db "ATTACH 'data/JOMO.db' AS jomo; SELECT 'AQPS' AS company, C
 ## VPS Operations
 
 ```bash
-ssh root@76.13.29.44              # SSH (key: ~/.ssh/id_ed25519, has passphrase)
-# Repo at /opt/splashworks/
+ssh sdw                            # PROD 2.24.202.170 (key ~/.ssh/id_ed25519, passphrase;
+                                   #   ssh-add --apple-use-keychain to persist)
+ssh splashworks-vps                # STAGING 76.13.29.44 — NOT production
+# Repo at /opt/splashworks/ on both. Prod also hosts every partner SFTP jail
+# (/srv/sftp/sftp-greenmill*, sftp-bbsi) and /opt/splashworks/data/partner-incoming/.
 docker compose ps                  # Check service status
 docker compose logs -f api         # Tail API logs
 docker compose restart api         # Restart a service (reads existing env)
